@@ -8,7 +8,7 @@
 }
 
 .status-card:hover {
-  @apply bg-gray-750 transform scale-[1.02];
+  @apply bg-gray-700 transform scale-[1.02];
 }
 
 .gauge-ring {
