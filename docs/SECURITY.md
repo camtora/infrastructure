@@ -12,8 +12,6 @@ UFW is enabled with the following rules:
 80/tcp      - HTTP (nginx)
 443/tcp     - HTTPS (nginx)
 32400/tcp   - Plex
-49153/tcp   - Transmission peer port
-49153/udp   - Transmission peer port
 
 # Docker networks (internal container-to-host communication)
 172.17.0.0/16   - Docker bridge network
@@ -55,8 +53,9 @@ All services communicate via Docker networks:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    docker-services_default                   │
-│  plex, radarr, sonarr, jackett, transmission, tautulli,     │
-│  ombi, overseerr, bazarr, tdarr, flaresolverr, watchmap     │
+│  plex, radarr, sonarr, jackett, tautulli, ombi, overseerr,  │
+│  bazarr, tdarr, flaresolverr, watchmap, gluetun             │
+│  (transmission runs inside gluetun's network namespace)      │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────┐  ┌─────────────────────┐
@@ -80,7 +79,7 @@ All secrets are stored in `.env` files with permissions `600`:
 | Location | Contains |
 |----------|----------|
 | `/home/camerontora/infrastructure/.env` | OAuth2 credentials, API keys |
-| `/home/camerontora/docker-services/.env` | Transmission password, Plex token, Tautulli key |
+| `/home/camerontora/docker-services/.env` | Transmission password, Plex token, Tautulli key, PIA VPN credentials |
 | `/home/camerontora/haymaker/.env` | Postgres password, Minio password |
 | `/home/camerontora/camerontora.ca/.env` | Discord webhook, Tautulli API key |
 
@@ -96,9 +95,42 @@ External ports forwarded at router level:
 | 80 | 80 | HTTP |
 | 443 | 443 | HTTPS |
 | 32400 | 32400 | Plex |
-| 49153 | 49153 | Transmission |
 
 All other ports are blocked at the router.
+
+## VPN (Transmission)
+
+Transmission runs behind a VPN using **Gluetun** container with PIA (Private Internet Access):
+
+```
+┌─────────────────────────────────────────────┐
+│              gluetun container               │
+│  ┌─────────────────────────────────────┐    │
+│  │  transmission (network_mode: service)│    │
+│  └─────────────────────────────────────┘    │
+│         ↓ VPN Tunnel (OpenVPN)              │
+└─────────────────────────────────────────────┘
+                    ↓
+            PIA Toronto Server
+```
+
+- **VPN Provider**: Private Internet Access (PIA)
+- **Protocol**: OpenVPN
+- **Server**: CA Toronto
+- **Port Forwarding**: Enabled (dynamic port written to `/gluetun/forwarded_port`)
+- **Credentials**: Stored in `/home/camerontora/docker-services/.env` as `PIA_USER` and `PIA_PASS`
+
+**Verifying VPN is working:**
+```bash
+# Check external IP (should be PIA, not home IP)
+docker exec gluetun wget -qO- https://ipinfo.io/ip
+
+# Check VPN status
+docker logs gluetun | grep -i "completed\|error"
+
+# Check forwarded port
+docker logs gluetun | grep "port forward"
+```
 
 ## OAuth2 / SSO
 
