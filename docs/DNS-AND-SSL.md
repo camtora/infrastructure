@@ -67,9 +67,15 @@ watchmap.camerontora.ca
 
 ### Adding a New Subdomain to the Certificate
 
-**IMPORTANT**: You must list ALL existing domains plus the new one. Missing a domain will REMOVE it from the certificate.
+**IMPORTANT**:
+1. You must list ALL existing domains plus the new one. Missing a domain will REMOVE it from the certificate.
+2. You must stop nginx-proxy first (it binds port 80, blocking Apache/certbot).
 
 ```bash
+# Stop nginx first
+docker stop nginx-proxy
+
+# Run certbot
 sudo certbot --apache --expand \
   --cert-name camerontora-services \
   -d camerontora.ca \
@@ -88,6 +94,9 @@ sudo certbot --apache --expand \
   -d transmission.camerontora.ca \
   -d watchmap.camerontora.ca \
   -d NEW_SUBDOMAIN.camerontora.ca
+
+# Restart nginx after cert is updated
+docker start nginx-proxy
 ```
 
 ### Checking Current Certificate
