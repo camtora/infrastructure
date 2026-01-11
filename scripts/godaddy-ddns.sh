@@ -1,12 +1,12 @@
 #!/bin/bash
-# GoDaddy Dynamic DNS updater for camerontora.ca (multi-record)
+# GoDaddy Dynamic DNS updater for camerontora.ca (batch update)
 
 set -euo pipefail
 
 DOMAIN="camerontora.ca"
 # Add any subdomains you want to update here:
 RECORDS=("@" "ombi" "plex" "sonarr" "radarr" "tautulli" "transmission" "jackett" "status" "emby" "jellyfin" "overseerr" "watchmap" "haymaker" "netdata")
-TTL="600"
+TTL=600
 
 # API credentials - set via environment or /etc/godaddy-ddns.env
 # DO NOT hardcode keys here - this file is in git
@@ -27,36 +27,40 @@ if [[ -z "${IP:-}" || ! "$IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
   log "❌ Could not determine public IPv4 address"; exit 1
 fi
 
-UPDATED_ANY=false
+# Fetch all current A records in one call
+CURRENT_RECORDS="$(curl -fsS -X GET "https://api.godaddy.com/v1/domains/$DOMAIN/records/A" \
+  -H "Authorization: sso-key $API_KEY:$API_SECRET" \
+  -H "Accept: application/json")"
 
+# Check if any records need updating
+NEEDS_UPDATE=false
 for RECORD in "${RECORDS[@]}"; do
-  # Fetch current DNS value for this record
-  GD_IP="$(curl -fsS -X GET "https://api.godaddy.com/v1/domains/$DOMAIN/records/A/$RECORD" \
-           -H "Authorization: sso-key $API_KEY:$API_SECRET" \
-           -H "Accept: application/json" \
-          | jq -r '.[0].data // empty')"
-
-  if [[ -z "$GD_IP" ]]; then
-    log "ℹ️  No existing A record for ${RECORD}.${DOMAIN} (will create/update)"
-  fi
-
-  if [[ "$IP" != "$GD_IP" ]]; then
-    log "↻ Updating ${RECORD}.${DOMAIN} from '${GD_IP:-none}' to '$IP'"
-    curl -fsS -X PUT "https://api.godaddy.com/v1/domains/$DOMAIN/records/A/$RECORD" \
-      -H "Authorization: sso-key $API_KEY:$API_SECRET" \
-      -H "Content-Type: application/json" \
-      -d "[{\"data\": \"$IP\", \"ttl\": $TTL}]" >> "$LOGFILE" 2>&1
-    UPDATED_ANY=true
-  else
-    log "✓ No change for ${RECORD}.${DOMAIN} (still $IP)"
+  CURRENT_IP="$(echo "$CURRENT_RECORDS" | jq -r --arg name "$RECORD" '.[] | select(.name == $name) | .data // empty')"
+  if [[ "$CURRENT_IP" != "$IP" ]]; then
+    NEEDS_UPDATE=true
+    log "↻ Will update ${RECORD}.${DOMAIN} from '${CURRENT_IP:-none}' to '$IP'"
   fi
 done
 
-if $UPDATED_ANY; then
+if $NEEDS_UPDATE; then
+  # Build JSON array for batch update
+  JSON_ARRAY="["
+  for i in "${!RECORDS[@]}"; do
+    [[ $i -gt 0 ]] && JSON_ARRAY+=","
+    JSON_ARRAY+="{\"name\":\"${RECORDS[$i]}\",\"type\":\"A\",\"data\":\"$IP\",\"ttl\":$TTL}"
+  done
+  JSON_ARRAY+="]"
+
+  # Single PUT to update all A records
+  curl -fsS -X PUT "https://api.godaddy.com/v1/domains/$DOMAIN/records/A" \
+    -H "Authorization: sso-key $API_KEY:$API_SECRET" \
+    -H "Content-Type: application/json" \
+    -d "$JSON_ARRAY" >> "$LOGFILE" 2>&1
+
   mkdir -p "$(dirname "$LASTFILE")"
   echo "$(date '+%F %T') $IP" > "$LASTFILE"
-  log "✓ Finished updates. Last-change timestamp stored in $LASTFILE"
+  log "✓ Updated ${#RECORDS[@]} records to $IP"
 else
-  log "✓ All records already up to date"
+  log "✓ All ${#RECORDS[@]} records already up to date ($IP)"
 fi
 

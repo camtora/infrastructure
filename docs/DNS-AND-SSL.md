@@ -5,12 +5,28 @@
 The server's public IP can change. A script updates GoDaddy DNS records automatically.
 
 ### Script Location
-- **Production**: `/usr/local/bin/godaddy-ddns.sh`
-- **Git copy**: `scripts/godaddy-ddns.sh`
+- **Script**: `scripts/godaddy-ddns.sh` (runs directly from git repo)
 - **Credentials**: `/etc/godaddy-ddns.env` (chmod 600)
+- **Cron**: `/etc/cron.d/godaddy-ddns`
+
+### Schedule
+The script runs every 10 minutes via cron. Uses batch API calls (2 calls per run) to stay well under GoDaddy's 20,000 calls/month quota (~8,640 calls/month at this rate).
+
+```
+*/10 * * * * root /home/camerontora/infrastructure/scripts/godaddy-ddns.sh
+```
+
+To set up the cron job:
+```bash
+sudo tee /etc/cron.d/godaddy-ddns << 'EOF'
+# Update GoDaddy DNS records every 10 minutes
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/10 * * * * root /home/camerontora/infrastructure/scripts/godaddy-ddns.sh 2>&1
+EOF
+```
 
 ### Credentials Setup
-The git version of the script does NOT contain API keys. Create the credentials file:
+The script reads API keys from `/etc/godaddy-ddns.env`. If not already created:
 ```bash
 sudo tee /etc/godaddy-ddns.env << 'EOF'
 API_KEY=your_godaddy_api_key
@@ -27,9 +43,9 @@ The script updates these A records when the IP changes:
 - `watchmap`, `haymaker`, `netdata`
 
 ### Adding a New Subdomain
-1. Edit `/usr/local/bin/godaddy-ddns.sh`
+1. Edit `scripts/godaddy-ddns.sh`
 2. Add the subdomain to the `RECORDS` array
-3. Run the script manually to create the record: `sudo /usr/local/bin/godaddy-ddns.sh`
+3. Run the script manually to create the record: `sudo /home/camerontora/infrastructure/scripts/godaddy-ddns.sh`
 
 ### Logs
 - Log file: `/var/log/godaddy-ddns.log`
@@ -117,8 +133,8 @@ sudo certbot renew --dry-run
 
 ## Checklist: Adding a New Service
 
-1. **DNS**: Add subdomain to `RECORDS` array in `/usr/local/bin/godaddy-ddns.sh`
-2. **DNS**: Run script to create record: `sudo /usr/local/bin/godaddy-ddns.sh`
+1. **DNS**: Add subdomain to `RECORDS` array in `scripts/godaddy-ddns.sh`
+2. **DNS**: Run script to create record: `sudo /home/camerontora/infrastructure/scripts/godaddy-ddns.sh`
 3. **SSL**: Expand certificate with ALL domains (see command above)
 4. **Nginx**: Add proxy config in `/home/camerontora/infrastructure/nginx/conf.d/`
 5. **Nginx**: Reload: `docker exec nginx-proxy nginx -s reload`
