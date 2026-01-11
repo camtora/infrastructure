@@ -5,6 +5,8 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 - **Nginx reverse proxy** - SSL termination and routing for all subdomains
 - **OAuth2 Proxy** - Unified Google SSO across all protected services
 - **Shared authentication** - Log in once, access all protected services
+- **Uptime Kuma** - Service uptime monitoring (status.camerontora.ca)
+- **Netdata** - Real-time system monitoring with Discord alerts (netdata.camerontora.ca)
 
 ## Architecture
 
@@ -30,8 +32,9 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
                     - sonarr:8989       - overseerr:5055
                     - jackett:9117      - status:3001
                     - tautulli:8181
-                    - transmission:9091
+                    - transmission:9093
                     - watchmap:5080
+                    - netdata:19999
 ```
 
 ## Services
@@ -44,8 +47,9 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 | Sonarr | sonarr.camerontora.ca | 8989 |
 | Jackett | jackett.camerontora.ca | 9117 |
 | Tautulli | tautulli.camerontora.ca | 8181 |
-| Transmission | transmission.camerontora.ca | 9091 |
+| Transmission | transmission.camerontora.ca | 9093 |
 | Watchmap | watchmap.camerontora.ca | 5080 |
+| Netdata | netdata.camerontora.ca | 19999 |
 
 ### Public (no authentication)
 | Service | Subdomain | Port |
@@ -110,7 +114,10 @@ See [docs/SSO-GUIDE.md](docs/SSO-GUIDE.md) for detailed instructions on adding n
 
 Using Let's Encrypt certificates from `/etc/letsencrypt/live/camerontora-services/`.
 
-Renewal is handled by certbot on the host system.
+See [docs/DNS-AND-SSL.md](docs/DNS-AND-SSL.md) for:
+- Adding new subdomains to the certificate
+- GoDaddy Dynamic DNS setup
+- Certbot commands (must stop nginx-proxy first)
 
 ## Troubleshooting
 
