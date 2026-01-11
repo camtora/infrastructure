@@ -70,5 +70,49 @@ services:
       # Explicit cookie domain for SSO across subdomains
       - --cookie-domain=.camerontora.ca
 
+  # ============== UPTIME KUMA ==============
+  # Service uptime monitoring
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - /home/camerontora/docker-services/uptime-kuma:/app/data
+
+  # ============== NETDATA ==============
+  # Real-time system monitoring (CPU, RAM, disk, network)
+  netdata:
+    image: netdata/netdata
+    container_name: netdata
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdata-config:/etc/netdata
+      - netdata-lib:/var/lib/netdata
+      - netdata-cache:/var/cache/netdata
+      - ./netdata/health_alarm_notify.conf:/etc/netdata/health_alarm_notify.conf:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NETDATA_CLAIM_TOKEN=${NETDATA_CLAIM_TOKEN:-}
+      - NETDATA_CLAIM_URL=https://app.netdata.cloud
+
 volumes:
   nginx-logs:
+  netdata-config:
+  netdata-lib:
+  netdata-cache:

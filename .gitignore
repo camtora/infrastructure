@@ -2,6 +2,9 @@
 .env
 *.env
 
+# Netdata config (contains Discord webhook)
+netdata/
+
 # Logs
 *.log
 
