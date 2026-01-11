@@ -7,6 +7,8 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 - **Shared authentication** - Log in once, access all protected services
 - **Uptime Kuma** - Service uptime monitoring (status.camerontora.ca)
 - **Netdata** - Real-time system monitoring with Discord alerts (netdata.camerontora.ca)
+- **External Monitoring** - GCP Cloud Run monitor that alerts when home internet is down
+- **Health API** - System metrics endpoint for external monitoring (health.camerontora.ca)
 
 ## Architecture
 
@@ -58,6 +60,7 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 | Ombi | ombi.camerontora.ca | 3579 |
 | Overseerr | overseerr.camerontora.ca | 5055 |
 | Uptime Kuma | status.camerontora.ca | 3001 |
+| Health API | health.camerontora.ca | 5000 |
 
 ### Special
 | Service | Subdomain | Port | Notes |
@@ -118,6 +121,29 @@ See [docs/DNS-AND-SSL.md](docs/DNS-AND-SSL.md) for:
 - Adding new subdomains to the certificate
 - GoDaddy Dynamic DNS setup
 - Certbot commands (must stop nginx-proxy first)
+
+## External Monitoring
+
+The infrastructure includes an external monitoring system that runs on GCP Cloud Run. This solves the problem of local monitoring tools (Uptime Kuma, Netdata) being unable to alert when the home internet goes down.
+
+**How it works:**
+- GCP Cloud Scheduler triggers a health check every 5 minutes
+- Cloud Run service checks home server endpoints and system metrics
+- If unreachable or thresholds exceeded, alerts are sent to Discord
+- When services recover, a recovery notification is sent
+
+**What gets monitored:**
+- Public endpoints (camerontora.ca, status.camerontora.ca)
+- Health API metrics (CPU, RAM, disk usage)
+- Plex server and library availability
+- Internet upload speed
+
+See [docs/MONITORING.md](docs/MONITORING.md) for detailed documentation including:
+- Complete architecture diagrams
+- All monitored metrics and thresholds
+- Configuration options
+- Troubleshooting guides
+- Manual operation commands
 
 ## Troubleshooting
 

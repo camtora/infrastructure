@@ -5,7 +5,7 @@ set -euo pipefail
 
 DOMAIN="camerontora.ca"
 # Add any subdomains you want to update here:
-RECORDS=("@" "ombi" "plex" "sonarr" "radarr" "tautulli" "transmission" "jackett" "status" "emby" "jellyfin" "overseerr" "watchmap" "haymaker" "netdata")
+RECORDS=("@" "ombi" "plex" "sonarr" "radarr" "tautulli" "transmission" "jackett" "status" "emby" "jellyfin" "overseerr" "watchmap" "haymaker" "netdata" "health")
 TTL=600
 
 # API credentials - set via environment or /etc/godaddy-ddns.env

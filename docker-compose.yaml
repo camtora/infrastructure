@@ -111,6 +111,37 @@ services:
       - NETDATA_CLAIM_TOKEN=${NETDATA_CLAIM_TOKEN:-}
       - NETDATA_CLAIM_URL=https://app.netdata.cloud
 
+  # ============== HEALTH API ==============
+  # External monitoring endpoint for GCP Cloud Run
+  # Exposes system metrics, Plex status, and speed test results
+  health-api:
+    build: ./health-api
+    container_name: health-api
+    restart: unless-stopped
+    pid: host
+    ports:
+      - "5000:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Speed test results written by cron job
+      - /var/lib/health-api:/data:ro
+      # Mount host paths for disk usage checks
+      - /:/hostfs/root:ro
+      - /home:/hostfs/home:ro
+      - /var:/hostfs/var:ro
+      - /CAMRAID:/hostfs/CAMRAID:ro
+      - /HOMENAS:/hostfs/HOMENAS:ro
+      # Mount /proc for CPU/memory stats
+      - /proc:/host/proc:ro
+    environment:
+      - HEALTH_API_KEY=${HEALTH_API_KEY:-}
+      - PLEX_URL=http://host.docker.internal:32400
+      - PLEX_TOKEN=${PLEX_TOKEN:-}
+      - SPEEDTEST_FILE=/data/speedtest.json
+      # Tell psutil to use host's /proc
+      - HOST_PROC=/host/proc
+
 volumes:
   nginx-logs:
   netdata-config:

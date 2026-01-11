@@ -40,7 +40,7 @@ The script updates these A records when the IP changes:
 - `@` (camerontora.ca)
 - `ombi`, `plex`, `sonarr`, `radarr`, `tautulli`, `transmission`
 - `jackett`, `status`, `emby`, `jellyfin`, `overseerr`
-- `watchmap`, `haymaker`, `netdata`
+- `watchmap`, `haymaker`, `netdata`, `health`
 
 ### Adding a New Subdomain
 1. Edit `scripts/godaddy-ddns.sh`
@@ -67,6 +67,7 @@ All subdomains share a single certificate managed by certbot.
 camerontora.ca
 emby.camerontora.ca
 haymaker.camerontora.ca
+health.camerontora.ca
 jackett.camerontora.ca
 jellyfin.camerontora.ca
 netdata.camerontora.ca
@@ -97,6 +98,7 @@ sudo certbot --apache --expand \
   -d camerontora.ca \
   -d emby.camerontora.ca \
   -d haymaker.camerontora.ca \
+  -d health.camerontora.ca \
   -d jackett.camerontora.ca \
   -d jellyfin.camerontora.ca \
   -d netdata.camerontora.ca \

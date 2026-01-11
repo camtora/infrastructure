@@ -1,0 +1,4 @@
+# Run speed tests every 30 minutes for health monitoring
+# Install: sudo cp /home/camerontora/infrastructure/scripts/speedtest.cron /etc/cron.d/speedtest
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/30 * * * * root /home/camerontora/infrastructure/scripts/speedtest.sh 2>&1
