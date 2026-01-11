@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Node modules (will be installed in Docker)
+frontend/node_modules
+
+# Build output (will be built in Docker)
+frontend/dist
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+
+# IDE
+.idea
+.vscode
+
+# Misc
+*.md
+.DS_Store
