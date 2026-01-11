@@ -103,6 +103,7 @@ server {
     location / {
         auth_request /oauth2/auth;
         auth_request_set $auth_email $upstream_http_x_auth_request_email;
+        auth_request_set $auth_access_token $upstream_http_x_auth_request_access_token;
         error_page 401 = @error401;
 
         # Change this to your service's port
@@ -111,8 +112,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        # Pass authenticated user's email to backend
+        # Pass authenticated user info to backend
         proxy_set_header X-Forwarded-Email $auth_email;
+        proxy_set_header X-Forwarded-Access-Token $auth_access_token;
 
         # WebSocket support (if needed)
         proxy_http_version 1.1;
@@ -215,6 +217,7 @@ server {
         auth_request /oauth2/auth;
         auth_request_set $auth_email $upstream_http_x_auth_request_email;
         auth_request_set $auth_user $upstream_http_x_auth_request_user;
+        auth_request_set $auth_access_token $upstream_http_x_auth_request_access_token;
 
         # Don't fail if not authenticated - fall back to @public
         error_page 401 = @public;
@@ -226,6 +229,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Email $auth_email;
         proxy_set_header X-Forwarded-User $auth_user;
+        proxy_set_header X-Forwarded-Access-Token $auth_access_token;
 
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -246,6 +250,65 @@ server {
     }
 }
 ```
+
+---
+
+## Passing User Profile Data (Picture, Name, Email)
+
+OAuth2 Proxy can pass user information to backend services via HTTP headers. This allows apps to display user profile photos, names, and emails without implementing their own OAuth flow.
+
+### Available Headers
+
+| Header | Description | Source |
+|--------|-------------|--------|
+| `X-Forwarded-Email` | User's email address | OAuth2 Proxy (direct) |
+| `X-Forwarded-Access-Token` | Google OAuth access token | OAuth2 Proxy (requires `--pass-access-token=true`) |
+
+### How to Get Profile Photo and Name
+
+The access token can be used to call Google's userinfo API:
+
+```javascript
+// Backend receives X-Forwarded-Access-Token header
+const accessToken = request.headers.get("x-forwarded-access-token");
+
+// Call Google's userinfo API
+const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+  headers: { Authorization: `Bearer ${accessToken}` }
+});
+
+const { email, name, picture } = await response.json();
+// picture is a URL to the user's Google profile photo
+```
+
+### Nginx Configuration for Profile Data
+
+To pass the access token to your backend, add these lines to your nginx location block:
+
+```nginx
+location / {
+    auth_request /oauth2/auth;
+    auth_request_set $auth_email $upstream_http_x_auth_request_email;
+    auth_request_set $auth_access_token $upstream_http_x_auth_request_access_token;
+    error_page 401 = @error401;
+
+    proxy_pass http://host.docker.internal:YOUR_PORT;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Email $auth_email;
+    proxy_set_header X-Forwarded-Access-Token $auth_access_token;
+}
+```
+
+**Key additions:**
+1. `auth_request_set $auth_access_token $upstream_http_x_auth_request_access_token;` - Captures the token
+2. `proxy_set_header X-Forwarded-Access-Token $auth_access_token;` - Forwards it to backend
+
+### Example: Haymaker
+
+Haymaker uses this pattern in its `/api/userinfo` Next.js route to fetch and return user profile data including their Google profile photo.
 
 ---
 
@@ -309,6 +372,14 @@ Changes are picked up automatically (no restart needed).
 | `OAUTH2_PROXY_COOKIE_SECRET` | 32-byte base64 secret for cookies |
 | `OAUTH2_PROXY_COOKIE_DOMAIN` | `.camerontora.ca` for SSO |
 | `OAUTH2_PROXY_WHITELIST_DOMAINS` | `.camerontora.ca` |
+
+### OAuth2 Proxy Command Flags
+
+| Flag | Description |
+|------|-------------|
+| `--pass-access-token=true` | Pass Google OAuth access token to backend services |
+| `--set-xauthrequest=true` | Set X-Auth-Request-* headers on auth responses |
+| `--pass-user-headers=true` | Pass user info headers to upstream |
 
 ### Generate a New Cookie Secret
 

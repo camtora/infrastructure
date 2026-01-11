@@ -63,6 +63,7 @@ services:
       - --upstream=static://202
       - --set-xauthrequest=true
       - --pass-user-headers=true
+      - --pass-access-token=true
       - --skip-provider-button=true
       - --silence-ping-logging=true
       - --cookie-csrf-per-request=true
