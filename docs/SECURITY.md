@@ -108,28 +108,73 @@ Transmission runs behind a VPN using **Gluetun** container with PIA (Private Int
 │  ┌─────────────────────────────────────┐    │
 │  │  transmission (network_mode: service)│    │
 │  └─────────────────────────────────────┘    │
-│         ↓ VPN Tunnel (OpenVPN)              │
+│         ↓ VPN Tunnel (WireGuard)            │
 └─────────────────────────────────────────────┘
                     ↓
-            PIA Toronto Server
+            PIA Toronto (toronto433)
 ```
 
 - **VPN Provider**: Private Internet Access (PIA)
-- **Protocol**: OpenVPN
-- **Server**: CA Toronto
-- **Port Forwarding**: Enabled (dynamic port written to `/gluetun/forwarded_port`)
-- **Credentials**: Stored in `/home/camerontora/docker-services/.env` as `PIA_USER` and `PIA_PASS`
+- **Protocol**: WireGuard (via custom provider - native PIA WireGuard not supported in gluetun)
+- **Server**: toronto433 (212.32.48.142)
+- **Port Forwarding**: Enabled (dynamic port written to `/tmp/gluetun/forwarded_port`)
+- **Health Endpoint**: `http://192.168.2.34:8090/v1/vpn/status` (monitored by Uptime Kuma)
+- **Credentials**: Stored in `/home/camerontora/docker-services/.env`:
+  - `PIA_USER` / `PIA_PASS` - PIA account credentials
+  - `PIA_WG_PRIVATE_KEY` - WireGuard private key for toronto433
 
 **Verifying VPN is working:**
 ```bash
 # Check external IP (should be PIA, not home IP)
 docker exec gluetun wget -qO- https://ipinfo.io/ip
 
-# Check VPN status
-docker logs gluetun | grep -i "completed\|error"
+# Check VPN status via API
+curl -s http://localhost:8090/v1/vpn/status
+# Returns: {"status":"running"}
+
+# Check public IP details
+curl -s http://localhost:8090/v1/publicip/ip | jq .
 
 # Check forwarded port
+cat /home/camerontora/docker-services/gluetun/forwarded_port
+# Or via logs:
 docker logs gluetun | grep "port forward"
+```
+
+### WireGuard Key Regeneration
+
+The WireGuard configuration is tied to a specific PIA server. If you need to regenerate keys (e.g., server issues, key expiry), follow these steps:
+
+```bash
+# 1. Get a fresh PIA token (expires in 24h)
+PIA_TOKEN=$(curl -s --location --request POST \
+  'https://www.privateinternetaccess.com/api/client/v2/token' \
+  --form "username=YOUR_PIA_USER" \
+  --form "password=YOUR_PIA_PASS" | jq -r '.token')
+
+# 2. Generate new WireGuard keys
+docker run --rm alpine:latest sh -c \
+  "apk add --no-cache wireguard-tools && wg genkey | tee /dev/stderr | wg pubkey"
+# Save the private key (first line) and public key (second line)
+
+# 3. Get server list for port-forwarding enabled servers
+curl -s "https://serverlist.piaservers.net/vpninfo/servers/v6" | \
+  jq '.regions[] | select(.port_forward == true) | {id, name, servers: .servers.wg[0]}'
+
+# 4. Register key with PIA API (example for toronto433)
+WG_SERVER_IP="212.32.48.142"
+WG_HOSTNAME="toronto433"
+PUB_KEY="YOUR_NEW_PUBLIC_KEY"
+curl -s -G \
+  --connect-to "$WG_HOSTNAME::$WG_SERVER_IP:" \
+  --cacert /tmp/pia-manual/ca.rsa.4096.crt \
+  --data-urlencode "pt=${PIA_TOKEN}" \
+  --data-urlencode "pubkey=$PUB_KEY" \
+  "https://${WG_HOSTNAME}:1337/addKey"
+
+# 5. Update docker-services/.env with new PIA_WG_PRIVATE_KEY
+# 6. Update docker-compose.yaml with new server details if changed
+# 7. Restart: docker-compose up -d gluetun transmission
 ```
 
 ## OAuth2 / SSO
