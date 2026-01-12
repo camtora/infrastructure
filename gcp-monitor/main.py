@@ -44,7 +44,7 @@ THRESHOLD_SPEEDTEST_STALE_HOURS = float(os.environ.get("THRESHOLD_SPEEDTEST_STAL
 # Endpoints to check
 PUBLIC_ENDPOINTS = [
     ("camerontora.ca", "https://camerontora.ca"),
-    ("status.camerontora.ca", "https://status.camerontora.ca"),
+    ("monitor.camerontora.ca", "https://monitor.camerontora.ca"),
 ]
 
 # State file for alert deduplication (in-memory for Cloud Run, could use Firestore)

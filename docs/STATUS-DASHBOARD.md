@@ -60,7 +60,9 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 | Plex | plex.camerontora.ca | Media server |
 | Overseerr | overseerr.camerontora.ca | Media requests |
 | Ombi | ombi.camerontora.ca | Media requests (legacy) |
-| Status (Uptime Kuma) | status.camerontora.ca | Local status page |
+| Status Dashboard | monitor.camerontora.ca | GCP-hosted status page |
+
+> **Note:** `status.camerontora.ca` redirects to `monitor.camerontora.ca`. Uptime Kuma was decommissioned in favor of the GCP status dashboard.
 
 ### Protected Services (OAuth)
 | Service | URL | Description |
@@ -441,8 +443,8 @@ Firestore must be enabled in Native mode:
 - VPN location switching from dashboard
 - Auto-failover after N consecutive failures
 - SSL certificate expiry warnings
-- **Integrate into camerontora.ca:** Replace Uptime Kuma status widget
-  - Update StatusIndicator component to fetch from monitor.camerontora.ca/api/status
-  - Display overall status with service count
-  - Link to full dashboard for details
-  - Deprecate status.camerontora.ca (Uptime Kuma)
+- Migrate dashboard to status.camerontora.ca (industry standard subdomain)
+
+### Completed
+- ✅ **Integrate into camerontora.ca:** StatusIndicator fetches from monitor.camerontora.ca/api/status
+- ✅ **Deprecate Uptime Kuma:** Container removed, status.camerontora.ca redirects to monitor

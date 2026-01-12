@@ -72,17 +72,6 @@ services:
       # Explicit cookie domain for SSO across subdomains
       - --cookie-domain=.camerontora.ca
 
-  # ============== UPTIME KUMA ==============
-  # Service uptime monitoring
-  uptime-kuma:
-    image: louislam/uptime-kuma:1
-    container_name: uptime-kuma
-    restart: unless-stopped
-    ports:
-      - "3001:3001"
-    volumes:
-      - /home/camerontora/docker-services/uptime-kuma:/app/data
-
   # ============== NETDATA ==============
   # Real-time system monitoring (CPU, RAM, disk, network)
   netdata:
