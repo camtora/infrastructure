@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 from backend.services.health_checker import run_health_check, get_status_summary
 from backend.services.dns_manager import get_cached_dns_state, failover_dns
 from backend.services.discord import send_discord_alert, notify_failover
+from backend.services.history_store import store_status_snapshot, get_status_history, get_service_uptime
 from backend.config import ADMIN_API_KEY
 
 # Determine static folder path
@@ -135,6 +136,7 @@ def api_dns_failover():
 def api_check():
     """
     Run health check - triggered by Cloud Scheduler.
+    Stores snapshot to Firestore for historical tracking.
     """
     logger.info("=== Starting scheduled health check ===")
     try:
@@ -148,9 +150,13 @@ def api_check():
         # Log metrics if available
         metrics = status.get("metrics")
         if metrics:
-            logger.info(f"  CPU: {metrics.get('cpu_percent')}%, RAM: {metrics.get('ram_percent')}%")
-            for mount, info in metrics.get("disks", {}).items():
-                logger.info(f"  Disk {mount}: {info.get('percent')}%")
+            logger.info(f"  CPU: {metrics.get('cpu', {}).get('percent')}%, RAM: {metrics.get('memory', {}).get('percent')}%")
+
+        # Store to Firestore for history
+        if store_status_snapshot(status):
+            logger.info("  Stored snapshot to Firestore")
+        else:
+            logger.warning("  Failed to store snapshot to Firestore")
 
         return jsonify(status)
     except Exception as e:
@@ -166,6 +172,38 @@ def api_health():
         "service": "status-dashboard",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
+
+
+@app.route('/api/history')
+def api_history():
+    """
+    Get historical status data.
+    Query params:
+      - hours: number of hours to look back (default 24, max 168)
+      - service: specific service name to get uptime stats for
+    """
+    try:
+        hours = request.args.get('hours', 24, type=int)
+        hours = min(max(hours, 1), 168)  # Clamp to 1-168 hours
+
+        service_name = request.args.get('service')
+
+        if service_name:
+            # Get uptime stats for specific service
+            result = get_service_uptime(service_name, hours)
+        else:
+            # Get full history
+            history = get_status_history(hours)
+            result = {
+                "hours": hours,
+                "snapshot_count": len(history),
+                "snapshots": history,
+            }
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in /api/history: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ============== Error Handlers ==============

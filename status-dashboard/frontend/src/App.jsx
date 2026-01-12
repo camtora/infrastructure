@@ -5,6 +5,7 @@ import { ServiceGrid } from './components/ServiceGrid'
 import { MetricsPanel } from './components/MetricsPanel'
 import { SpeedPanel } from './components/SpeedPanel'
 import { DNSPanel } from './components/DNSPanel'
+import { HistoryPanel } from './components/HistoryPanel'
 
 export function App() {
   const [status, setStatus] = useState(null)
@@ -78,6 +79,10 @@ export function App() {
         </div>
 
         <ServiceGrid services={status?.services || []} />
+
+        <div class="mt-8">
+          <HistoryPanel services={status?.services || []} />
+        </div>
       </div>
 
       <footer class="text-center py-6 text-gray-500 text-sm">
