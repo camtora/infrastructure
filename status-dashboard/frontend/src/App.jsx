@@ -116,16 +116,36 @@ export function App() {
       const data = await res.json()
 
       if (res.ok) {
-        setVpnMessage({ type: 'success', text: `Switched to ${location}` })
-        // Wait for containers to stabilize, then refresh
-        await new Promise(r => setTimeout(r, 3000))
-        fetchVpnStatus()
+        // Keep spinner going - poll until speed test shows new location as active
+        const pollForActive = async (maxAttempts = 20) => {
+          for (let i = 0; i < maxAttempts; i++) {
+            await new Promise(r => setTimeout(r, 1500))
+            // Fetch fresh status data
+            const statusRes = await fetch('/api/status')
+            if (statusRes.ok) {
+              const freshData = await statusRes.json()
+              setStatus(freshData)
+              setLastUpdate(new Date())
+              // Check if the new location is now active in speedtest
+              const locationKey = location.charAt(0).toUpperCase() + location.slice(1)
+              const vpnData = freshData?.metrics?.speed_test?.vpn?.[locationKey]
+              if (vpnData?.active) {
+                setVpnSwitching(null)
+                fetchVpnStatus()
+                return
+              }
+            }
+          }
+          // Timeout - clear spinner anyway
+          setVpnSwitching(null)
+        }
+        pollForActive()
       } else {
         setVpnMessage({ type: 'error', text: data.error || 'Switch failed' })
+        setVpnSwitching(null)
       }
     } catch (e) {
       setVpnMessage({ type: 'error', text: e.message })
-    } finally {
       setVpnSwitching(null)
     }
   }
@@ -219,7 +239,6 @@ export function App() {
         <Header
           status={status}
           lastUpdate={lastUpdate}
-          onRefresh={fetchStatus}
           adminAuth={adminAuth}
         />
 

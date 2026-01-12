@@ -58,8 +58,8 @@ export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnM
                 />
               ))}
             </div>
-            {vpnMessage && (
-              <div class={`mt-3 text-xs ${vpnMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+            {vpnMessage?.type === 'error' && (
+              <div class="mt-3 text-xs text-red-400">
                 {vpnMessage.text}
               </div>
             )}
