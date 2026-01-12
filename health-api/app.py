@@ -39,7 +39,6 @@ SERVICE_CHECKS = [
     {"name": "Tautulli", "container": "tautulli", "port": 8181},
     {"name": "Transmission", "container": "transmission", "port": 9091, "path": "/transmission/web/"},
     {"name": "Netdata", "container": "netdata", "port": 19999, "path": "/api/v1/info"},
-    {"name": "Status (Uptime Kuma)", "container": "uptime-kuma", "port": 3001},
     {"name": "Health API", "container": "health-api", "port": 5000, "path": "/api/health/ping"},
 ]
 

@@ -7,11 +7,53 @@ import { SpeedPanel } from './components/SpeedPanel'
 import { DNSPanel } from './components/DNSPanel'
 import { HistoryPanel } from './components/HistoryPanel'
 
+const NETDATA_BASE = 'https://netdata.camerontora.ca'
+
+// Parse Netdata CPU response and calculate total CPU%
+function parseCpuMetrics(data) {
+  if (!data?.labels || !data?.data?.[0]) {
+    throw new Error('Invalid CPU metrics format')
+  }
+  // Labels: time, guest_nice, guest, steal, softirq, irq, user, system, nice, iowait
+  // Sum all CPU-consuming fields (everything except time)
+  const values = data.data[0]
+  const cpuPercent = values.slice(1).reduce((sum, val) => sum + (val || 0), 0)
+  return { percent: Math.round(cpuPercent * 10) / 10 }
+}
+
+// Parse Netdata RAM response and calculate usage%
+function parseRamMetrics(data) {
+  if (!data?.labels || !data?.data?.[0]) {
+    throw new Error('Invalid RAM metrics format')
+  }
+  // Labels: time, free, used, cached, buffers (all in MB)
+  const labels = data.labels
+  const values = data.data[0]
+  const idx = (name) => labels.indexOf(name)
+
+  const free = values[idx('free')] || 0
+  const used = values[idx('used')] || 0
+  const cached = values[idx('cached')] || 0
+  const buffers = values[idx('buffers')] || 0
+
+  const total = free + used + cached + buffers
+  const percent = total > 0 ? (used / total) * 100 : 0
+
+  return {
+    percent: Math.round(percent * 10) / 10,
+    used_gb: Math.round(used / 1024 * 10) / 10,
+    total_gb: Math.round(total / 1024 * 10) / 10,
+    available_gb: Math.round((free + cached + buffers) / 1024 * 10) / 10
+  }
+}
+
 export function App() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
+  const [realtimeMetrics, setRealtimeMetrics] = useState(null)
+  const [metricsError, setMetricsError] = useState(null)
 
   const fetchStatus = async () => {
     try {
@@ -28,9 +70,45 @@ export function App() {
     }
   }
 
+  // Fetch real-time CPU/RAM from Netdata (every 10 seconds)
+  const fetchRealtimeMetrics = async () => {
+    try {
+      const [cpuRes, ramRes] = await Promise.all([
+        fetch(`${NETDATA_BASE}/api/metrics/cpu`),
+        fetch(`${NETDATA_BASE}/api/metrics/ram`)
+      ])
+
+      if (!cpuRes.ok || !ramRes.ok) {
+        throw new Error('Netdata metrics endpoint unavailable')
+      }
+
+      const [cpuData, ramData] = await Promise.all([
+        cpuRes.json(),
+        ramRes.json()
+      ])
+
+      const cpu = parseCpuMetrics(cpuData)
+      const memory = parseRamMetrics(ramData)
+
+      setRealtimeMetrics({ cpu, memory, timestamp: new Date() })
+      setMetricsError(null)
+    } catch (err) {
+      console.error('Real-time metrics error:', err.message)
+      setMetricsError(err.message)
+      // Don't clear realtimeMetrics - keep showing last known value
+    }
+  }
+
   useEffect(() => {
     fetchStatus()
     const interval = setInterval(fetchStatus, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Separate interval for real-time metrics (10 seconds)
+  useEffect(() => {
+    fetchRealtimeMetrics()
+    const interval = setInterval(fetchRealtimeMetrics, 10000)
     return () => clearInterval(interval)
   }, [])
 
@@ -74,7 +152,11 @@ export function App() {
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div class="lg:col-span-2">
-            <MetricsPanel metrics={status?.metrics} />
+            <MetricsPanel
+              metrics={status?.metrics}
+              realtimeMetrics={realtimeMetrics}
+              metricsError={metricsError}
+            />
           </div>
           <div>
             <SpeedPanel speedTest={status?.metrics?.speed_test} />

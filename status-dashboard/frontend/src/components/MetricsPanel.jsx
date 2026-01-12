@@ -1,4 +1,4 @@
-export function MetricsPanel({ metrics }) {
+export function MetricsPanel({ metrics, realtimeMetrics, metricsError }) {
   if (!metrics) {
     return (
       <div class="glass-card p-6 h-full">
@@ -10,22 +10,42 @@ export function MetricsPanel({ metrics }) {
 
   const { cpu, memory, load, disks } = metrics
 
+  // Use real-time values if available, fall back to health-api values
+  const displayCpu = realtimeMetrics?.cpu?.percent ?? cpu?.percent
+  const displayMemory = realtimeMetrics?.memory?.percent ?? memory?.percent
+  const isRealtime = realtimeMetrics !== null
+
   return (
     <div class="glass-card p-6 h-full">
-      <h2 class="text-lg font-medium text-white mb-6">System Metrics</h2>
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-lg font-medium text-white">System Metrics</h2>
+        {isRealtime && !metricsError && (
+          <span class="text-xs text-emerald-400 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+            Live
+          </span>
+        )}
+        {metricsError && (
+          <span class="text-xs text-amber-400" title={metricsError}>
+            Using cached data
+          </span>
+        )}
+      </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
         <MetricGauge
           label="CPU"
-          value={cpu?.percent}
+          value={displayCpu}
           unit="%"
           thresholds={{ warning: 70, critical: 90 }}
+          isRealtime={isRealtime && !metricsError}
         />
         <MetricGauge
           label="Memory"
-          value={memory?.percent}
+          value={displayMemory}
           unit="%"
           thresholds={{ warning: 70, critical: 90 }}
+          isRealtime={isRealtime && !metricsError}
         />
         <MetricGauge
           label="Load (1m)"
@@ -55,7 +75,7 @@ export function MetricsPanel({ metrics }) {
   )
 }
 
-function MetricGauge({ label, value, unit = '', max = 100, thresholds = {} }) {
+function MetricGauge({ label, value, unit = '', max = 100, thresholds = {}, isRealtime = false }) {
   const displayValue = value !== null && value !== undefined ? value : null
   const percent = displayValue !== null ? Math.min((displayValue / max) * 100, 100) : 0
 
@@ -70,6 +90,9 @@ function MetricGauge({ label, value, unit = '', max = 100, thresholds = {} }) {
       strokeColor = 'stroke-amber-400'
     }
   }
+
+  // Faster transition for real-time updates
+  const transitionClass = isRealtime ? 'transition-all duration-300' : 'transition-all duration-500'
 
   const circumference = 2 * Math.PI * 28
   const strokeDashoffset = circumference - (percent / 100) * circumference
@@ -94,7 +117,7 @@ function MetricGauge({ label, value, unit = '', max = 100, thresholds = {} }) {
             stroke-width="3"
             fill="transparent"
             stroke-linecap="round"
-            class={`${strokeColor} gauge-ring`}
+            class={`${strokeColor} ${transitionClass}`}
             style={{
               strokeDasharray: circumference,
               strokeDashoffset: strokeDashoffset
