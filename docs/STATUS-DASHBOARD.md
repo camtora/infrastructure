@@ -79,6 +79,43 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 |---------|-----|-------------|
 | Health API | health.camerontora.ca/api/health/ping | System metrics API |
 
+## How Health Checks Work
+
+### Service Endpoint Checks
+For each of the 14 services, the dashboard performs an HTTP GET request:
+
+| Check | Result |
+|-------|--------|
+| HTTP 2xx, 3xx | **Up** - Service responding normally |
+| HTTP 401 | **Up** - Protected but reachable (OAuth services) |
+| HTTP 4xx/5xx (except 401) | **Down** - Service error |
+| Timeout (15s) | **Down** - Service unreachable |
+| Connection error | **Down** - Service unreachable |
+
+**Why 401 = Up:** OAuth-protected services (Radarr, Sonarr, etc.) return 401 when accessed without authentication. This proves the service is running, even though it's protected.
+
+### System Metrics
+The dashboard calls `health.camerontora.ca/api/health` to collect:
+- **CPU:** Current usage percentage
+- **Memory:** Current usage percentage
+- **Load Average:** 1m, 5m, 15m averages
+- **Disks:** Usage for /, /home, /var, /CAMRAID, /HOMENAS
+- **Speed Test:** Results from home + VPN locations
+- **Plex:** Library count and reachability
+
+### Overall Status Logic
+| Condition | Status |
+|-----------|--------|
+| Health API unreachable | `unhealthy` (red) |
+| More than 3 services down | `unhealthy` (red) |
+| 1-3 services down | `degraded` (yellow) |
+| All services up | `healthy` (green) |
+
+### Caching & Refresh
+- **Cache duration:** 60 seconds
+- **Cloud Scheduler:** Triggers fresh check every 5 minutes
+- **Frontend:** Auto-refreshes display every 30 seconds
+
 ## API Endpoints
 
 ### GET /api/status
