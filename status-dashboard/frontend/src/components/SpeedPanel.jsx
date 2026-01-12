@@ -12,6 +12,15 @@ export function SpeedPanel({ speedTest }) {
 
   const { home, vpn } = speedTest
 
+  // Sort VPN locations: active first, then alphabetically
+  const vpnEntries = vpn && typeof vpn === 'object'
+    ? Object.entries(vpn).sort(([, a], [, b]) => {
+        if (a?.active && !b?.active) return -1
+        if (!a?.active && b?.active) return 1
+        return 0
+      })
+    : []
+
   return (
     <div class="bg-gray-800 rounded-lg p-6 h-full">
       <h2 class="text-xl font-semibold text-white mb-4">Speed Test</h2>
@@ -26,18 +35,19 @@ export function SpeedPanel({ speedTest }) {
           />
         )}
 
-        {vpn && typeof vpn === 'object' && Object.keys(vpn).length > 0 && (
-          Object.entries(vpn).map(([location, data]) => (
-            data && data.download && (
-              <SpeedSection
-                key={location}
-                title={`VPN ${location}`}
-                download={data.download}
-                upload={data.upload}
-                ping={data.ping}
-              />
-            )
-          ))
+        {vpnEntries.length > 0 && (
+          <div>
+            <h3 class="text-sm font-medium text-gray-400 mb-3">VPN Locations</h3>
+            <div class="space-y-3">
+              {vpnEntries.map(([location, data]) => (
+                <VpnLocationCard
+                  key={location}
+                  location={location}
+                  data={data}
+                />
+              ))}
+            </div>
+          </div>
         )}
 
         {speedTest.timestamp && (
@@ -46,6 +56,63 @@ export function SpeedPanel({ speedTest }) {
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+function VpnLocationCard({ location, data }) {
+  const status = data?.status || (data?.download ? 'healthy' : 'unknown')
+  const isActive = data?.active === true
+
+  const statusConfig = {
+    healthy: { color: 'bg-green-500', label: 'Healthy' },
+    unhealthy: { color: 'bg-red-500', label: 'Unhealthy' },
+    error: { color: 'bg-yellow-500', label: 'Error' },
+    stopped: { color: 'bg-gray-500', label: 'Stopped' },
+    unknown: { color: 'bg-gray-500', label: 'Unknown' }
+  }
+
+  const { color, label } = statusConfig[status] || statusConfig.unknown
+
+  return (
+    <div class={`rounded-lg p-3 ${isActive ? 'bg-blue-900/30 border border-blue-500/50' : 'bg-gray-700/50'}`}>
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class={`w-2 h-2 rounded-full ${color}`}></span>
+          <span class="text-white font-medium">{location}</span>
+          {isActive && (
+            <span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Active</span>
+          )}
+        </div>
+        <span class={`text-xs ${status === 'healthy' ? 'text-green-400' : 'text-gray-400'}`}>
+          {label}
+        </span>
+      </div>
+
+      {status === 'healthy' && data?.download ? (
+        <div class="flex items-center gap-4 text-sm">
+          <div class="flex items-center gap-1 text-gray-300">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+            <span>{data.download.toFixed(1)} Mbps</span>
+          </div>
+          {data.upload && (
+            <div class="flex items-center gap-1 text-gray-300">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+              </svg>
+              <span>{data.upload.toFixed(1)} Mbps</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p class="text-xs text-gray-500">
+          {status === 'unhealthy' ? 'DNS/network issue' :
+           status === 'stopped' ? 'Container not running' :
+           'No speed data'}
+        </p>
+      )}
     </div>
   )
 }
