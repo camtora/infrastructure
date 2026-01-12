@@ -71,6 +71,34 @@ def check_health_api() -> dict[str, Any]:
         return {"reachable": False, "error": str(e)[:100]}
 
 
+def fetch_internal_services() -> dict[str, Any]:
+    """Fetch internal service status from health-api."""
+    try:
+        headers = {"X-API-Key": HEALTH_API_KEY} if HEALTH_API_KEY else {}
+        base_url = HEALTH_API_URL.replace("/api/health", "")
+        resp = requests.get(
+            f"{base_url}/api/health/services",
+            headers=headers,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Convert to dict keyed by service name for easy lookup
+        return {
+            svc["name"]: {
+                "container_running": svc["container"]["running"],
+                "container_health": svc["container"].get("health"),
+                "port_responding": svc["local_port"]["responding"],
+                "port_status_code": svc["local_port"].get("status_code"),
+            }
+            for svc in data.get("services", [])
+        }
+    except requests.exceptions.RequestException:
+        return {}
+    except Exception:
+        return {}
+
+
 def check_plex_library() -> dict[str, Any]:
     """Check Plex library directly."""
     if not PLEX_TOKEN:
@@ -110,11 +138,26 @@ def run_health_check() -> dict[str, Any]:
         "overall_status": "healthy",
     }
 
-    # Check all services
+    # Fetch internal service status (container + local port)
+    internal_status = fetch_internal_services()
+
+    # Check all services externally and merge with internal status
     down_count = 0
     for service in SERVICES:
         check = check_endpoint(service["name"], service["url"])
         check["category"] = service.get("category", "unknown")
+
+        # Merge internal status if available
+        internal = internal_status.get(service["name"], {})
+        if internal:
+            check["internal"] = {
+                "container_running": internal.get("container_running"),
+                "container_health": internal.get("container_health"),
+                "port_responding": internal.get("port_responding"),
+            }
+        else:
+            check["internal"] = None
+
         results["services"].append(check)
         if check["status"] != "up":
             down_count += 1
