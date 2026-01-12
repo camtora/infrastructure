@@ -40,8 +40,9 @@ export function Header({ status, lastUpdate, onRefresh }) {
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div>
           <h1 class="text-3xl font-light text-white mb-3 tracking-tight">
-            <span class="gradient-text font-medium">camerontora.ca</span>
-            <span class="text-white/60 ml-2">Status</span>
+            <span class="gradient-text font-medium">CAM TORA</span>
+            <span class="text-white/40 mx-2">|</span>
+            <span class="text-white/60">Status</span>
           </h1>
           <div class="flex items-center gap-3">
             <span class={`w-3 h-3 rounded-full ${config.bg} ${config.pulse} ${config.glow}`}></span>
