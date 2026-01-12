@@ -41,10 +41,9 @@ THRESHOLD_DISK_VAR = float(os.environ.get("THRESHOLD_DISK_VAR", "90"))
 THRESHOLD_UPLOAD_MBPS = float(os.environ.get("THRESHOLD_UPLOAD_MBPS", "5"))
 THRESHOLD_SPEEDTEST_STALE_HOURS = float(os.environ.get("THRESHOLD_SPEEDTEST_STALE_HOURS", "2"))
 
-# Endpoints to check
+# Endpoints to check (home server services only)
 PUBLIC_ENDPOINTS = [
     ("camerontora.ca", "https://camerontora.ca"),
-    ("monitor.camerontora.ca", "https://monitor.camerontora.ca"),
 ]
 
 # State file for alert deduplication (in-memory for Cloud Run, could use Firestore)

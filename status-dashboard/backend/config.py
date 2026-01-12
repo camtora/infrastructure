@@ -37,7 +37,6 @@ SERVICES = [
     {"name": "Tautulli", "url": "https://tautulli.camerontora.ca", "category": "protected"},
     {"name": "Transmission", "url": "https://transmission.camerontora.ca", "category": "protected"},
     {"name": "Netdata", "url": "https://netdata.camerontora.ca", "category": "protected"},
-    {"name": "Status Dashboard", "url": "https://monitor.camerontora.ca", "category": "public"},
     {"name": "Health API", "url": "https://health.camerontora.ca/api/health/ping", "category": "api"},
 ]
 
