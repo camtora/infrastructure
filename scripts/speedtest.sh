@@ -56,10 +56,20 @@ VPN_LOCATIONS=("montreal" "toronto" "vancouver")
 log "Detecting active VPN..."
 ACTIVE_VPN=""
 if transmission_network=$(docker inspect transmission --format '{{.HostConfig.NetworkMode}}' 2>/dev/null); then
-    # NetworkMode is like "container:gluetun-toronto" or "service:gluetun-toronto"
-    if [[ "$transmission_network" =~ gluetun-([a-z]+) ]]; then
-        ACTIVE_VPN="${BASH_REMATCH[1]}"
-        log "Active VPN: $ACTIVE_VPN (Transmission)"
+    # NetworkMode can be "container:<id>" or "container:gluetun-toronto"
+    if [[ "$transmission_network" =~ ^container:(.+)$ ]]; then
+        container_ref="${BASH_REMATCH[1]}"
+        # If it's a container ID, look up the name
+        if [[ "$container_ref" =~ ^[a-f0-9]+$ ]]; then
+            container_name=$(docker inspect "$container_ref" --format '{{.Name}}' 2>/dev/null | sed 's|^/||')
+        else
+            container_name="$container_ref"
+        fi
+        # Extract location from gluetun-<location>
+        if [[ "$container_name" =~ gluetun-([a-z]+) ]]; then
+            ACTIVE_VPN="${BASH_REMATCH[1]}"
+            log "Active VPN: $ACTIVE_VPN (Transmission via $container_name)"
+        fi
     fi
 fi
 

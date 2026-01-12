@@ -131,6 +131,8 @@ services:
       - /:/hostfs/root:ro
       - /home:/hostfs/home:ro
       - /var:/hostfs/var:ro
+      - /tmp:/hostfs/tmp:ro
+      - /dev/shm:/hostfs/shm:ro
       - /CAMRAID:/hostfs/CAMRAID:ro
       - /HOMENAS:/hostfs/HOMENAS:ro
       # Mount /proc for CPU/memory stats

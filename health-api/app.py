@@ -49,6 +49,8 @@ MONITORED_DISKS = [
     ("/", "/hostfs/root"),
     ("/home", "/hostfs/home"),
     ("/var", "/hostfs/var"),
+    ("/tmp", "/hostfs/tmp"),
+    ("/dev (RAM)", "/hostfs/shm"),
     ("/CAMRAID", "/hostfs/CAMRAID"),
     ("/HOMENAS", "/hostfs/HOMENAS"),
 ]
