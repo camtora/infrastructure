@@ -447,11 +447,54 @@ Firestore must be enabled in Native mode:
    ```
 4. Redeploy Cloud Run service to pick up new permissions
 
-## Future Enhancements (Phase 4)
+## Admin Panel (Phase 4)
 
-- VPN location switching from dashboard
+The dashboard includes an admin panel for authenticated users to manage home server services.
+
+### Authentication
+
+The admin panel uses the existing OAuth infrastructure:
+
+1. Dashboard checks `health.camerontora.ca/api/admin/whoami` on load
+2. If user has valid OAuth cookie (from logging into radarr, sonarr, etc.) → panel appears
+3. If not authenticated → panel is hidden entirely
+
+Admin endpoints on health-api are protected by nginx's oauth2-proxy integration. The email of the authenticated user is passed via `X-Forwarded-Email` header.
+
+### Admin Features
+
+#### VPN Location Switching
+Switch Transmission between VPN locations (Toronto, Montreal, Vancouver) with one click.
+
+**What happens when you switch:**
+1. Updates docker-compose.yaml (network_mode and depends_on)
+2. Recreates transmission container
+3. Updates nginx config (proxy port)
+4. Reloads nginx
+
+### Admin API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/whoami` | GET | Check authentication status |
+| `/api/admin/vpn/status` | GET | Get VPN locations and active location |
+| `/api/admin/vpn/switch` | POST | Switch VPN location |
+
+### Configuration
+
+Admin email allowlist is configured via `ADMIN_EMAILS` environment variable in health-api:
+
+```yaml
+environment:
+  - ADMIN_EMAILS=camerontora@gmail.com
+```
+
+## Future Enhancements
+
 - Auto-failover after N consecutive failures
 - SSL certificate expiry warnings
+- Container restart from dashboard
+- Cloudflare Access for defense-in-depth (optional extra auth layer)
 - Migrate dashboard to status.camerontora.ca (industry standard subdomain)
 
 ### Completed

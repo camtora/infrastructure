@@ -6,6 +6,7 @@ import { MetricsPanel } from './components/MetricsPanel'
 import { SpeedPanel } from './components/SpeedPanel'
 import { DNSPanel } from './components/DNSPanel'
 import { HistoryPanel } from './components/HistoryPanel'
+import { AdminPanel } from './components/AdminPanel'
 
 const NETDATA_BASE = 'https://netdata.camerontora.ca'
 
@@ -165,6 +166,10 @@ export function App() {
 
         <div class="mb-8">
           <DNSPanel dns={status?.dns} />
+        </div>
+
+        <div class="mb-8">
+          <AdminPanel />
         </div>
 
         <ServiceGrid services={status?.services || []} />

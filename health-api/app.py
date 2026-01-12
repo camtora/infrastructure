@@ -2,10 +2,13 @@
 """
 Health API for external monitoring.
 Exposes system metrics, Plex status, and speed test results.
+Also provides admin endpoints for VPN management (OAuth protected via nginx).
 """
 
 import json
 import os
+import re
+import subprocess
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
@@ -14,8 +17,17 @@ import docker
 import psutil
 import requests
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 app = Flask(__name__)
+
+# Enable CORS for admin endpoints (dashboard on monitor.camerontora.ca)
+CORS(app, resources={
+    r"/api/admin/*": {
+        "origins": ["https://monitor.camerontora.ca"],
+        "supports_credentials": True
+    }
+})
 
 # Configuration
 API_KEY = os.environ.get("HEALTH_API_KEY", "")
@@ -23,6 +35,18 @@ PLEX_URL = os.environ.get("PLEX_URL", "http://host.docker.internal:32400")
 PLEX_TOKEN = os.environ.get("PLEX_TOKEN", "")
 SPEEDTEST_FILE = os.environ.get("SPEEDTEST_FILE", "/data/speedtest.json")
 HOST_URL = "http://host.docker.internal"
+
+# Admin configuration
+ADMIN_EMAILS = os.environ.get("ADMIN_EMAILS", "camerontora@gmail.com").split(",")
+DOCKER_COMPOSE_FILE = "/docker-services/docker-compose.yaml"
+NGINX_TRANSMISSION_CONF = "/nginx-conf/10-protected-services.conf"
+
+# VPN location configuration
+VPN_LOCATIONS = {
+    "toronto": {"container": "gluetun-toronto", "port": 9091},
+    "montreal": {"container": "gluetun-montreal", "port": 9092},
+    "vancouver": {"container": "gluetun-vancouver", "port": 9093},
+}
 
 # Service checks: map service names to container names and local ports
 # These match the services monitored by the status dashboard
@@ -316,8 +340,230 @@ def root():
             "/api/health/ping": "Simple liveness check",
             "/api/health/public-ip": "Public IP address (requires API key)",
             "/api/health/services": "Internal service status - container + local port (requires API key)",
+            "/api/admin/whoami": "Check authentication status (OAuth protected)",
+            "/api/admin/vpn/status": "Get VPN location status (OAuth protected)",
+            "/api/admin/vpn/switch": "Switch VPN location (OAuth protected, POST)",
         }
     })
+
+
+# ============== ADMIN ENDPOINTS ==============
+# These are protected by OAuth via nginx (X-Forwarded-Email header)
+
+def require_admin(f):
+    """Decorator to require admin authentication via OAuth."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        email = request.headers.get("X-Forwarded-Email", "")
+        if not email:
+            return jsonify({"error": "Not authenticated"}), 401
+        if ADMIN_EMAILS and email not in ADMIN_EMAILS:
+            return jsonify({"error": "Not authorized", "email": email}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route("/api/admin/whoami")
+def admin_whoami():
+    """Check authentication status. Returns user email if authenticated."""
+    email = request.headers.get("X-Forwarded-Email", "")
+    if not email:
+        return jsonify({"authenticated": False}), 401
+
+    is_admin = email in ADMIN_EMAILS if ADMIN_EMAILS else True
+    return jsonify({
+        "authenticated": True,
+        "email": email,
+        "is_admin": is_admin,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route("/api/admin/vpn/status")
+@require_admin
+def admin_vpn_status():
+    """Get current VPN status - which location is active and health of all locations."""
+    client = get_docker_client()
+    if not client:
+        return jsonify({"error": "Docker unavailable"}), 500
+
+    # Determine which gluetun container transmission is using
+    active_location = None
+    try:
+        transmission = client.containers.get("transmission")
+        network_mode = transmission.attrs.get("HostConfig", {}).get("NetworkMode", "")
+
+        # Network mode is "container:<id>" - get the container name
+        if network_mode.startswith("container:"):
+            container_id = network_mode.replace("container:", "")
+            try:
+                vpn_container = client.containers.get(container_id)
+                vpn_name = vpn_container.name
+                # Map container name to location
+                for loc, config in VPN_LOCATIONS.items():
+                    if config["container"] == vpn_name:
+                        active_location = loc
+                        break
+            except docker.errors.NotFound:
+                # VPN container was removed/recreated
+                active_location = "unknown"
+    except docker.errors.NotFound:
+        pass  # Transmission not running
+
+    # Get health status of all VPN containers
+    locations = []
+    for loc, config in VPN_LOCATIONS.items():
+        container_name = config["container"]
+        try:
+            container = client.containers.get(container_name)
+            status = container.status
+            health = container.attrs.get("State", {}).get("Health", {}).get("Status")
+            is_healthy = status == "running" and health in ("healthy", None)
+        except docker.errors.NotFound:
+            status = "not_found"
+            health = None
+            is_healthy = False
+
+        locations.append({
+            "name": loc,
+            "container": container_name,
+            "port": config["port"],
+            "status": status,
+            "health": health,
+            "healthy": is_healthy,
+            "active": loc == active_location,
+        })
+
+    return jsonify({
+        "active_location": active_location,
+        "locations": locations,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route("/api/admin/vpn/switch", methods=["POST"])
+@require_admin
+def admin_vpn_switch():
+    """Switch VPN location for Transmission."""
+    data = request.get_json() or {}
+    target = data.get("location", "").lower()
+
+    if target not in VPN_LOCATIONS:
+        return jsonify({
+            "error": f"Invalid location: {target}",
+            "valid_locations": list(VPN_LOCATIONS.keys())
+        }), 400
+
+    target_config = VPN_LOCATIONS[target]
+    target_container = target_config["container"]
+    target_port = target_config["port"]
+
+    email = request.headers.get("X-Forwarded-Email", "unknown")
+    steps_completed = []
+
+    try:
+        # Step 1: Update docker-compose.yaml
+        if not Path(DOCKER_COMPOSE_FILE).exists():
+            return jsonify({"error": f"Docker compose file not found: {DOCKER_COMPOSE_FILE}"}), 500
+
+        with open(DOCKER_COMPOSE_FILE, "r") as f:
+            compose_content = f.read()
+
+        # Update network_mode line
+        new_content = re.sub(
+            r'network_mode:\s*"service:gluetun-\w+"',
+            f'network_mode: "service:{target_container}"',
+            compose_content
+        )
+
+        # Update depends_on line for transmission
+        new_content = re.sub(
+            r'(transmission:.*?depends_on:\s*\n\s*-\s*)gluetun-\w+',
+            f'\\1{target_container}',
+            new_content,
+            flags=re.DOTALL
+        )
+
+        with open(DOCKER_COMPOSE_FILE, "w") as f:
+            f.write(new_content)
+        steps_completed.append("Updated docker-compose.yaml")
+
+        # Step 2: Recreate transmission container
+        result = subprocess.run(
+            ["docker-compose", "-f", DOCKER_COMPOSE_FILE, "up", "-d", "transmission"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode != 0:
+            return jsonify({
+                "error": "Failed to recreate transmission",
+                "stderr": result.stderr,
+                "steps_completed": steps_completed
+            }), 500
+        steps_completed.append("Recreated transmission container")
+
+        # Step 3: Update nginx config
+        if not Path(NGINX_TRANSMISSION_CONF).exists():
+            return jsonify({"error": f"Nginx config not found: {NGINX_TRANSMISSION_CONF}"}), 500
+
+        with open(NGINX_TRANSMISSION_CONF, "r") as f:
+            nginx_content = f.read()
+
+        # Update the transmission proxy_pass port
+        new_nginx = re.sub(
+            r'(# ============== TRANSMISSION ==============.*?proxy_pass http://host\.docker\.internal:)\d+',
+            f'\\g<1>{target_port}',
+            nginx_content,
+            flags=re.DOTALL
+        )
+
+        # Update the comment about which VPN
+        new_nginx = re.sub(
+            r'(proxy_pass http://host\.docker\.internal:\d+;)\s*#.*',
+            f'\\1  # {target.capitalize()} VPN',
+            new_nginx
+        )
+
+        with open(NGINX_TRANSMISSION_CONF, "w") as f:
+            f.write(new_nginx)
+        steps_completed.append("Updated nginx config")
+
+        # Step 4: Reload nginx
+        result = subprocess.run(
+            ["docker", "exec", "nginx-proxy", "nginx", "-s", "reload"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            return jsonify({
+                "error": "Failed to reload nginx",
+                "stderr": result.stderr,
+                "steps_completed": steps_completed
+            }), 500
+        steps_completed.append("Reloaded nginx")
+
+        return jsonify({
+            "success": True,
+            "message": f"Switched VPN to {target}",
+            "new_location": target,
+            "new_port": target_port,
+            "steps_completed": steps_completed,
+            "switched_by": email,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "error": "Command timed out",
+            "steps_completed": steps_completed
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "steps_completed": steps_completed
+        }), 500
 
 
 if __name__ == "__main__":

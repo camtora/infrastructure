@@ -105,6 +105,7 @@ services:
   # ============== HEALTH API ==============
   # External monitoring endpoint for GCP Cloud Run
   # Exposes system metrics, Plex status, and speed test results
+  # Also provides admin endpoints for VPN management (OAuth protected)
   health-api:
     build: ./health-api
     container_name: health-api
@@ -127,8 +128,11 @@ services:
       - /HOMENAS:/hostfs/HOMENAS:ro
       # Mount /proc for CPU/memory stats
       - /proc:/host/proc:ro
-      # Docker socket for container status checks
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Docker socket for container management (admin features)
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Config files for VPN switching (admin features)
+      - /home/camerontora/docker-services:/docker-services
+      - /home/camerontora/infrastructure/nginx/conf.d:/nginx-conf
     environment:
       - HEALTH_API_KEY=${HEALTH_API_KEY:-}
       - PLEX_URL=http://host.docker.internal:32400
@@ -136,6 +140,8 @@ services:
       - SPEEDTEST_FILE=/data/speedtest.json
       # Tell psutil to use host's /proc
       - HOST_PROC=/host/proc
+      # Admin configuration
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-camerontora@gmail.com,cameron.tora@gmail.com}
 
 volumes:
   nginx-logs:
