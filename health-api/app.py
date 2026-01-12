@@ -411,6 +411,12 @@ def admin_vpn_status():
         pass  # Transmission not running
 
     # Get health status of all VPN containers
+    # Note: gluetun's Docker health check is unreliable, so we check:
+    # 1. Container is running
+    # 2. Speed test data (if available) shows it's working
+    speedtest_data = get_speedtest_results()
+    vpn_speedtest = speedtest_data.get("vpn", {}) if isinstance(speedtest_data, dict) else {}
+
     locations = []
     for loc, config in VPN_LOCATIONS.items():
         container_name = config["container"]
@@ -418,18 +424,31 @@ def admin_vpn_status():
             container = client.containers.get(container_name)
             status = container.status
             health = container.attrs.get("State", {}).get("Health", {}).get("Status")
-            is_healthy = status == "running" and health in ("healthy", None)
+            is_running = status == "running"
+
+            # Check speed test data for actual VPN health
+            speedtest_status = None
+            for vpn_name, vpn_data in vpn_speedtest.items():
+                if vpn_name.lower() == loc.lower():
+                    speedtest_status = vpn_data.get("status")
+                    break
+
+            # Healthy if running AND (speedtest says healthy OR no speedtest data)
+            is_healthy = is_running and speedtest_status in ("healthy", None)
         except docker.errors.NotFound:
             status = "not_found"
             health = None
+            is_running = False
             is_healthy = False
+            speedtest_status = None
 
         locations.append({
             "name": loc,
             "container": container_name,
             "port": config["port"],
             "status": status,
-            "health": health,
+            "docker_health": health,
+            "speedtest_status": speedtest_status,
             "healthy": is_healthy,
             "active": loc == active_location,
         })
