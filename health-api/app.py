@@ -599,6 +599,25 @@ def admin_vpn_switch():
             }), 500
         steps_completed.append("Reloaded nginx")
 
+        # Step 5: Update speedtest.json to reflect new active VPN immediately
+        try:
+            speedtest_path = Path(SPEEDTEST_FILE)
+            if speedtest_path.exists():
+                with open(speedtest_path, "r") as f:
+                    speedtest_data = json.load(f)
+
+                # Update active flags for all VPN locations
+                if "vpn" in speedtest_data:
+                    for vpn_name, vpn_data in speedtest_data["vpn"].items():
+                        vpn_data["active"] = vpn_name.lower() == target.lower()
+
+                    with open(speedtest_path, "w") as f:
+                        json.dump(speedtest_data, f, indent=2)
+                    steps_completed.append("Updated speedtest.json active status")
+        except Exception as e:
+            # Non-fatal - speedtest will update on next run
+            steps_completed.append(f"Note: Could not update speedtest.json: {e}")
+
         return jsonify({
             "success": True,
             "message": f"Switched VPN to {target}",
