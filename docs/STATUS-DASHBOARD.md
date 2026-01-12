@@ -393,10 +393,41 @@ npm run dev
 2. Check browser console for errors
 3. Verify admin-api-key secret in GCP matches your key
 
+## Historical Data (Phase 3)
+
+The dashboard stores status snapshots to Firestore every 5 minutes, enabling historical uptime tracking.
+
+### Data Stored
+- Service status (up/down) per check
+- Response times
+- System metrics (CPU, RAM, load)
+- Speed test results
+
+### Uptime History Panel
+- Shows colored bars for each service over time
+- Toggle between 24 hours and 7 days view
+- Green = operational, Red = down, Gray = no data
+- Displays uptime percentage per service
+
+### API Endpoint
+```
+GET /api/history?hours=24&service=Plex
+```
+
+Returns timeline and uptime statistics for the specified service and time range.
+
+### Data Retention
+- Snapshots stored with minute precision
+- Cleanup function available for old data (default: 7 days)
+- Firestore free tier: 1GB storage, 50K reads/day
+
+### GCP Setup
+Firestore must be enabled in Native mode:
+1. Go to https://console.cloud.google.com/firestore
+2. Create Database → Native mode → us-central1
+
 ## Future Enhancements (Phase 4)
 
 - VPN location switching from dashboard
 - Auto-failover after N consecutive failures
-- Docker container status monitoring
 - SSL certificate expiry warnings
-- Historical data and charts (Firestore)
