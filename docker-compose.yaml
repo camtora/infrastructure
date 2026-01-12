@@ -17,6 +17,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/html:/usr/share/nginx/html:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/acme:/var/www/acme:ro  # ACME challenge for certbot webroot
       - nginx-logs:/var/log/nginx
     depends_on:
       - oauth2-proxy

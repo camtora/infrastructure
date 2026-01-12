@@ -60,11 +60,13 @@ All subdomains share a single certificate managed by certbot.
 ### Certificate Details
 - **Name**: `camerontora-services`
 - **Location**: `/etc/letsencrypt/live/camerontora-services/`
-- **Method**: Apache plugin (handles ACME challenges)
+- **Method**: Webroot (nginx stays running during renewal)
+- **Webroot**: `/var/www/acme`
 
 ### Current Domains
 ```
 camerontora.ca
+www.camerontora.ca
 emby.camerontora.ca
 haymaker.camerontora.ca
 health.camerontora.ca
@@ -84,18 +86,15 @@ watchmap.camerontora.ca
 
 ### Adding a New Subdomain to the Certificate
 
-**IMPORTANT**:
-1. You must list ALL existing domains plus the new one. Missing a domain will REMOVE it from the certificate.
-2. You must stop nginx-proxy first (it binds port 80, blocking Apache/certbot).
+**IMPORTANT**: You must list ALL existing domains plus the new one. Missing a domain will REMOVE it from the certificate.
 
 ```bash
-# Stop nginx first
-docker stop nginx-proxy
-
-# Run certbot
-sudo certbot --apache --expand \
+# No need to stop nginx! Webroot mode works with nginx running.
+sudo certbot certonly --webroot \
+  -w /var/www/acme \
   --cert-name camerontora-services \
   -d camerontora.ca \
+  -d www.camerontora.ca \
   -d emby.camerontora.ca \
   -d haymaker.camerontora.ca \
   -d health.camerontora.ca \
@@ -113,9 +112,15 @@ sudo certbot --apache --expand \
   -d watchmap.camerontora.ca \
   -d NEW_SUBDOMAIN.camerontora.ca
 
-# Restart nginx after cert is updated
-docker start nginx-proxy
+# Reload nginx to pick up new cert
+docker exec nginx-proxy nginx -s reload
 ```
+
+### How Webroot Mode Works
+1. Nginx serves `/.well-known/acme-challenge/` from `/var/www/acme` (configured in `00-http-redirect.conf`)
+2. Certbot writes challenge files to `/var/www/acme/.well-known/acme-challenge/`
+3. Let's Encrypt verifies the challenge via HTTP
+4. No downtime - nginx stays running throughout
 
 ### Checking Current Certificate
 ```bash
