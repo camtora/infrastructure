@@ -26,8 +26,14 @@ from backend.services.dns_manager import get_cached_dns_state, failover_dns
 from backend.services.discord import send_discord_alert, notify_failover
 from backend.config import ADMIN_API_KEY
 
-# Determine static folder path (Docker uses /app/static, dev uses ../frontend/dist)
-static_folder = '../static' if os.path.exists('../static') else '../frontend/dist'
+# Determine static folder path
+# In Docker: /app/static
+# In dev: relative to this file's directory
+_dir = os.path.dirname(os.path.abspath(__file__))
+if os.path.exists('/app/static'):
+    static_folder = '/app/static'
+else:
+    static_folder = os.path.join(_dir, '..', 'frontend', 'dist')
 app = Flask(__name__, static_folder=static_folder, static_url_path='')
 
 

@@ -33,5 +33,5 @@ ENV PYTHONPATH=/app
 # Expose port
 EXPOSE 8080
 
-# Run with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "backend.main:app"]
+# Run with gunicorn (1 worker to save memory on Cloud Run)
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "2", "--timeout", "120", "backend.main:app"]
