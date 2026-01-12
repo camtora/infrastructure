@@ -153,10 +153,38 @@ def get_load_average():
     }
 
 
+def get_public_ip():
+    """Get public IP address using external service."""
+    services = [
+        "https://api.ipify.org",
+        "https://ifconfig.me/ip",
+        "https://icanhazip.com",
+    ]
+    for service in services:
+        try:
+            resp = requests.get(service, timeout=5)
+            resp.raise_for_status()
+            ip = resp.text.strip()
+            if ip:
+                return {"ip": ip, "source": service}
+        except requests.exceptions.RequestException:
+            continue
+    return {"error": "Could not determine public IP"}
+
+
 @app.route("/api/health/ping")
 def ping():
     """Simple liveness check - no auth required."""
     return jsonify({"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()})
+
+
+@app.route("/api/health/public-ip")
+@require_api_key
+def public_ip():
+    """Get public IP address - for DNS failback."""
+    result = get_public_ip()
+    result["timestamp"] = datetime.now(timezone.utc).isoformat()
+    return jsonify(result)
 
 
 @app.route("/api/health")
@@ -182,6 +210,7 @@ def root():
         "endpoints": {
             "/api/health": "Full health status (requires API key)",
             "/api/health/ping": "Simple liveness check",
+            "/api/health/public-ip": "Public IP address (requires API key)",
         }
     })
 

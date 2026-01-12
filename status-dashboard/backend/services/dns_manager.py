@@ -12,6 +12,8 @@ from backend.config import (
     GODADDY_DOMAIN,
     DNS_RECORDS,
     GCP_IP,
+    HEALTH_API_URL,
+    HEALTH_API_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,6 +102,31 @@ def get_cached_dns_state() -> dict[str, Any]:
     return result
 
 
+def _get_home_ip() -> dict[str, Any]:
+    """Fetch current public IP from home server via health-api."""
+    if not HEALTH_API_KEY:
+        return {"error": "HEALTH_API_KEY not configured"}
+
+    try:
+        # Use the base URL but call the public-ip endpoint
+        base_url = HEALTH_API_URL.replace("/api/health", "")
+        resp = requests.get(
+            f"{base_url}/api/health/public-ip",
+            headers={"X-API-Key": HEALTH_API_KEY},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        if "error" in data:
+            return {"error": data["error"]}
+
+        return {"ip": data.get("ip")}
+
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Failed to reach home server: {str(e)[:50]}"}
+
+
 def failover_dns(target: str, reason: str = "") -> dict[str, Any]:
     """
     Failover DNS to home or GCP.
@@ -132,15 +159,14 @@ def failover_dns(target: str, reason: str = "") -> dict[str, Any]:
         if target == "gcp":
             new_ip = GCP_IP
         else:
-            # For home, we need the home IP - if we're currently on GCP,
-            # we might not know the home IP. This should be stored/configured.
-            # For now, return error if we don't have it
-            if current.get("target") == "gcp":
+            # For home, fetch current public IP from health-api
+            home_result = _get_home_ip()
+            if "error" in home_result:
                 return {
                     "success": False,
-                    "error": "Cannot determine home IP - currently on GCP. Please configure HOME_IP.",
+                    "error": f"Cannot get home IP: {home_result['error']}. Is the home server reachable?",
                 }
-            new_ip = previous_ip  # Already on home
+            new_ip = home_result["ip"]
 
         if new_ip == previous_ip:
             return {
