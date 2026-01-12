@@ -99,8 +99,8 @@ The dashboard calls `health.camerontora.ca/api/health` to collect:
 - **CPU:** Current usage percentage
 - **Memory:** Current usage percentage
 - **Load Average:** 1m, 5m, 15m averages
-- **Disks:** Usage for /, /home, /var, /CAMRAID, /HOMENAS
-- **Speed Test:** Results from home + VPN locations
+- **Disks:** Usage for /, /home, /var, /tmp, /dev (RAM), /CAMRAID, /HOMENAS
+- **Speed Test:** Results from home + VPN locations (with active indicator)
 - **Plex:** Library count and reachability
 
 ### Overall Status Logic
@@ -264,10 +264,13 @@ tail -f /var/log/speedtest.log
 
 ### VPN Locations Tested
 - gluetun-montreal
-- gluetun-toronto
-- gluetun-vancouver
+- gluetun-toronto (currently active for Transmission)
+- gluetun-vancouver (unhealthy - DNS issues)
 
-The script automatically discovers and tests all running `gluetun-*` containers.
+The script tests all 3 locations and shows:
+- **Status:** healthy/unhealthy/stopped
+- **Active indicator:** Shows which VPN Transmission is using
+- **Speed:** Download speed when healthy
 
 ## DNS Failover
 
@@ -425,9 +428,21 @@ Returns timeline and uptime statistics for the specified service and time range.
 Firestore must be enabled in Native mode:
 1. Go to https://console.cloud.google.com/firestore
 2. Create Database → Native mode → us-central1
+3. Grant Firestore access to Cloud Run service account:
+   ```bash
+   gcloud projects add-iam-policy-binding cameron-tora \
+     --member="serviceAccount:848530510810-compute@developer.gserviceaccount.com" \
+     --role="roles/datastore.user"
+   ```
+4. Redeploy Cloud Run service to pick up new permissions
 
 ## Future Enhancements (Phase 4)
 
 - VPN location switching from dashboard
 - Auto-failover after N consecutive failures
 - SSL certificate expiry warnings
+- **Integrate into camerontora.ca:** Replace Uptime Kuma status widget
+  - Update StatusIndicator component to fetch from monitor.camerontora.ca/api/status
+  - Display overall status with service count
+  - Link to full dashboard for details
+  - Deprecate status.camerontora.ca (Uptime Kuma)
