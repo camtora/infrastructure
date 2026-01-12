@@ -49,30 +49,30 @@ else
     log "✗ Home speedtest failed"
 fi
 
-# Run VPN speedtest through gluetun-vancouver (using Docker)
-log "Running VPN speedtest (Vancouver)..."
-VPN_RESULT="null"
-if docker ps --format '{{.Names}}' | grep -q '^gluetun-vancouver$'; then
-    # Use a lightweight speedtest Docker image through VPN network
-    if output=$(docker run --rm --network=container:gluetun-vancouver appropriate/curl -s "https://speed.cloudflare.com/__down?bytes=25000000" -w '{"time": %{time_total}}' -o /dev/null 2>/dev/null); then
-        # Cloudflare speed test - rough estimate
+# Run VPN speedtest for all active gluetun containers
+log "Checking for active VPN containers..."
+VPN_RESULTS="{}"
+
+for container in $(docker ps --format '{{.Names}}' | grep '^gluetun-' | sort); do
+    location=$(echo "$container" | sed 's/gluetun-//' | sed 's/.*/\u&/')  # Capitalize first letter
+    log "Running VPN speedtest ($location)..."
+
+    if output=$(docker run --rm --network=container:$container appropriate/curl -s "https://speed.cloudflare.com/__down?bytes=25000000" -w '{"time": %{time_total}}' -o /dev/null 2>/dev/null); then
         time_sec=$(echo "$output" | jq -r '.time // 1')
         download_mbps=$(echo "scale=2; (25 * 8) / $time_sec" | bc)
-        VPN_RESULT="{\"download\": $download_mbps, \"upload\": null, \"ping\": null, \"server\": \"Cloudflare\", \"location\": \"Vancouver VPN\"}"
-        log "✓ VPN (Vancouver): Download≈${download_mbps}Mbps (estimate)"
+        VPN_RESULTS=$(echo "$VPN_RESULTS" | jq --arg loc "$location" --argjson dl "$download_mbps" '. + {($loc): {"download": $dl, "upload": null, "ping": null}}')
+        log "✓ VPN ($location): Download≈${download_mbps}Mbps"
     else
-        log "✗ VPN speedtest failed"
+        log "✗ VPN ($location) speedtest failed"
     fi
-else
-    log "⚠ gluetun-vancouver not running, skipping VPN test"
-fi
+done
 
 # Build final JSON
 cat > "$OUTPUT_FILE" << EOF
 {
   "timestamp": "$TIMESTAMP",
   "home": $HOME_RESULT,
-  "vpn": $VPN_RESULT
+  "vpn": $VPN_RESULTS
 }
 EOF
 

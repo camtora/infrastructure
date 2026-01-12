@@ -26,13 +26,18 @@ export function SpeedPanel({ speedTest }) {
           />
         )}
 
-        {vpn && vpn.download && (
-          <SpeedSection
-            title={vpn.location || "VPN"}
-            download={vpn.download}
-            upload={vpn.upload}
-            ping={vpn.ping}
-          />
+        {vpn && typeof vpn === 'object' && Object.keys(vpn).length > 0 && (
+          Object.entries(vpn).map(([location, data]) => (
+            data && data.download && (
+              <SpeedSection
+                key={location}
+                title={`VPN ${location}`}
+                download={data.download}
+                upload={data.upload}
+                ping={data.ping}
+              />
+            )
+          ))
         )}
 
         {speedTest.timestamp && (
