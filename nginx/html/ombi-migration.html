@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upgraded to Overseerr</title>
+    <link rel="icon" href="https://overseerr.camerontora.ca/favicon.ico" type="image/x-icon">
     <style>
         * {
             margin: 0;
@@ -101,7 +102,7 @@
 
         .feature-list {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             justify-content: center;
             gap: 0.75rem;
         }
@@ -112,6 +113,23 @@
             border-radius: 9999px;
             font-size: 0.875rem;
             color: #cbd5e1;
+        }
+
+        .deprecation-notice {
+            margin-top: 1.5rem;
+            font-size: 0.8125rem;
+            color: #f59e0b;
+        }
+
+        .deprecation-notice strong {
+            color: #fbbf24;
+        }
+
+        .thank-you {
+            margin-top: 1rem;
+            font-size: 0.8125rem;
+            color: #64748b;
+            font-style: italic;
         }
 
         .mobile-tip {
@@ -187,10 +205,18 @@
             <div class="feature-list">
                 <span class="feature">Modern UI</span>
                 <span class="feature">Faster</span>
-                <span class="feature">Plex Integration</span>
                 <span class="feature">Better Recommendations</span>
             </div>
         </div>
+
+        <p class="deprecation-notice">
+            Ombi will be retired on <strong>February 1st, 2026</strong>. Please switch to Overseerr before then.
+        </p>
+
+        <p class="thank-you">
+            Thanks for using this instead of texting me every time you want something added. You're the best.
+            <br>— Cam
+        </p>
 
         <div class="mobile-tip">
             <h3>
