@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'preact/hooks'
+
 export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnMessage, onSwitchVpn }) {
   if (!speedTest || speedTest.error) {
     return (
@@ -77,9 +79,32 @@ export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnM
 }
 
 function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSwitch }) {
+  const [confirming, setConfirming] = useState(false)
+
   const status = data?.status || (data?.download ? 'healthy' : 'unknown')
   const isActive = data?.active === true
   const canSwitch = isAdmin && !isActive && adminInfo?.healthy && !isSwitching
+
+  // Auto-reset confirm state after 3 seconds
+  useEffect(() => {
+    if (confirming) {
+      const timer = setTimeout(() => setConfirming(false), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [confirming])
+
+  // Reset confirm state when switching starts
+  useEffect(() => {
+    if (isSwitching) setConfirming(false)
+  }, [isSwitching])
+
+  const handleClick = () => {
+    if (confirming) {
+      onSwitch()
+    } else {
+      setConfirming(true)
+    }
+  }
 
   const statusConfig = {
     healthy: { color: 'bg-emerald-400', textColor: 'text-emerald-400', label: 'Healthy' },
@@ -140,11 +165,13 @@ function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSw
 
         {isAdmin && !isActive && (
           <button
-            onClick={onSwitch}
-            disabled={!canSwitch}
+            onClick={handleClick}
+            disabled={!canSwitch && !confirming}
             class={`text-xs px-2 py-1 rounded transition-all ${
               isSwitching
                 ? 'bg-amber-500/20 text-amber-400 cursor-wait'
+                : confirming
+                ? 'bg-orange-500/30 text-orange-300 border border-orange-500/50 animate-pulse'
                 : canSwitch
                 ? 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border border-violet-500/30'
                 : 'bg-white/5 text-white/30 cursor-not-allowed'
@@ -158,7 +185,7 @@ function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSw
                 </svg>
                 Switching
               </span>
-            ) : 'Switch'}
+            ) : confirming ? 'Confirm?' : 'Switch'}
           </button>
         )}
       </div>

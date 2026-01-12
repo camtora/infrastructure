@@ -98,10 +98,6 @@ export function App() {
 
   // Switch VPN location
   const switchVpn = async (location) => {
-    if (!confirm(`Switch Transmission to ${location}?\n\nThis will briefly interrupt active downloads.`)) {
-      return
-    }
-
     setVpnSwitching(location)
     setVpnMessage(null)
 
