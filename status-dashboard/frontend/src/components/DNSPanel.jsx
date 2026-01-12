@@ -10,19 +10,22 @@ export function DNSPanel({ dns }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingTarget, setPendingTarget] = useState(null)
 
-  if (!dns) {
+  if (!dns || dns.error) {
     return (
       <div class="bg-gray-800 rounded-lg p-6">
         <h2 class="text-xl font-semibold text-white mb-4">DNS Status</h2>
-        <p class="text-gray-400">DNS information unavailable</p>
+        <p class="text-gray-400">
+          {dns?.error ? `Error: ${dns.error}` : 'DNS information unavailable'}
+        </p>
       </div>
     )
   }
 
   const isHome = dns.target === 'home'
-  const targetLabel = isHome ? 'Home Server' : 'GCP Cloud'
-  const targetColor = isHome ? 'text-green-400' : 'text-yellow-400'
-  const targetBg = isHome ? 'bg-green-500' : 'bg-yellow-500'
+  const hasTarget = dns.target !== undefined
+  const targetLabel = hasTarget ? (isHome ? 'Home Server' : 'GCP Cloud') : 'Unknown'
+  const targetColor = hasTarget ? (isHome ? 'text-green-400' : 'text-yellow-400') : 'text-gray-400'
+  const targetBg = hasTarget ? (isHome ? 'bg-green-500' : 'bg-yellow-500') : 'bg-gray-500'
 
   const saveAdminKey = (key) => {
     setAdminKey(key)
@@ -86,7 +89,7 @@ export function DNSPanel({ dns }) {
         </div>
         <div class="bg-gray-700/50 rounded-lg p-4">
           <p class="text-sm text-gray-400 mb-1">Records Updated</p>
-          <p class="text-white">{dns.records_count || 0} A records</p>
+          <p class="text-white">{dns.record_count || 0} A records</p>
         </div>
       </div>
 

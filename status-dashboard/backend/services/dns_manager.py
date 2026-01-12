@@ -84,13 +84,20 @@ def get_cached_dns_state() -> dict[str, Any]:
     """Get cached DNS state or fetch fresh if stale."""
     global _dns_cache, _dns_last_check
 
-    # Cache for 5 minutes to minimize API calls
+    # Cache for 10 minutes to minimize API calls (GoDaddy has strict rate limits)
     if _dns_last_check is not None:
         age = (datetime.now(timezone.utc) - _dns_last_check).total_seconds()
-        if age < 300 and _dns_cache:
+        if age < 600 and _dns_cache:
             return _dns_cache
 
-    return get_dns_records()
+    result = get_dns_records()
+
+    # If we hit rate limit but have cached data, return cached data
+    if "error" in result and "429" in str(result.get("error", "")) and _dns_cache:
+        logger.warning("GoDaddy rate limit hit, returning cached DNS state")
+        return {**_dns_cache, "cached": True, "cache_age_seconds": age if _dns_last_check else 0}
+
+    return result
 
 
 def failover_dns(target: str, reason: str = "") -> dict[str, Any]:

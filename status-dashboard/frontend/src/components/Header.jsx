@@ -49,8 +49,8 @@ export function Header({ status, lastUpdate, onRefresh }) {
         <div class="flex items-center gap-4">
           <div class="text-right text-sm text-gray-400">
             <p>{summary.services_up || 0} / {summary.services_total || 0} services up</p>
-            {summary.uptime_percent !== undefined && (
-              <p>{summary.uptime_percent}% uptime</p>
+            {lastUpdate && (
+              <p>Updated {lastUpdate.toLocaleTimeString()}</p>
             )}
           </div>
           <button

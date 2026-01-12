@@ -126,14 +126,15 @@ def run_health_check() -> dict[str, Any]:
         data = health.get("data", {})
 
         # Convert disk dict to array for frontend
+        # Health API returns *_gb fields, convert to bytes for frontend
         disk_data = data.get("disk", {})
         disks_array = []
         for mount, info in disk_data.items():
             disks_array.append({
                 "mount": mount,
-                "total": info.get("total"),
-                "used": info.get("used"),
-                "free": info.get("free"),
+                "total": info.get("total_gb", 0) * (1024**3) if info.get("total_gb") else None,
+                "used": info.get("used_gb", 0) * (1024**3) if info.get("used_gb") else None,
+                "free": info.get("free_gb", 0) * (1024**3) if info.get("free_gb") else None,
                 "percent": info.get("percent"),
             })
 
