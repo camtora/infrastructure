@@ -193,24 +193,32 @@ The script automatically discovers and tests all running `gluetun-*` containers.
 The dashboard includes manual DNS failover capability for disaster recovery.
 
 ### How It Works
+
+**Failover to GCP:**
 1. Enter admin key in dashboard (stored in localStorage)
 2. Click "Failover to GCP" button
-3. Dashboard calls GoDaddy API to update all A records
-4. All *.camerontora.ca traffic routes to GCP
-5. Visitors see the status dashboard with failover banner
+3. Dashboard calls GoDaddy API to update `@` and `monitor` A records
+4. Points to Google's anycast IP (`192.178.192.121`)
+5. Visitors to camerontora.ca see status dashboard with failover banner
+
+**Failback to Home:**
+1. Click "Switch to Home" button
+2. Dashboard calls health-api (`/api/health/public-ip`) to get current home IP
+3. Updates GoDaddy DNS with the fresh IP
+4. Works even if home IP changed during outage
+
+### DNS Records Managed
+```
+@, monitor
+```
+
+Only these two records are failed over. Other subdomains (plex, radarr, etc.) stay pointed at home and will timeout cleanly during an outage. This avoids SSL certificate warnings since Cloud Run only has a valid cert for `monitor.camerontora.ca`.
 
 ### Failover Banner
 When DNS points to GCP, the dashboard displays:
 ```
 ⚠️ camerontora.ca services are currently offline
 You've been redirected to this status page. We're working on restoring services.
-```
-
-### DNS Records Managed
-```
-@, ombi, plex, sonarr, radarr, tautulli, transmission,
-jackett, status, emby, jellyfin, overseerr, watchmap,
-haymaker, netdata, health
 ```
 
 ## Deployment
