@@ -1,9 +1,11 @@
 export function SpeedPanel({ speedTest }) {
-  if (!speedTest) {
+  if (!speedTest || speedTest.error) {
     return (
       <div class="bg-gray-800 rounded-lg p-6 h-full">
         <h2 class="text-xl font-semibold text-white mb-4">Speed Test</h2>
-        <p class="text-gray-400">Speed test data unavailable</p>
+        <p class="text-gray-400">
+          {speedTest?.error || 'Speed test data unavailable'}
+        </p>
       </div>
     )
   }
