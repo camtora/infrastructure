@@ -26,9 +26,9 @@ export function SpeedPanel({ speedTest }) {
           />
         )}
 
-        {vpn && (
+        {vpn && vpn.download && (
           <SpeedSection
-            title="VPN (Toronto)"
+            title={vpn.location || "VPN"}
             download={vpn.download}
             upload={vpn.upload}
             ping={vpn.ping}
