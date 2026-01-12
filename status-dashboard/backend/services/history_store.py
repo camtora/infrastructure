@@ -1,12 +1,16 @@
 """Historical data storage using Firestore."""
 
 import logging
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
+
+# GCP Project - use environment variable or default
+GCP_PROJECT = os.environ.get("GCP_PROJECT", "cameron-tora")
 
 # Firestore client (initialized lazily)
 _db = None
@@ -17,7 +21,8 @@ def get_db():
     global _db
     if _db is None:
         try:
-            _db = firestore.Client()
+            _db = firestore.Client(project=GCP_PROJECT)
+            logger.info(f"Initialized Firestore client for project: {GCP_PROJECT}")
         except Exception as e:
             logger.error(f"Failed to initialize Firestore: {e}")
             return None

@@ -1,24 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles */
+/* Base styles */
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glassmorphism card */
+.glass-card {
+  @apply bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-xl;
+  @apply transition-all duration-200;
+}
+
+.glass-card:hover {
+  @apply bg-white/[0.05] border-white/[0.1];
+}
+
+/* Status card with subtle hover */
 .status-card {
-  @apply bg-gray-800 rounded-lg p-4 transition-all duration-200;
+  @apply bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-xl p-4;
+  @apply transition-all duration-200;
 }
 
 .status-card:hover {
-  @apply bg-gray-700 transform scale-[1.02];
+  @apply bg-white/[0.06] border-white/[0.12] transform scale-[1.01];
 }
 
+/* Gauge ring animation */
 .gauge-ring {
   @apply transition-all duration-500 ease-out;
 }
 
-/* Pulse animation for status indicators */
-@keyframes pulse-green {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+/* Pulse animations for status */
+@keyframes pulse-emerald {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }
 }
 
 @keyframes pulse-red {
@@ -27,9 +69,36 @@
 }
 
 .status-pulse-green {
-  animation: pulse-green 2s ease-in-out infinite;
+  animation: pulse-emerald 2s ease-in-out infinite;
 }
 
 .status-pulse-red {
   animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent;
+}
+
+/* Gradient button */
+.btn-primary {
+  @apply bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-medium;
+  @apply px-4 py-2 rounded-lg transition-all duration-200;
+  @apply hover:brightness-110 hover:scale-[1.02];
+}
+
+.btn-secondary {
+  @apply bg-white/[0.05] border border-white/[0.1] text-white;
+  @apply px-4 py-2 rounded-lg transition-all duration-200;
+  @apply hover:bg-white/[0.1] hover:border-white/[0.2];
+}
+
+/* Subtle glow effect */
+.glow-emerald {
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.15);
+}
+
+.glow-red {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
 }

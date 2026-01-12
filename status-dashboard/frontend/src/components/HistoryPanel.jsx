@@ -18,7 +18,6 @@ export function HistoryPanel({ services }) {
     setLoading(true)
     const results = {}
 
-    // Fetch history for each service in parallel
     await Promise.all(
       services.map(async (svc) => {
         try {
@@ -38,7 +37,6 @@ export function HistoryPanel({ services }) {
     setLoading(false)
   }
 
-  // Group timeline into slots for display
   const getSlots = (timeline) => {
     if (!timeline || timeline.length === 0) return []
 
@@ -72,35 +70,35 @@ export function HistoryPanel({ services }) {
   const getSlotColor = (status) => {
     switch (status) {
       case 'up':
-        return 'bg-green-500'
+        return 'bg-emerald-400'
       case 'down':
-        return 'bg-red-500'
+        return 'bg-red-400'
       default:
-        return 'bg-gray-600'
+        return 'bg-white/10'
     }
   }
 
   return (
-    <div class="bg-gray-800 rounded-lg p-6">
+    <div class="glass-card p-6">
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-semibold text-white">Uptime History</h2>
+        <h2 class="text-lg font-medium text-white">Uptime History</h2>
         <div class="flex gap-2">
           <button
             onClick={() => setHours(24)}
-            class={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               hours === 24
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-black'
+                : 'bg-white/[0.05] border border-white/[0.1] text-white/70 hover:bg-white/[0.1]'
             }`}
           >
             24 hours
           </button>
           <button
             onClick={() => setHours(168)}
-            class={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               hours === 168
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-black'
+                : 'bg-white/[0.05] border border-white/[0.1] text-white/70 hover:bg-white/[0.1]'
             }`}
           >
             7 days
@@ -109,16 +107,16 @@ export function HistoryPanel({ services }) {
       </div>
 
       {loading ? (
-        <div class="space-y-3">
+        <div class="space-y-4">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} class="animate-pulse">
-              <div class="h-4 bg-gray-700 rounded w-24 mb-1" />
-              <div class="h-3 bg-gray-700 rounded" />
+              <div class="h-4 bg-white/[0.06] rounded w-28 mb-2" />
+              <div class="h-2 bg-white/[0.06] rounded" />
             </div>
           ))}
         </div>
       ) : (
-        <div class="space-y-4">
+        <div class="space-y-5">
           {services.map((svc) => {
             const svcHistory = history[svc.name]
             const slots = svcHistory ? getSlots(svcHistory.timeline) : []
@@ -126,15 +124,15 @@ export function HistoryPanel({ services }) {
 
             return (
               <div key={svc.name}>
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-sm text-gray-300">{svc.name}</span>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm text-white/70">{svc.name}</span>
                   {uptime !== undefined && (
                     <span
-                      class={`text-xs font-medium ${
+                      class={`text-xs font-medium tabular-nums ${
                         uptime >= 99.5
-                          ? 'text-green-400'
+                          ? 'text-emerald-400'
                           : uptime >= 95
-                          ? 'text-yellow-400'
+                          ? 'text-amber-400'
                           : 'text-red-400'
                       }`}
                     >
@@ -142,17 +140,17 @@ export function HistoryPanel({ services }) {
                     </span>
                   )}
                 </div>
-                <div class="flex gap-px h-3">
+                <div class="flex gap-px h-2">
                   {slots.length > 0 ? (
                     slots.map((status, i) => (
                       <div
                         key={i}
-                        class={`flex-1 rounded-sm ${getSlotColor(status)}`}
+                        class={`flex-1 rounded-[2px] ${getSlotColor(status)} transition-colors`}
                         title={`${status === 'unknown' ? 'No data' : status}`}
                       />
                     ))
                   ) : (
-                    <div class="flex-1 h-3 bg-gray-700 rounded text-xs text-gray-500 flex items-center justify-center">
+                    <div class="flex-1 h-2 bg-white/[0.06] rounded text-[10px] text-white/30 flex items-center justify-center">
                       No history yet
                     </div>
                   )}
@@ -163,22 +161,22 @@ export function HistoryPanel({ services }) {
         </div>
       )}
 
-      <div class="flex justify-between text-xs text-gray-500 mt-4">
+      <div class="flex justify-between text-xs text-white/30 mt-5">
         <span>{hours === 24 ? '24 hours' : '7 days'} ago</span>
         <span>now</span>
       </div>
 
-      <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-700">
-        <div class="flex items-center gap-2 text-xs text-gray-400">
-          <span class="w-3 h-3 rounded-sm bg-green-500" />
+      <div class="flex items-center gap-6 mt-5 pt-5 border-t border-white/[0.06]">
+        <div class="flex items-center gap-2 text-xs text-white/50">
+          <span class="w-3 h-2 rounded-sm bg-emerald-400" />
           <span>Operational</span>
         </div>
-        <div class="flex items-center gap-2 text-xs text-gray-400">
-          <span class="w-3 h-3 rounded-sm bg-red-500" />
+        <div class="flex items-center gap-2 text-xs text-white/50">
+          <span class="w-3 h-2 rounded-sm bg-red-400" />
           <span>Down</span>
         </div>
-        <div class="flex items-center gap-2 text-xs text-gray-400">
-          <span class="w-3 h-3 rounded-sm bg-gray-600" />
+        <div class="flex items-center gap-2 text-xs text-white/50">
+          <span class="w-3 h-2 rounded-sm bg-white/10" />
           <span>No data</span>
         </div>
       </div>

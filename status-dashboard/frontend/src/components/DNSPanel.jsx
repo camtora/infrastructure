@@ -12,9 +12,9 @@ export function DNSPanel({ dns }) {
 
   if (!dns || dns.error) {
     return (
-      <div class="bg-gray-800 rounded-lg p-6">
-        <h2 class="text-xl font-semibold text-white mb-4">DNS Status</h2>
-        <p class="text-gray-400">
+      <div class="glass-card p-6">
+        <h2 class="text-lg font-medium text-white mb-4">DNS Status</h2>
+        <p class="text-white/40 text-sm">
           {dns?.error ? `Error: ${dns.error}` : 'DNS information unavailable'}
         </p>
       </div>
@@ -24,8 +24,8 @@ export function DNSPanel({ dns }) {
   const isHome = dns.target === 'home'
   const hasTarget = dns.target !== undefined
   const targetLabel = hasTarget ? (isHome ? 'Home Server' : 'GCP Cloud') : 'Unknown'
-  const targetColor = hasTarget ? (isHome ? 'text-green-400' : 'text-yellow-400') : 'text-gray-400'
-  const targetBg = hasTarget ? (isHome ? 'bg-green-500' : 'bg-yellow-500') : 'bg-gray-500'
+  const targetColor = hasTarget ? (isHome ? 'text-emerald-400' : 'text-amber-400') : 'text-white/50'
+  const targetBg = hasTarget ? (isHome ? 'bg-emerald-400' : 'bg-amber-400') : 'bg-white/30'
 
   const saveAdminKey = (key) => {
     setAdminKey(key)
@@ -63,7 +63,6 @@ export function DNSPanel({ dns }) {
         throw new Error(data.error || 'Failover failed')
       }
 
-      // Reload page to refresh DNS state
       window.location.reload()
     } catch (err) {
       setFailoverError(err.message)
@@ -73,33 +72,33 @@ export function DNSPanel({ dns }) {
   }
 
   return (
-    <div class="bg-gray-800 rounded-lg p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold text-white">DNS Status</h2>
+    <div class="glass-card p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-lg font-medium text-white">DNS Status</h2>
         <div class="flex items-center gap-2">
-          <span class={`w-3 h-3 rounded-full ${targetBg}`}></span>
-          <span class={`font-medium ${targetColor}`}>{targetLabel}</span>
+          <span class={`w-2.5 h-2.5 rounded-full ${targetBg}`}></span>
+          <span class={`font-medium text-sm ${targetColor}`}>{targetLabel}</span>
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div class="bg-gray-700/50 rounded-lg p-4">
-          <p class="text-sm text-gray-400 mb-1">Current IP</p>
-          <p class="font-mono text-white">{dns.current_ip || 'Unknown'}</p>
+        <div class="bg-white/[0.03] border border-white/[0.06] rounded-lg p-4">
+          <p class="text-xs text-white/50 uppercase tracking-wider mb-2">Current IP</p>
+          <p class="font-mono text-white text-sm">{dns.current_ip || 'Unknown'}</p>
         </div>
-        <div class="bg-gray-700/50 rounded-lg p-4">
-          <p class="text-sm text-gray-400 mb-1">Records Updated</p>
-          <p class="text-white">{dns.record_count || 0} A records</p>
+        <div class="bg-white/[0.03] border border-white/[0.06] rounded-lg p-4">
+          <p class="text-xs text-white/50 uppercase tracking-wider mb-2">Records Updated</p>
+          <p class="text-white text-sm">{dns.record_count || 0} A records</p>
         </div>
       </div>
 
       {/* Admin Controls */}
-      <div class="border-t border-gray-700 pt-4">
+      <div class="border-t border-white/[0.06] pt-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-gray-400">Failover Controls</h3>
+          <h3 class="text-xs font-medium text-white/50 uppercase tracking-wider">Failover Controls</h3>
           <button
             onClick={() => setShowKeyInput(!showKeyInput)}
-            class="text-xs text-blue-400 hover:text-blue-300"
+            class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
           >
             {showKeyInput ? 'Hide' : 'Configure'} Admin Key
           </button>
@@ -112,14 +111,14 @@ export function DNSPanel({ dns }) {
               value={adminKey}
               onInput={(e) => saveAdminKey(e.target.value)}
               placeholder="Enter admin key"
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+              class="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.1] rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
             />
           </div>
         )}
 
         {failoverError && (
-          <div class="mb-4 p-3 bg-red-900/50 border border-red-500 rounded-lg">
-            <p class="text-sm text-red-200">{failoverError}</p>
+          <div class="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <p class="text-sm text-red-400">{failoverError}</p>
           </div>
         )}
 
@@ -127,12 +126,12 @@ export function DNSPanel({ dns }) {
           <button
             onClick={() => initiateFailover('home')}
             disabled={failoverLoading || isHome || !adminKey}
-            class={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+            class={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
               isHome
-                ? 'bg-green-900/50 text-green-400 cursor-not-allowed'
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 cursor-not-allowed'
                 : adminKey
-                ? 'bg-green-600 hover:bg-green-500 text-white'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-black'
+                : 'bg-white/[0.03] border border-white/[0.06] text-white/30 cursor-not-allowed'
             }`}
           >
             {isHome ? 'Currently Home' : 'Switch to Home'}
@@ -140,12 +139,12 @@ export function DNSPanel({ dns }) {
           <button
             onClick={() => initiateFailover('gcp')}
             disabled={failoverLoading || !isHome || !adminKey}
-            class={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+            class={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
               !isHome
-                ? 'bg-yellow-900/50 text-yellow-400 cursor-not-allowed'
+                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400 cursor-not-allowed'
                 : adminKey
-                ? 'bg-yellow-600 hover:bg-yellow-500 text-white'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                : 'bg-white/[0.03] border border-white/[0.06] text-white/30 cursor-not-allowed'
             }`}
           >
             {!isHome ? 'Currently GCP' : 'Failover to GCP'}
@@ -153,7 +152,7 @@ export function DNSPanel({ dns }) {
         </div>
 
         {!adminKey && (
-          <p class="text-xs text-gray-500 mt-2 text-center">
+          <p class="text-xs text-white/30 mt-3 text-center">
             Enter admin key to enable failover controls
           </p>
         )}
@@ -161,33 +160,33 @@ export function DNSPanel({ dns }) {
 
       {/* Confirmation Modal */}
       {showConfirm && (
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div class="bg-gray-800 rounded-lg p-6 max-w-md mx-4">
-            <h3 class="text-lg font-bold text-white mb-2">Confirm DNS Failover</h3>
-            <p class="text-gray-300 mb-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div class="glass-card p-6 max-w-md mx-4">
+            <h3 class="text-lg font-medium text-white mb-3">Confirm DNS Failover</h3>
+            <p class="text-white/70 text-sm mb-4">
               Are you sure you want to switch DNS to{' '}
-              <span class="font-bold">
+              <span class="font-semibold text-white">
                 {pendingTarget === 'home' ? 'Home Server' : 'GCP Cloud'}
               </span>
               ?
             </p>
-            <p class="text-sm text-gray-400 mb-6">
+            <p class="text-xs text-white/40 mb-6">
               This will update all camerontora.ca DNS records. Changes may take up to 10 minutes to propagate.
             </p>
             <div class="flex gap-3">
               <button
                 onClick={() => setShowConfirm(false)}
-                class="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white"
+                class="btn-secondary flex-1"
               >
                 Cancel
               </button>
               <button
                 onClick={executeFailover}
                 disabled={failoverLoading}
-                class={`flex-1 px-4 py-2 rounded-lg text-white font-medium ${
+                class={`flex-1 px-4 py-2 rounded-lg text-black font-medium transition-all ${
                   pendingTarget === 'gcp'
-                    ? 'bg-yellow-600 hover:bg-yellow-500'
-                    : 'bg-green-600 hover:bg-green-500'
+                    ? 'bg-amber-500 hover:bg-amber-400'
+                    : 'bg-emerald-500 hover:bg-emerald-400'
                 }`}
               >
                 {failoverLoading ? 'Processing...' : 'Confirm'}

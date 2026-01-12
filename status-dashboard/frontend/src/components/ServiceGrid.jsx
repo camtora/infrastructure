@@ -7,11 +7,11 @@ export function ServiceGrid({ services }) {
   const apiServices = services.filter(s => s.category === 'api')
 
   return (
-    <div class="space-y-8">
+    <div class="space-y-10">
       {publicServices.length > 0 && (
         <section>
-          <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+          <h2 class="text-sm font-medium text-white/50 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
             Public Services
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -24,10 +24,10 @@ export function ServiceGrid({ services }) {
 
       {protectedServices.length > 0 && (
         <section>
-          <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+          <h2 class="text-sm font-medium text-white/50 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-purple-400"></span>
             Protected Services
-            <span class="text-sm font-normal text-gray-400">(require login)</span>
+            <span class="text-xs font-normal text-white/30 normal-case tracking-normal">(require login)</span>
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {protectedServices.map(service => (
@@ -39,8 +39,8 @@ export function ServiceGrid({ services }) {
 
       {apiServices.length > 0 && (
         <section>
-          <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+          <h2 class="text-sm font-medium text-white/50 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
             API Services
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
