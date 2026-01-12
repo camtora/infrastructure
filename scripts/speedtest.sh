@@ -49,22 +49,22 @@ else
     log "✗ Home speedtest failed"
 fi
 
-# Run VPN speedtest through gluetun-toronto (using Docker)
-log "Running VPN speedtest (Toronto)..."
+# Run VPN speedtest through gluetun-vancouver (using Docker)
+log "Running VPN speedtest (Vancouver)..."
 VPN_RESULT="null"
-if docker ps --format '{{.Names}}' | grep -q '^gluetun-toronto$'; then
+if docker ps --format '{{.Names}}' | grep -q '^gluetun-vancouver$'; then
     # Use a lightweight speedtest Docker image through VPN network
-    if output=$(docker run --rm --network=container:gluetun-toronto appropriate/curl -s "https://speed.cloudflare.com/__down?bytes=25000000" -w '{"time": %{time_total}}' -o /dev/null 2>/dev/null); then
+    if output=$(docker run --rm --network=container:gluetun-vancouver appropriate/curl -s "https://speed.cloudflare.com/__down?bytes=25000000" -w '{"time": %{time_total}}' -o /dev/null 2>/dev/null); then
         # Cloudflare speed test - rough estimate
         time_sec=$(echo "$output" | jq -r '.time // 1')
         download_mbps=$(echo "scale=2; (25 * 8) / $time_sec" | bc)
-        VPN_RESULT="{\"download\": $download_mbps, \"upload\": null, \"ping\": null, \"server\": \"Cloudflare\", \"location\": \"Toronto VPN\"}"
-        log "✓ VPN (Toronto): Download≈${download_mbps}Mbps (estimate)"
+        VPN_RESULT="{\"download\": $download_mbps, \"upload\": null, \"ping\": null, \"server\": \"Cloudflare\", \"location\": \"Vancouver VPN\"}"
+        log "✓ VPN (Vancouver): Download≈${download_mbps}Mbps (estimate)"
     else
         log "✗ VPN speedtest failed"
     fi
 else
-    log "⚠ gluetun-toronto not running, skipping VPN test"
+    log "⚠ gluetun-vancouver not running, skipping VPN test"
 fi
 
 # Build final JSON
