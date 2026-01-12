@@ -97,13 +97,21 @@ For each of the 14 services, the dashboard performs an HTTP GET request:
 **Why 401 = Up:** OAuth-protected services (Radarr, Sonarr, etc.) return 401 when accessed without authentication. This proves the service is running, even though it's protected.
 
 ### System Metrics
-The dashboard calls `health.camerontora.ca/api/health` to collect:
-- **CPU:** Current usage percentage
-- **Memory:** Current usage percentage
-- **Load Average:** 1m, 5m, 15m averages
+The dashboard collects metrics from two sources:
+
+**Real-time (every 10 seconds) from Netdata:**
+- **CPU:** 10-second rolling average (shows "Live" indicator)
+- **Memory:** 10-second rolling average
+
+Public endpoints exposed at `netdata.camerontora.ca/api/metrics/cpu` and `/api/metrics/ram` (bypass OAuth, only expose these specific charts).
+
+**Periodic (every 5 minutes) from health-api:**
+- **Load Average:** 1m, 5m averages
 - **Disks:** Usage for /, /home, /var, /tmp, /dev (RAM), /CAMRAID, /HOMENAS
 - **Speed Test:** Results from home + VPN locations (with active indicator)
 - **Plex:** Library count and reachability
+
+If Netdata metrics fail, the dashboard falls back to health-api values and shows "Using cached data" warning.
 
 ### Overall Status Logic
 | Condition | Status |
@@ -130,9 +138,10 @@ The UI shows small indicators for each service:
 This helps quickly identify whether an issue is with the service itself or the external access path.
 
 ### Caching & Refresh
-- **Cache duration:** 60 seconds
-- **Cloud Scheduler:** Triggers fresh check every 5 minutes
-- **Frontend:** Auto-refreshes display every 30 seconds
+- **Real-time metrics (CPU/RAM):** 10 seconds (from Netdata)
+- **Service status & other metrics:** 30 seconds (from backend API)
+- **Cloud Scheduler:** Triggers backend health check every 5 minutes
+- **Backend cache:** 60 seconds
 
 ## API Endpoints
 
