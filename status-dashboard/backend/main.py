@@ -21,10 +21,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import services
-from services.health_checker import run_health_check, get_status_summary
-from services.dns_manager import get_cached_dns_state, failover_dns
-from services.discord import send_discord_alert, notify_failover
-from config import ADMIN_API_KEY
+from backend.services.health_checker import run_health_check, get_status_summary
+from backend.services.dns_manager import get_cached_dns_state, failover_dns
+from backend.services.discord import send_discord_alert, notify_failover
+from backend.config import ADMIN_API_KEY
 
 # Determine static folder path (Docker uses /app/static, dev uses ../frontend/dist)
 static_folder = '../static' if os.path.exists('../static') else '../frontend/dist'

@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from config import SERVICES, HEALTH_API_URL, HEALTH_API_KEY, PLEX_URL, PLEX_TOKEN
+from backend.config import SERVICES, HEALTH_API_URL, HEALTH_API_KEY, PLEX_URL, PLEX_TOKEN
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from config import DISCORD_WEBHOOK_URL
+from backend.config import DISCORD_WEBHOOK_URL
 
 logger = logging.getLogger(__name__)
 

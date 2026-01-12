@@ -6,7 +6,7 @@ from typing import Any
 
 import requests
 
-from config import (
+from backend.config import (
     GODADDY_API_KEY,
     GODADDY_API_SECRET,
     GODADDY_DOMAIN,
