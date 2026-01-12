@@ -6,9 +6,9 @@ import { MetricsPanel } from './components/MetricsPanel'
 import { SpeedPanel } from './components/SpeedPanel'
 import { DNSPanel } from './components/DNSPanel'
 import { HistoryPanel } from './components/HistoryPanel'
-import { AdminPanel } from './components/AdminPanel'
 
 const NETDATA_BASE = 'https://netdata.camerontora.ca'
+const HEALTH_API = 'https://health.camerontora.ca'
 
 // Parse Netdata CPU response and calculate total CPU%
 function parseCpuMetrics(data) {
@@ -56,6 +56,80 @@ export function App() {
   const [realtimeMetrics, setRealtimeMetrics] = useState(null)
   const [metricsError, setMetricsError] = useState(null)
 
+  // Admin state
+  const [adminAuth, setAdminAuth] = useState(null)
+  const [vpnStatus, setVpnStatus] = useState(null)
+  const [vpnSwitching, setVpnSwitching] = useState(null) // location being switched to
+  const [vpnMessage, setVpnMessage] = useState(null)
+
+  // Check admin authentication
+  const checkAdminAuth = async () => {
+    try {
+      const res = await fetch(`${HEALTH_API}/api/admin/whoami`, {
+        credentials: 'include'
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAdminAuth(data)
+        if (data.is_admin) {
+          fetchVpnStatus()
+        }
+      } else {
+        setAdminAuth(null)
+      }
+    } catch (e) {
+      setAdminAuth(null)
+    }
+  }
+
+  // Fetch VPN status
+  const fetchVpnStatus = async () => {
+    try {
+      const res = await fetch(`${HEALTH_API}/api/admin/vpn/status`, {
+        credentials: 'include'
+      })
+      if (res.ok) {
+        setVpnStatus(await res.json())
+      }
+    } catch (e) {
+      console.error('Failed to fetch VPN status:', e)
+    }
+  }
+
+  // Switch VPN location
+  const switchVpn = async (location) => {
+    if (!confirm(`Switch Transmission to ${location}?\n\nThis will briefly interrupt active downloads.`)) {
+      return
+    }
+
+    setVpnSwitching(location)
+    setVpnMessage(null)
+
+    try {
+      const res = await fetch(`${HEALTH_API}/api/admin/vpn/switch`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        setVpnMessage({ type: 'success', text: `Switched to ${location}` })
+        // Wait for containers to stabilize, then refresh
+        await new Promise(r => setTimeout(r, 3000))
+        fetchVpnStatus()
+      } else {
+        setVpnMessage({ type: 'error', text: data.error || 'Switch failed' })
+      }
+    } catch (e) {
+      setVpnMessage({ type: 'error', text: e.message })
+    } finally {
+      setVpnSwitching(null)
+    }
+  }
+
   const fetchStatus = async () => {
     try {
       const response = await fetch('/api/status')
@@ -102,6 +176,7 @@ export function App() {
 
   useEffect(() => {
     fetchStatus()
+    checkAdminAuth()
     const interval = setInterval(fetchStatus, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -112,6 +187,13 @@ export function App() {
     const interval = setInterval(fetchRealtimeMetrics, 10000)
     return () => clearInterval(interval)
   }, [])
+
+  // Refresh VPN status periodically when admin
+  useEffect(() => {
+    if (!adminAuth?.is_admin) return
+    const interval = setInterval(fetchVpnStatus, 30000)
+    return () => clearInterval(interval)
+  }, [adminAuth])
 
   if (loading && !status) {
     return (
@@ -138,6 +220,7 @@ export function App() {
           status={status}
           lastUpdate={lastUpdate}
           onRefresh={fetchStatus}
+          adminAuth={adminAuth}
         />
 
         {error && (
@@ -160,16 +243,19 @@ export function App() {
             />
           </div>
           <div>
-            <SpeedPanel speedTest={status?.metrics?.speed_test} />
+            <SpeedPanel
+              speedTest={status?.metrics?.speed_test}
+              adminAuth={adminAuth}
+              vpnStatus={vpnStatus}
+              vpnSwitching={vpnSwitching}
+              vpnMessage={vpnMessage}
+              onSwitchVpn={switchVpn}
+            />
           </div>
         </div>
 
         <div class="mb-8">
           <DNSPanel dns={status?.dns} />
-        </div>
-
-        <div class="mb-8">
-          <AdminPanel />
         </div>
 
         <ServiceGrid services={status?.services || []} />

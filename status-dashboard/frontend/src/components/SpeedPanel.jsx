@@ -1,4 +1,4 @@
-export function SpeedPanel({ speedTest }) {
+export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnMessage, onSwitchVpn }) {
   if (!speedTest || speedTest.error) {
     return (
       <div class="glass-card p-6 h-full">
@@ -11,6 +11,7 @@ export function SpeedPanel({ speedTest }) {
   }
 
   const { home, vpn } = speedTest
+  const isAdmin = adminAuth?.is_admin
 
   // Sort VPN locations: active first, then alphabetically
   const vpnEntries = vpn && typeof vpn === 'object'
@@ -20,6 +21,12 @@ export function SpeedPanel({ speedTest }) {
         return 0
       })
     : []
+
+  // Get admin VPN status for each location (for health info)
+  const getAdminVpnInfo = (location) => {
+    if (!vpnStatus?.locations) return null
+    return vpnStatus.locations.find(l => l.name.toLowerCase() === location.toLowerCase())
+  }
 
   return (
     <div class="glass-card p-6 h-full">
@@ -44,9 +51,18 @@ export function SpeedPanel({ speedTest }) {
                   key={location}
                   location={location}
                   data={data}
+                  isAdmin={isAdmin}
+                  adminInfo={getAdminVpnInfo(location)}
+                  isSwitching={vpnSwitching === location.toLowerCase()}
+                  onSwitch={() => onSwitchVpn(location.toLowerCase())}
                 />
               ))}
             </div>
+            {vpnMessage && (
+              <div class={`mt-3 text-xs ${vpnMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                {vpnMessage.text}
+              </div>
+            )}
           </div>
         )}
 
@@ -60,9 +76,10 @@ export function SpeedPanel({ speedTest }) {
   )
 }
 
-function VpnLocationCard({ location, data }) {
+function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSwitch }) {
   const status = data?.status || (data?.download ? 'healthy' : 'unknown')
   const isActive = data?.active === true
+  const canSwitch = isAdmin && !isActive && adminInfo?.healthy && !isSwitching
 
   const statusConfig = {
     healthy: { color: 'bg-emerald-400', textColor: 'text-emerald-400', label: 'Healthy' },
@@ -90,9 +107,34 @@ function VpnLocationCard({ location, data }) {
             </span>
           )}
         </div>
-        <span class={`text-xs ${textColor}`}>
-          {label}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class={`text-xs ${textColor}`}>
+            {label}
+          </span>
+          {isAdmin && !isActive && (
+            <button
+              onClick={onSwitch}
+              disabled={!canSwitch}
+              class={`text-xs px-2 py-1 rounded transition-all ${
+                isSwitching
+                  ? 'bg-amber-500/20 text-amber-400 cursor-wait'
+                  : canSwitch
+                  ? 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border border-violet-500/30'
+                  : 'bg-white/5 text-white/30 cursor-not-allowed'
+              }`}
+            >
+              {isSwitching ? (
+                <span class="flex items-center gap-1">
+                  <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Switching
+                </span>
+              ) : 'Switch'}
+            </button>
+          )}
+        </div>
       </div>
 
       {status === 'healthy' && data?.download ? (

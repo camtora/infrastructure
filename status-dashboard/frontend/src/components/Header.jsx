@@ -1,4 +1,4 @@
-export function Header({ status, lastUpdate, onRefresh }) {
+export function Header({ status, lastUpdate, onRefresh, adminAuth }) {
   const overallStatus = status?.overall_status || 'unknown'
   const summary = status?.summary || {}
 
@@ -53,6 +53,14 @@ export function Header({ status, lastUpdate, onRefresh }) {
         </div>
 
         <div class="flex items-center gap-6">
+          {adminAuth?.is_admin && (
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20">
+              <svg class="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span class="text-xs text-violet-300">Admin</span>
+            </div>
+          )}
           <div class="text-right">
             <p class="text-white/70 text-sm font-medium">
               {summary.services_up || 0} / {summary.services_total || 0}
