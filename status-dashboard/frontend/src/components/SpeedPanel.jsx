@@ -107,60 +107,61 @@ function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSw
             </span>
           )}
         </div>
-        <div class="flex items-center gap-2">
-          <span class={`text-xs ${textColor}`}>
-            {label}
-          </span>
-          {isAdmin && !isActive && (
-            <button
-              onClick={onSwitch}
-              disabled={!canSwitch}
-              class={`text-xs px-2 py-1 rounded transition-all ${
-                isSwitching
-                  ? 'bg-amber-500/20 text-amber-400 cursor-wait'
-                  : canSwitch
-                  ? 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border border-violet-500/30'
-                  : 'bg-white/5 text-white/30 cursor-not-allowed'
-              }`}
-            >
-              {isSwitching ? (
-                <span class="flex items-center gap-1">
-                  <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Switching
-                </span>
-              ) : 'Switch'}
-            </button>
-          )}
-        </div>
+        <span class={`text-xs ${textColor}`}>
+          {label}
+        </span>
       </div>
 
-      {status === 'healthy' && data?.download ? (
-        <div class="flex items-center gap-4 text-sm">
-          <div class="flex items-center gap-1.5 text-white/60">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-            <span class="tabular-nums">{data.download.toFixed(1)} Mbps</span>
-          </div>
-          {data.upload && (
+      <div class="flex items-center justify-between">
+        {status === 'healthy' && data?.download ? (
+          <div class="flex items-center gap-4 text-sm">
             <div class="flex items-center gap-1.5 text-white/60">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
-              <span class="tabular-nums">{data.upload.toFixed(1)} Mbps</span>
+              <span class="tabular-nums">{data.download.toFixed(1)} Mbps</span>
             </div>
-          )}
-        </div>
-      ) : (
-        <p class="text-xs text-white/40">
-          {status === 'unhealthy' ? 'DNS/network issue' :
-           status === 'stopped' ? 'Container not running' :
-           'No speed data'}
-        </p>
-      )}
+            {data.upload && (
+              <div class="flex items-center gap-1.5 text-white/60">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                <span class="tabular-nums">{data.upload.toFixed(1)} Mbps</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p class="text-xs text-white/40">
+            {status === 'unhealthy' ? 'DNS/network issue' :
+             status === 'stopped' ? 'Container not running' :
+             'No speed data'}
+          </p>
+        )}
+
+        {isAdmin && !isActive && (
+          <button
+            onClick={onSwitch}
+            disabled={!canSwitch}
+            class={`text-xs px-2 py-1 rounded transition-all ${
+              isSwitching
+                ? 'bg-amber-500/20 text-amber-400 cursor-wait'
+                : canSwitch
+                ? 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border border-violet-500/30'
+                : 'bg-white/5 text-white/30 cursor-not-allowed'
+            }`}
+          >
+            {isSwitching ? (
+              <span class="flex items-center gap-1">
+                <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Switching
+              </span>
+            ) : 'Switch'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
