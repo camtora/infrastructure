@@ -42,8 +42,5 @@ SERVICES = [
 ]
 
 # DNS records to manage during failover
-DNS_RECORDS = [
-    "@", "ombi", "plex", "sonarr", "radarr", "tautulli", "transmission",
-    "jackett", "status", "emby", "jellyfin", "overseerr", "watchmap",
-    "haymaker", "netdata", "health"
-]
+# Only @ and monitor - other subdomains timeout cleanly rather than showing SSL warnings
+DNS_RECORDS = ["@", "monitor"]
