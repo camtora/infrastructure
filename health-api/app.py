@@ -17,17 +17,10 @@ import docker
 import psutil
 import requests
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 
 app = Flask(__name__)
 
-# Enable CORS for admin endpoints (dashboard on monitor.camerontora.ca)
-CORS(app, resources={
-    r"/api/admin/*": {
-        "origins": ["https://monitor.camerontora.ca"],
-        "supports_credentials": True
-    }
-})
+# Note: CORS is handled by nginx for /api/admin/* endpoints
 
 # Configuration
 API_KEY = os.environ.get("HEALTH_API_KEY", "")
@@ -507,19 +500,62 @@ def admin_vpn_switch():
             f.write(new_content)
         steps_completed.append("Updated docker-compose.yaml")
 
-        # Step 2: Recreate transmission container
+        # Step 2: Recreate transmission container using docker commands
+        # (docker-compose has project context issues when run from container)
+
+        # Stop and remove existing transmission
+        subprocess.run(["docker", "stop", "transmission"], capture_output=True, timeout=30)
+        subprocess.run(["docker", "rm", "transmission"], capture_output=True, timeout=30)
+
+        # Run docker-compose up on the HOST via docker exec
+        # This ensures correct project context
         result = subprocess.run(
-            ["docker-compose", "-f", DOCKER_COMPOSE_FILE, "up", "-d", "transmission"],
+            ["docker", "exec", "docker-services-helper",
+             "docker-compose", "-f", "/docker-services/docker-compose.yaml",
+             "--project-name", "docker-services", "up", "-d", "transmission"],
             capture_output=True,
             text=True,
             timeout=60
         )
+
+        # Fallback: if helper container doesn't exist, try direct docker run
         if result.returncode != 0:
-            return jsonify({
-                "error": "Failed to recreate transmission",
-                "stderr": result.stderr,
-                "steps_completed": steps_completed
-            }), 500
+            # Get the target gluetun container ID
+            gluetun_result = subprocess.run(
+                ["docker", "inspect", target_container, "--format", "{{.Id}}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if gluetun_result.returncode != 0:
+                return jsonify({
+                    "error": f"Target VPN container {target_container} not found",
+                    "steps_completed": steps_completed
+                }), 500
+
+            gluetun_id = gluetun_result.stdout.strip()
+
+            # Run transmission with docker run
+            run_result = subprocess.run([
+                "docker", "run", "-d",
+                "--name", "transmission",
+                "--network", f"container:{gluetun_id}",
+                "-e", "PUID=1000",
+                "-e", "PGID=1000",
+                "-e", "USER=camerontora",
+                "-v", "/home/camerontora/docker-services/transmission/config:/config",
+                "-v", "/HOMENAS:/HOMENAS",
+                "--restart", "unless-stopped",
+                "linuxserver/transmission"
+            ], capture_output=True, text=True, timeout=60)
+
+            if run_result.returncode != 0:
+                return jsonify({
+                    "error": "Failed to start transmission container",
+                    "stderr": run_result.stderr,
+                    "steps_completed": steps_completed
+                }), 500
+
         steps_completed.append("Recreated transmission container")
 
         # Step 3: Update nginx config
