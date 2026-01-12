@@ -111,6 +111,22 @@ The dashboard calls `health.camerontora.ca/api/health` to collect:
 | 1-3 services down | `degraded` (yellow) |
 | All services up | `healthy` (green) |
 
+### Internal vs External Checks
+Each service is checked both externally (from GCP) and internally (from health-api on home server):
+
+| External | Internal | Status | Meaning |
+|----------|----------|--------|---------|
+| Up | Up | **Operational** (green) | Everything working |
+| Down | Up | **Network Issue** (orange) | Service works locally, problem is nginx/DNS/network |
+| Down | Down | **Down** (red) | Service itself is broken |
+| Up | Down | Operational | External works, internal check unavailable |
+
+The UI shows small indicators for each service:
+- **Container**: Is the Docker container running?
+- **Local**: Does the local port respond?
+
+This helps quickly identify whether an issue is with the service itself or the external access path.
+
 ### Caching & Refresh
 - **Cache duration:** 60 seconds
 - **Cloud Scheduler:** Triggers fresh check every 5 minutes
@@ -164,6 +180,34 @@ Triggers a health check. Called by Cloud Scheduler every 5 minutes.
 
 ### GET /api/health
 Simple health check for the dashboard service itself.
+
+## Health API Endpoints (Home Server)
+
+The health-api runs on the home server and provides internal metrics.
+
+### GET /api/health/ping
+Simple liveness check (no auth required).
+
+### GET /api/health
+Full system metrics: CPU, memory, disk, load, Plex status, speed test (requires API key).
+
+### GET /api/health/public-ip
+Returns current public IP address - used for DNS failback (requires API key).
+
+### GET /api/health/services
+Internal service status - checks each container and local port (requires API key).
+
+```json
+{
+  "services": [
+    {
+      "name": "Plex",
+      "container": {"name": "plex", "running": true, "health": null},
+      "local_port": {"port": 32400, "responding": true, "status_code": 200}
+    }
+  ]
+}
+```
 
 ## GCP Configuration
 
