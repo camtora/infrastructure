@@ -135,6 +135,8 @@ services:
       - /HOMENAS:/hostfs/HOMENAS:ro
       # Mount /proc for CPU/memory stats
       - /proc:/host/proc:ro
+      # Docker socket for container status checks
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - HEALTH_API_KEY=${HEALTH_API_KEY:-}
       - PLEX_URL=http://host.docker.internal:32400
