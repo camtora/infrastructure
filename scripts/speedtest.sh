@@ -9,7 +9,7 @@ OUTPUT_DIR="/var/lib/health-api"
 OUTPUT_FILE="${OUTPUT_DIR}/speedtest.json"
 LOGFILE="/var/log/speedtest.log"
 
-log() { echo "$(date '+%F %T') $*" | tee -a "$LOGFILE"; }
+log() { echo "$(date '+%F %T') $*" | tee -a "$LOGFILE" >&2; }
 
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
