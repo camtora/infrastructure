@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>We've Moved to Overseerr</title>
+    <title>Upgraded to Overseerr</title>
     <style>
         * {
             margin: 0;
@@ -113,6 +113,46 @@
             font-size: 0.875rem;
             color: #cbd5e1;
         }
+
+        .mobile-tip {
+            margin-top: 2.5rem;
+            padding: 1.25rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            text-align: left;
+        }
+
+        .mobile-tip h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mobile-tip h3 svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .mobile-tip p {
+            font-size: 0.8125rem;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 0.5rem;
+        }
+
+        .mobile-tip .instructions {
+            font-size: 0.8125rem;
+            color: #cbd5e1;
+        }
+
+        .mobile-tip .instructions strong {
+            color: #f1f5f9;
+        }
     </style>
 </head>
 <body>
@@ -125,10 +165,10 @@
             </svg>
         </div>
 
-        <h1>We've Upgraded to Overseerr</h1>
+        <h1>I've Upgraded to Overseerr</h1>
 
         <p class="subtitle">
-            Request movies and TV shows with our new and improved request system.
+            Request movies and TV shows with the new and improved request system.
             Same great service, better experience.
             <br><br>
             <strong>Just sign in with your Plex account</strong> — no new login required.
@@ -150,6 +190,21 @@
                 <span class="feature">Plex Integration</span>
                 <span class="feature">Better Recommendations</span>
             </div>
+        </div>
+
+        <div class="mobile-tip">
+            <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                </svg>
+                Add to Your Phone
+            </h3>
+            <p>Want quick access like an app? After signing in:</p>
+            <p class="instructions">
+                <strong>iPhone:</strong> Tap the Share button, then "Add to Home Screen"<br>
+                <strong>Android:</strong> Tap the menu (⋮), then "Add to Home screen"
+            </p>
         </div>
     </div>
 </body>
