@@ -484,14 +484,49 @@ def check_local_port(port: int, path: str = "/") -> dict:
         return {"responding": False, "error": str(e)[:50]}
 
 
+def get_transmission_port() -> int:
+    """Get the correct Transmission port based on active VPN."""
+    client = get_docker_client()
+    if not client:
+        return 9091  # Default fallback
+
+    try:
+        transmission = client.containers.get("transmission")
+        network_mode = transmission.attrs.get("HostConfig", {}).get("NetworkMode", "")
+
+        # Network mode is "container:<id>" - get the container name
+        if network_mode.startswith("container:"):
+            container_id = network_mode.replace("container:", "")
+            try:
+                vpn_container = client.containers.get(container_id)
+                vpn_name = vpn_container.name
+                # Find matching VPN location and return its port
+                for config in VPN_LOCATIONS.values():
+                    if config["container"] == vpn_name:
+                        return config["port"]
+            except docker.errors.NotFound:
+                pass
+    except docker.errors.NotFound:
+        pass
+
+    return 9091  # Default fallback
+
+
 def get_internal_services() -> list:
     """Check all services internally (container + port)."""
+    # Get dynamic Transmission port based on active VPN
+    transmission_port = get_transmission_port()
+
     results = []
     for svc in SERVICE_CHECKS:
         name = svc["name"]
         container = svc["container"]
         port = svc["port"]
         path = svc.get("path", "/")
+
+        # Use dynamic port for Transmission
+        if name == "Transmission":
+            port = transmission_port
 
         container_status = check_container_status(container)
         port_status = check_local_port(port, path)
