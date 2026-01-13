@@ -189,7 +189,7 @@ def check_health_api() -> dict[str, Any]:
         if "error" not in speed_test:
             home_speed = speed_test.get("home", {})
             if home_speed:
-                upload = home_speed.get("upload_mbps", 0)
+                upload = home_speed.get("upload", 0)
                 if upload < THRESHOLD_UPLOAD_MBPS:
                     issues.append(f"Upload speed {upload} Mbps (threshold: {THRESHOLD_UPLOAD_MBPS} Mbps)")
 
