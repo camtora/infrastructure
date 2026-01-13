@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 # Cache DNS state
 _dns_cache: dict[str, Any] = {}
 _dns_last_check: datetime | None = None
+_home_ip_cache: str | None = None
+_home_ip_last_check: datetime | None = None
 
 
 def _get_auth_header() -> dict[str, str]:
@@ -60,11 +62,18 @@ def get_dns_records() -> dict[str, Any]:
         # Determine target
         target = "gcp" if current_ip == GCP_IP else "home"
 
+        # Always get home IP - if we're on home, use current_ip; if on GCP, fetch from health-api
+        if target == "home":
+            home_ip = current_ip
+        else:
+            home_result = _get_home_ip(use_cache=True)
+            home_ip = home_result.get("ip")  # May be None if fetch failed
+
         result = {
             "domain": GODADDY_DOMAIN,
             "current_ip": current_ip,
             "target": target,
-            "home_ip": current_ip if target == "home" else None,
+            "home_ip": home_ip,
             "gcp_ip": GCP_IP,
             "records": [r.get("name") for r in records],
             "record_count": len(records),
@@ -102,8 +111,16 @@ def get_cached_dns_state() -> dict[str, Any]:
     return result
 
 
-def _get_home_ip() -> dict[str, Any]:
+def _get_home_ip(use_cache: bool = True) -> dict[str, Any]:
     """Fetch current public IP from home server via health-api."""
+    global _home_ip_cache, _home_ip_last_check
+
+    # Check cache first (5 minute cache for home IP)
+    if use_cache and _home_ip_cache and _home_ip_last_check:
+        age = (datetime.now(timezone.utc) - _home_ip_last_check).total_seconds()
+        if age < 300:
+            return {"ip": _home_ip_cache, "cached": True}
+
     if not HEALTH_API_KEY:
         return {"error": "HEALTH_API_KEY not configured"}
 
@@ -121,9 +138,17 @@ def _get_home_ip() -> dict[str, Any]:
         if "error" in data:
             return {"error": data["error"]}
 
-        return {"ip": data.get("ip")}
+        ip = data.get("ip")
+        if ip:
+            _home_ip_cache = ip
+            _home_ip_last_check = datetime.now(timezone.utc)
+
+        return {"ip": ip}
 
     except requests.exceptions.RequestException as e:
+        # Return cached IP if available
+        if _home_ip_cache:
+            return {"ip": _home_ip_cache, "cached": True, "fetch_error": str(e)[:50]}
         return {"error": f"Failed to reach home server: {str(e)[:50]}"}
 
 

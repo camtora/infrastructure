@@ -106,14 +106,34 @@ def api_dns_failover():
     """
     Manually trigger DNS failover.
     Protected endpoint - requires X-Admin-Key header.
+
+    Body:
+        - target: "home" or "gcp"
+        - reason: optional reason string
+        - dry_run: if true, skip actual GoDaddy API call (for testing)
     """
     try:
         data = request.get_json() or {}
         target = data.get('target')
         reason = data.get('reason', 'Manual failover from dashboard')
+        dry_run = data.get('dry_run', False)
 
         if target not in ('home', 'gcp'):
             return jsonify({"error": "target must be 'home' or 'gcp'"}), 400
+
+        # Dry run mode - return success without calling GoDaddy API
+        if dry_run:
+            logger.info(f"DNS failover DRY RUN: would switch to {target}")
+            dns_state = get_cached_dns_state()
+            return jsonify({
+                "success": True,
+                "dry_run": True,
+                "target": target,
+                "previous_ip": dns_state.get("current_ip"),
+                "new_ip": dns_state.get("gcp_ip") if target == "gcp" else dns_state.get("home_ip"),
+                "message": f"Dry run - would switch to {target} (no GoDaddy API call made)",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
 
         result = failover_dns(target, reason)
 
