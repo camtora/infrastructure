@@ -121,11 +121,18 @@ export function StatusCard({ service, adminAuth, onRestart }) {
         <span class={`text-xs font-medium ${config.color} px-2 py-1 rounded-md border ${config.bgLight}`}>
           {config.label}
         </span>
-        {service.response_time_ms !== null && service.response_time_ms !== undefined && (
-          <span class="text-xs text-white/40 tabular-nums">
-            {service.response_time_ms}ms
-          </span>
-        )}
+        <div class="text-right">
+          {service.response_time_ms !== null && service.response_time_ms !== undefined && (
+            <div class="text-xs text-white/40 tabular-nums">
+              {service.response_time_ms}ms
+            </div>
+          )}
+          {internal?.container_uptime && (
+            <div class={`text-xs tabular-nums ${internal.container_uptime < 300 ? 'text-emerald-400' : 'text-white/40'}`}>
+              Up {formatUptime(internal.container_uptime)}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Internal status indicators */}
@@ -134,7 +141,7 @@ export function StatusCard({ service, adminAuth, onRestart }) {
           <div class="flex items-center gap-4">
             <span class={`flex items-center gap-1.5 text-xs ${internal.container_running ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
               <span class={`w-1.5 h-1.5 rounded-full ${internal.container_running ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-              {internal.container_uptime ? `Up ${formatUptime(internal.container_uptime)}` : 'Container'}
+              Container
             </span>
             <span class={`flex items-center gap-1.5 text-xs ${internal.port_responding ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
               <span class={`w-1.5 h-1.5 rounded-full ${internal.port_responding ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
