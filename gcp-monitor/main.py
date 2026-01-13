@@ -52,6 +52,10 @@ PUBLIC_ENDPOINTS = [
 # State file for alert deduplication (in-memory for Cloud Run, could use Firestore)
 _alert_state: dict[str, bool] = {}
 
+# VPN failover state tracking
+_vpn_unhealthy_count: dict[str, int] = {}  # location -> consecutive unhealthy count
+FAILOVER_THRESHOLD = 6  # 6 checks at 5 min intervals = ~30 minutes
+
 
 def send_discord_alert(title: str, message: str, severity: str = "major"):
     """Send alert to Discord webhook.
@@ -293,6 +297,115 @@ def check_vpn_health(health_data: dict[str, Any]) -> dict[str, Any]:
     return results
 
 
+def check_vpn_and_failover(health_data: dict[str, Any]) -> dict[str, Any]:
+    """Check VPN health and trigger failover if needed."""
+    global _vpn_unhealthy_count
+
+    speed_test = health_data.get("speed_test", {})
+    vpn_data = speed_test.get("vpn", {})
+
+    if not vpn_data:
+        return {"checked": False, "reason": "No VPN data available"}
+
+    # Find active VPN
+    active_location = None
+    active_status = None
+    for loc, data in vpn_data.items():
+        if data.get("active"):
+            active_location = loc
+            active_status = data.get("status")
+            break
+
+    if not active_location:
+        return {"checked": False, "reason": "No active VPN detected"}
+
+    # Track unhealthy count
+    if active_status == "unhealthy":
+        _vpn_unhealthy_count[active_location] = _vpn_unhealthy_count.get(active_location, 0) + 1
+        logger.info(f"VPN {active_location} unhealthy count: {_vpn_unhealthy_count[active_location]}/{FAILOVER_THRESHOLD}")
+    else:
+        if _vpn_unhealthy_count.get(active_location, 0) > 0:
+            logger.info(f"VPN {active_location} healthy, resetting count")
+        _vpn_unhealthy_count[active_location] = 0
+
+    # Check if threshold exceeded
+    if _vpn_unhealthy_count.get(active_location, 0) >= FAILOVER_THRESHOLD:
+        return trigger_failover(active_location, vpn_data)
+
+    return {
+        "checked": True,
+        "active": active_location,
+        "status": active_status,
+        "unhealthy_count": _vpn_unhealthy_count.get(active_location, 0),
+        "threshold": FAILOVER_THRESHOLD
+    }
+
+
+def trigger_failover(failed_location: str, vpn_data: dict[str, Any]) -> dict[str, Any]:
+    """Trigger failover to best healthy VPN."""
+    global _vpn_unhealthy_count
+
+    # Find healthy VPNs sorted by download speed
+    healthy_vpns = []
+    for loc, data in vpn_data.items():
+        if loc.lower() != failed_location.lower() and data.get("status") == "healthy":
+            healthy_vpns.append({
+                "location": loc,
+                "download": data.get("download", 0) or 0
+            })
+
+    if not healthy_vpns:
+        # All VPNs unhealthy - alert but don't switch
+        send_discord_alert("VPN Failover Failed",
+            f"Active VPN (**{failed_location.title()}**) is unhealthy but no healthy alternatives available.\n"
+            f"All VPN locations are currently down.",
+            severity="major")
+        return {"failover": False, "reason": "No healthy VPNs available"}
+
+    # Sort by download speed (highest first)
+    healthy_vpns.sort(key=lambda x: x["download"], reverse=True)
+    target = healthy_vpns[0]["location"]
+
+    # Send "starting" alert
+    send_discord_alert("VPN Failover Starting",
+        f"**{failed_location.title()}** has been unhealthy for 30+ minutes.\n"
+        f"Initiating failover to **{target.title()}** ({healthy_vpns[0]['download']:.1f} Mbps)...",
+        severity="degraded")
+
+    # Call health-api switch endpoint
+    try:
+        switch_url = HEALTH_API_URL.replace("/api/health", "/api/health/vpn/switch")
+        resp = requests.post(
+            switch_url,
+            headers={"X-API-Key": HEALTH_API_KEY},
+            json={"location": target, "reason": f"auto-failover from {failed_location}"},
+            timeout=90
+        )
+        resp.raise_for_status()
+        result = resp.json()
+
+        # Send "completed" alert
+        send_discord_alert("VPN Failover Complete",
+            f"Successfully switched from **{failed_location.title()}** to **{target.title()}**\n"
+            f"Transmission now routing through {target.title()} VPN.",
+            severity="recovery")
+
+        # Reset unhealthy count
+        _vpn_unhealthy_count[failed_location] = 0
+
+        logger.info(f"VPN failover completed: {failed_location} -> {target}")
+        return {"failover": True, "from": failed_location, "to": target, "result": result}
+
+    except Exception as e:
+        # Send "failed" alert
+        send_discord_alert("VPN Failover Failed",
+            f"Failed to switch from **{failed_location.title()}** to **{target.title()}**\n"
+            f"Error: {e}",
+            severity="major")
+        logger.error(f"VPN failover failed: {e}")
+        return {"failover": False, "error": str(e)}
+
+
 def check_plex_library() -> dict[str, Any]:
     """Check Plex library directly via external API."""
     if not PLEX_TOKEN:
@@ -381,6 +494,12 @@ def run_health_check() -> dict[str, Any]:
                     results["alerts"].append(f"VPN {loc['name']} unhealthy")
                     if results["overall_status"] == "healthy":
                         results["overall_status"] = "minor"
+
+        # Check for auto-failover (only if health API is reachable)
+        failover_result = check_vpn_and_failover(health.get("data", {}))
+        results["vpn_failover"] = failover_result
+        if failover_result.get("failover"):
+            results["alerts"].append(f"VPN failover: {failover_result.get('from')} -> {failover_result.get('to')}")
 
     # Direct Plex check
     plex = check_plex_library()

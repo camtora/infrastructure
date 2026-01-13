@@ -766,30 +766,26 @@ def update_arr_download_client_port(app_name: str, api_url: str, api_key: str, n
         return {"success": False, "error": f"{app_name} API error: {str(e)}"}
 
 
-@app.route("/api/admin/vpn/switch", methods=["POST"])
-@require_admin
-def admin_vpn_switch():
-    """Switch VPN location for Transmission."""
-    data = request.get_json() or {}
-    target = data.get("location", "").lower()
+def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
+    """Core VPN switch logic. Returns (response_dict, status_code)."""
+    target = target.lower()
 
     if target not in VPN_LOCATIONS:
-        return jsonify({
+        return {
             "error": f"Invalid location: {target}",
             "valid_locations": list(VPN_LOCATIONS.keys())
-        }), 400
+        }, 400
 
     target_config = VPN_LOCATIONS[target]
     target_container = target_config["container"]
     target_port = target_config["port"]
 
-    email = request.headers.get("X-Forwarded-Email", "unknown")
     steps_completed = []
 
     try:
         # Step 1: Update docker-compose.yaml
         if not Path(DOCKER_COMPOSE_FILE).exists():
-            return jsonify({"error": f"Docker compose file not found: {DOCKER_COMPOSE_FILE}"}), 500
+            return {"error": f"Docker compose file not found: {DOCKER_COMPOSE_FILE}"}, 500
 
         with open(DOCKER_COMPOSE_FILE, "r") as f:
             compose_content = f.read()
@@ -813,15 +809,10 @@ def admin_vpn_switch():
             f.write(new_content)
         steps_completed.append("Updated docker-compose.yaml")
 
-        # Step 2: Recreate transmission container using docker commands
-        # (docker-compose has project context issues when run from container)
-
-        # Stop and remove existing transmission
+        # Step 2: Recreate transmission container
         subprocess.run(["docker", "stop", "transmission"], capture_output=True, timeout=30)
         subprocess.run(["docker", "rm", "transmission"], capture_output=True, timeout=30)
 
-        # Run docker-compose up on the HOST via docker exec
-        # This ensures correct project context
         result = subprocess.run(
             ["docker", "exec", "docker-services-helper",
              "docker-compose", "-f", "/docker-services/docker-compose.yaml",
@@ -833,7 +824,6 @@ def admin_vpn_switch():
 
         # Fallback: if helper container doesn't exist, try direct docker run
         if result.returncode != 0:
-            # Get the target gluetun container ID
             gluetun_result = subprocess.run(
                 ["docker", "inspect", target_container, "--format", "{{.Id}}"],
                 capture_output=True,
@@ -841,14 +831,13 @@ def admin_vpn_switch():
                 timeout=10
             )
             if gluetun_result.returncode != 0:
-                return jsonify({
+                return {
                     "error": f"Target VPN container {target_container} not found",
                     "steps_completed": steps_completed
-                }), 500
+                }, 500
 
             gluetun_id = gluetun_result.stdout.strip()
 
-            # Run transmission with docker run
             run_result = subprocess.run([
                 "docker", "run", "-d",
                 "--name", "transmission",
@@ -863,32 +852,28 @@ def admin_vpn_switch():
             ], capture_output=True, text=True, timeout=60)
 
             if run_result.returncode != 0:
-                return jsonify({
+                return {
                     "error": "Failed to start transmission container",
                     "stderr": run_result.stderr,
                     "steps_completed": steps_completed
-                }), 500
+                }, 500
 
         steps_completed.append("Recreated transmission container")
 
         # Step 3: Update nginx config
         if not Path(NGINX_TRANSMISSION_CONF).exists():
-            return jsonify({"error": f"Nginx config not found: {NGINX_TRANSMISSION_CONF}"}), 500
+            return {"error": f"Nginx config not found: {NGINX_TRANSMISSION_CONF}"}, 500
 
         with open(NGINX_TRANSMISSION_CONF, "r") as f:
             nginx_content = f.read()
 
-        # Update ALL transmission proxy_pass ports within the TRANSMISSION block
-        # The block runs from "# ============== TRANSMISSION ==============" to the next "# =============="
         def update_transmission_block(match):
             block = match.group(0)
-            # Replace all proxy_pass host.docker.internal ports in this block
             updated = re.sub(
                 r'(proxy_pass http://host\.docker\.internal:)\d+',
                 f'\\g<1>{target_port}',
                 block
             )
-            # Update/add the VPN comment on the main proxy_pass line
             updated = re.sub(
                 r'(proxy_pass http://host\.docker\.internal:\d+;)\s*(#.*VPN)?',
                 f'\\1  # {target.capitalize()} VPN',
@@ -915,21 +900,20 @@ def admin_vpn_switch():
             timeout=30
         )
         if result.returncode != 0:
-            return jsonify({
+            return {
                 "error": "Failed to reload nginx",
                 "stderr": result.stderr,
                 "steps_completed": steps_completed
-            }), 500
+            }, 500
         steps_completed.append("Reloaded nginx")
 
-        # Step 5: Update speedtest.json to reflect new active VPN immediately
+        # Step 5: Update speedtest.json
         try:
             speedtest_path = Path(SPEEDTEST_FILE)
             if speedtest_path.exists():
                 with open(speedtest_path, "r") as f:
                     speedtest_data = json.load(f)
 
-                # Update active flags for all VPN locations
                 if "vpn" in speedtest_data:
                     for vpn_name, vpn_data in speedtest_data["vpn"].items():
                         vpn_data["active"] = vpn_name.lower() == target.lower()
@@ -938,7 +922,6 @@ def admin_vpn_switch():
                         json.dump(speedtest_data, f, indent=2)
                     steps_completed.append("Updated speedtest.json active status")
         except Exception as e:
-            # Non-fatal - speedtest will update on next run
             steps_completed.append(f"Note: Could not update speedtest.json: {e}")
 
         # Step 6: Update Sonarr/Radarr download client ports
@@ -954,26 +937,54 @@ def admin_vpn_switch():
         else:
             steps_completed.append(f"Note: {radarr_result['error']}")
 
-        return jsonify({
+        return {
             "success": True,
             "message": f"Switched VPN to {target}",
             "new_location": target,
             "new_port": target_port,
             "steps_completed": steps_completed,
-            "switched_by": email,
+            "switched_by": triggered_by,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        }, 200
 
     except subprocess.TimeoutExpired:
-        return jsonify({
+        return {
             "error": "Command timed out",
             "steps_completed": steps_completed
-        }), 500
+        }, 500
     except Exception as e:
-        return jsonify({
+        return {
             "error": str(e),
             "steps_completed": steps_completed
-        }), 500
+        }, 500
+
+
+@app.route("/api/health/vpn/switch", methods=["POST"])
+@require_api_key
+def api_vpn_switch():
+    """Switch VPN - API key authenticated (for gcp-monitor auto-failover)."""
+    data = request.get_json() or {}
+    target = data.get("location", "")
+    reason = data.get("reason", "api-triggered")
+
+    response, status_code = _do_vpn_switch(target, f"api ({reason})")
+    return jsonify(response), status_code
+
+
+@app.route("/api/admin/vpn/switch", methods=["POST"])
+@require_admin
+def admin_vpn_switch():
+    """Switch VPN location for Transmission (OAuth protected)."""
+    data = request.get_json() or {}
+    target = data.get("location", "")
+    email = request.headers.get("X-Forwarded-Email", "unknown")
+
+    response, status_code = _do_vpn_switch(target, email)
+    return jsonify(response), status_code
+
+
+# Legacy admin_vpn_switch code removed - now uses _do_vpn_switch helper
+# The old implementation is preserved in the helper function above
 
 
 def _do_container_restart(container_name: str, email: str):

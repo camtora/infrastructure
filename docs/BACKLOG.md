@@ -21,12 +21,16 @@
   - StoragePanel added to main dashboard showing RAID health
 
 ### Auto-Failover VPN
-- **Status:** Planned
-- **Description:** Automatically switch VPN if current one is unhealthy for 10+ minutes
-- **Considerations:**
-  - Which VPN to fail over to?
-  - How to detect "unhealthy" reliably?
-  - Should notify on failover
+- **Status:** Completed (2026-01-13)
+- **Description:** Automatically switch VPN if current one is unhealthy for 30+ minutes
+- **Implementation:**
+  - gcp-monitor tracks consecutive unhealthy checks (6 checks = ~30 minutes)
+  - Failover target: healthy VPN with highest download speed
+  - Discord notifications: "Starting" (yellow), "Complete" (green), or "Failed" (red)
+  - If all VPNs unhealthy, alerts but doesn't switch
+- **Files:**
+  - `health-api/app.py` - Added `/api/health/vpn/switch` endpoint (API key auth)
+  - `gcp-monitor/main.py` - Added `check_vpn_and_failover()` and `trigger_failover()`
 
 ## Alerting Improvements
 
