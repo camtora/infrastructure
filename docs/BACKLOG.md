@@ -3,13 +3,13 @@
 ## Admin/Status Dashboard Features
 
 ### SSH Restart Server
-- **Status:** Planned
+- **Status:** Completed (2026-01-13)
 - **Description:** Ability to restart the home server from the dashboard
-- **Requirements:**
-  - "Are you sure?" confirmation
-  - Re-authenticate with Google before proceeding
-  - After restart initiated, show waiting UI with service status indicators
-  - Wait until all services show green before declaring success
+- **Implementation:**
+  - "Restart" button in MetricsPanel (admin only)
+  - Confirmation dialog before proceeding
+  - RebootDialog shows all services going from red → green
+  - Auto-detects when all services are back online
 
 ### Reboot Health Verification
 - **Status:** Planned
