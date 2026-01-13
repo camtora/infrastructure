@@ -270,7 +270,7 @@ export function App() {
         </div>
 
         <div class="mb-8">
-          <DNSPanel dns={status?.dns} />
+          <DNSPanel dns={status?.dns} adminAuth={adminAuth} />
         </div>
 
         <ServiceGrid services={status?.services || []} />

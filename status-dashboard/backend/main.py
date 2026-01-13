@@ -10,6 +10,7 @@ import sys
 from datetime import datetime, timezone
 from functools import wraps
 
+import requests
 from flask import Flask, jsonify, request, send_from_directory
 
 # Configure logging
@@ -38,16 +39,35 @@ else:
 app = Flask(__name__, static_folder=static_folder, static_url_path='')
 
 
-def require_admin_key(f):
-    """Decorator to require admin API key for protected endpoints."""
+def require_admin(f):
+    """Decorator to require admin authentication via OAuth (health-api) or API key."""
     @wraps(f)
     def decorated(*args, **kwargs):
+        # Try OAuth first - verify with health-api by forwarding cookies
+        cookie_header = request.headers.get('Cookie', '')
+        if cookie_header:
+            try:
+                # Get base URL from HEALTH_API_URL
+                from backend.config import HEALTH_API_URL
+                base_url = HEALTH_API_URL.replace('/api/health', '')
+                resp = requests.get(
+                    f"{base_url}/api/admin/whoami",
+                    headers={'Cookie': cookie_header},
+                    timeout=5,
+                )
+                if resp.ok:
+                    data = resp.json()
+                    if data.get('is_admin'):
+                        return f(*args, **kwargs)
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"OAuth verification failed: {e}")
+
+        # Fallback to API key
         api_key = request.headers.get('X-Admin-Key')
-        if not ADMIN_API_KEY:
-            return jsonify({"error": "Admin API key not configured"}), 500
-        if api_key != ADMIN_API_KEY:
-            return jsonify({"error": "Invalid or missing admin key"}), 401
-        return f(*args, **kwargs)
+        if ADMIN_API_KEY and api_key == ADMIN_API_KEY:
+            return f(*args, **kwargs)
+
+        return jsonify({"error": "Admin authentication required"}), 401
     return decorated
 
 
@@ -101,16 +121,15 @@ def api_dns_state():
 
 
 @app.route('/api/dns/failover', methods=['POST'])
-@require_admin_key
+@require_admin
 def api_dns_failover():
     """
     Manually trigger DNS failover.
-    Protected endpoint - requires X-Admin-Key header.
+    Protected endpoint - requires admin authentication via OAuth.
 
     Body:
         - target: "home" or "gcp"
         - reason: optional reason string
-        - dry_run: if true, skip actual GoDaddy API call (for testing)
     """
     try:
         data = request.get_json() or {}
