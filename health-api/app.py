@@ -583,19 +583,29 @@ def admin_vpn_switch():
         with open(NGINX_TRANSMISSION_CONF, "r") as f:
             nginx_content = f.read()
 
-        # Update the transmission proxy_pass port
+        # Update ALL transmission proxy_pass ports within the TRANSMISSION block
+        # The block runs from "# ============== TRANSMISSION ==============" to the next "# =============="
+        def update_transmission_block(match):
+            block = match.group(0)
+            # Replace all proxy_pass host.docker.internal ports in this block
+            updated = re.sub(
+                r'(proxy_pass http://host\.docker\.internal:)\d+',
+                f'\\g<1>{target_port}',
+                block
+            )
+            # Update/add the VPN comment on the main proxy_pass line
+            updated = re.sub(
+                r'(proxy_pass http://host\.docker\.internal:\d+;)\s*(#.*VPN)?',
+                f'\\1  # {target.capitalize()} VPN',
+                updated
+            )
+            return updated
+
         new_nginx = re.sub(
-            r'(# ============== TRANSMISSION ==============.*?proxy_pass http://host\.docker\.internal:)\d+',
-            f'\\g<1>{target_port}',
+            r'# ============== TRANSMISSION ==============.*?(?=# ==============|\Z)',
+            update_transmission_block,
             nginx_content,
             flags=re.DOTALL
-        )
-
-        # Update the comment about which VPN
-        new_nginx = re.sub(
-            r'(proxy_pass http://host\.docker\.internal:\d+;)\s*#.*',
-            f'\\1  # {target.capitalize()} VPN',
-            new_nginx
         )
 
         with open(NGINX_TRANSMISSION_CONF, "w") as f:
