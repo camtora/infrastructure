@@ -16,9 +16,13 @@ echo ""
 
 # Create service account
 echo "Creating service account..."
-gcloud iam service-accounts create $SA_NAME \
-  --display-name="GitHub Actions" \
-  --project=$PROJECT_ID 2>/dev/null || echo "  (already exists)"
+if gcloud iam service-accounts describe $SA_EMAIL --project=$PROJECT_ID &>/dev/null; then
+  echo "  (already exists)"
+else
+  gcloud iam service-accounts create $SA_NAME \
+    --display-name="GitHub Actions" \
+    --project=$PROJECT_ID
+fi
 
 # Grant roles
 echo "Granting IAM roles..."
