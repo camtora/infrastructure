@@ -255,8 +255,8 @@ Internal service status - checks each container and local port (requires API key
 The dashboard displays speed test results from the home server.
 
 ### How It Works
-1. Cron job runs every 30 minutes: `/etc/cron.d/speedtest`
-2. Script tests home internet + all active VPN containers
+1. Cron job runs every 5 minutes: `/etc/cron.d/speedtest`
+2. Script tests home internet + all VPN containers **concurrently** (~30 seconds total)
 3. Results written to: `/var/lib/health-api/speedtest.json`
 4. Health API serves the results
 5. Status dashboard fetches and displays
