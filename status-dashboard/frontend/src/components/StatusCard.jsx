@@ -27,6 +27,19 @@ export function StatusCard({ service, adminAuth, onRestart }) {
     }
   }, [confirming])
 
+  // Stop spinner when uptime drops low (container restarted and status refreshed)
+  const [uptimeBeforeRestart, setUptimeBeforeRestart] = useState(null)
+
+  useEffect(() => {
+    if (restarting && uptimeBeforeRestart && internal?.container_uptime) {
+      // Stop if uptime is now lower than before (container restarted)
+      if (internal.container_uptime < uptimeBeforeRestart) {
+        setRestarting(false)
+        setUptimeBeforeRestart(null)
+      }
+    }
+  }, [internal?.container_uptime, restarting, uptimeBeforeRestart])
+
   // Determine overall status and issue type
   let statusType = 'down'
   let issueType = null
@@ -85,18 +98,16 @@ export function StatusCard({ service, adminAuth, onRestart }) {
     setConfirming(false)
     setRestarting(true)
     setError(null)
+    setUptimeBeforeRestart(internal?.container_uptime || 9999)
 
     const result = await onRestart(containerName)
 
     if (!result.success) {
       setError(result.error)
       setRestarting(false)
-      return
+      setUptimeBeforeRestart(null)
     }
-
-    // Keep spinner for 5 seconds to give visual feedback
-    await new Promise(r => setTimeout(r, 5000))
-    setRestarting(false)
+    // Spinner stops when useEffect detects uptime change from status refresh
   }
 
   // Can restart if admin, has container name, and container isn't health-api
