@@ -38,15 +38,6 @@
   - **Outage:** Any other service is inaccessible
 - **Questions:** What actions should each level trigger?
 
-## UX Improvements
-
-### Custom 403 Error Page
-- **Status:** Planned
-- **Description:** Instead of generic 403, redirect to camerontora.ca or show a friendly page
-- **Options:**
-  - Redirect to main site
-  - Custom "Access Denied" page with contact info
-
 ## Technical Debt
 
 ### Per-Service Authorization
@@ -117,3 +108,9 @@
 - CAMRAID (sdk): Hardware RAID5, mount status, usage %
 - health-api parses /proc/mdstat for software RAID status
 - Critical warning displayed if HOMENAS is degraded/failed
+
+### Custom 403 Error Page (2026-01-13)
+- Added: Stylish "Access Denied" page for unauthorized users (authenticated but not on allowed list)
+- Dark glassmorphism design matching status dashboard theme
+- Shows friendly message with links to home page and status dashboard
+- Applied to all 7 protected services: Radarr, Sonarr, Jackett, Tautulli, Transmission, Watchmap, Netdata
