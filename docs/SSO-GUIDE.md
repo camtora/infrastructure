@@ -487,6 +487,56 @@ python3 -c 'import secrets; import base64; print(base64.b64encode(secrets.token_
 
 ---
 
+## Authorization & Error Pages
+
+### Allowed Users
+
+Only specific Google accounts can access protected services. The allowed emails are stored in:
+
+```
+oauth2-proxy/authenticated_emails.txt
+```
+
+To add a new user:
+1. Add their email (one per line) to the file
+2. oauth2-proxy watches the file and reloads automatically (no restart needed)
+
+### Custom 403 Error Page
+
+When a user authenticates with Google but their email isn't in the allowed list, they see a custom 403 error page located at:
+
+```
+nginx/html/403.html
+```
+
+**How it works:**
+
+1. User authenticates via Google OAuth
+2. oauth2-proxy checks email against `authenticated_emails.txt`
+3. If not allowed, oauth2-proxy returns 403
+4. nginx intercepts the 403 (via `proxy_intercept_errors on`) and serves the custom page
+
+**Key nginx configuration:**
+
+```nginx
+location /oauth2/ {
+    proxy_pass http://oauth2-proxy;
+    # ... other headers ...
+    # Intercept oauth2-proxy errors and use our custom page
+    proxy_intercept_errors on;
+    error_page 403 = @error403;
+}
+
+location @error403 {
+    root /usr/share/nginx/html;
+    rewrite ^ /403.html break;
+}
+```
+
+**Important:** The `proxy_intercept_errors on` directive is required to intercept upstream error responses. Without it, nginx passes through oauth2-proxy's default 403 page.
+
+---
+
 ## Quick Reference: New Protected Service Checklist
 
 - [ ] Add DNS A record
