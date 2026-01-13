@@ -141,7 +141,7 @@ services:
       # Tell psutil to use host's /proc
       - HOST_PROC=/host/proc
       # Admin configuration
-      - ADMIN_EMAILS=${ADMIN_EMAILS:-camerontora@gmail.com,cameron.tora@gmail.com}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-cameron.tora@gmail.com}
 
 volumes:
   nginx-logs:

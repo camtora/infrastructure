@@ -30,7 +30,7 @@ SPEEDTEST_FILE = os.environ.get("SPEEDTEST_FILE", "/data/speedtest.json")
 HOST_URL = "http://host.docker.internal"
 
 # Admin configuration
-ADMIN_EMAILS = os.environ.get("ADMIN_EMAILS", "camerontora@gmail.com").split(",")
+ADMIN_EMAILS = os.environ.get("ADMIN_EMAILS", "cameron.tora@gmail.com").split(",")
 DOCKER_COMPOSE_FILE = "/docker-services/docker-compose.yaml"
 NGINX_TRANSMISSION_CONF = "/nginx-conf/10-protected-services.conf"
 
