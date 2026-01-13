@@ -149,12 +149,19 @@ export function App() {
   // Restart a container
   const restartContainer = async (containerName) => {
     try {
+      // Container restarts can take 10+ seconds, set a long timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
+
       const res = await fetch(`${HEALTH_API}/api/admin/container/restart`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ container: containerName })
+        body: JSON.stringify({ container: containerName }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       const data = await res.json()
 
