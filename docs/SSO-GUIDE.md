@@ -326,6 +326,76 @@ Changes are picked up automatically (no restart needed).
 
 ---
 
+## Per-Service Authorization (Admin-Only Access)
+
+While `authenticated_emails.txt` controls who can authenticate, some services need additional restrictions. For example, Haymaker may allow multiple users, but Radarr/Sonarr should be admin-only.
+
+### How It Works
+
+1. **Authentication** (OAuth2 Proxy): Controls who can log in at all
+2. **Authorization** (nginx): Controls which authenticated users can access specific services
+
+### Admin Email Map
+
+Admin emails are defined in `nginx/conf.d/00-admin-map.conf`:
+
+```nginx
+map $auth_email $is_admin {
+    "cameron.tora@gmail.com" 1;
+    default 0;
+}
+```
+
+To add more admins, add additional lines before `default`:
+
+```nginx
+map $auth_email $is_admin {
+    "cameron.tora@gmail.com" 1;
+    "admin2@example.com" 1;
+    default 0;
+}
+```
+
+### Adding Admin-Only Restriction to a Service
+
+Add this block after `auth_request_set` and before `proxy_pass`:
+
+```nginx
+location / {
+    auth_request /oauth2/auth;
+    auth_request_set $auth_email $upstream_http_x_auth_request_email;
+    auth_request_set $auth_access_token $upstream_http_x_auth_request_access_token;
+    error_page 401 = @error401;
+
+    # Admin only
+    if ($is_admin = 0) {
+        return 403;
+    }
+
+    proxy_pass http://host.docker.internal:YOUR_PORT;
+    # ... rest of config
+}
+```
+
+Non-admin users will see a 403 Forbidden page.
+
+### Current Service Authorization
+
+| Service | Access Level |
+|---------|--------------|
+| Haymaker | All authenticated users |
+| Radarr, Sonarr, Jackett, Tautulli, Transmission, Watchmap, Netdata | Admin only |
+| Health API `/api/admin/*` | Admin only |
+| Plex, Overseerr, Ombi | Public (no auth required) |
+
+### Adding a Haymaker-Only User
+
+1. Add their email to `oauth2-proxy/authenticated_emails.txt`
+2. They can now access Haymaker
+3. They will get 403 on admin-only services (Radarr, etc.)
+
+---
+
 ## Troubleshooting
 
 ### SSO not working (prompted to log in on each subdomain)
@@ -342,6 +412,12 @@ Changes are picked up automatically (no restart needed).
 
 - Check if email is in `authenticated_emails.txt`
 - Check OAuth2 Proxy logs: `docker-compose logs oauth2-proxy`
+
+### 403 Forbidden
+
+- User is authenticated but not authorized for this service
+- Check if the service has admin-only restriction (see `10-protected-services.conf`)
+- To grant admin access, add their email to `nginx/conf.d/00-admin-map.conf`
 
 ### 502 Bad Gateway
 
@@ -396,11 +472,13 @@ python3 -c 'import secrets; import base64; print(base64.b64encode(secrets.token_
 ├── nginx/
 │   ├── nginx.conf          # Main nginx config
 │   └── conf.d/
-│       ├── 00-auth.conf    # Upstream definition
+│       ├── 00-admin-map.conf  # Admin email authorization
+│       ├── 00-auth.conf       # Upstream definition
 │       ├── 01-camerontora.conf
 │       ├── 02-haymaker.conf
-│       ├── 10-protected-services.conf
-│       └── 20-public-services.conf
+│       ├── 10-protected-services.conf  # Admin-only services
+│       ├── 20-public-services.conf
+│       └── 25-health.conf     # Health API (admin endpoints)
 ├── oauth2-proxy/
 │   └── authenticated_emails.txt
 └── docs/
