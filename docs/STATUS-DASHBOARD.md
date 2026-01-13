@@ -276,7 +276,7 @@ tail -f /var/log/speedtest.log
 ### VPN Locations Tested
 - gluetun-montreal
 - gluetun-toronto (currently active for Transmission)
-- gluetun-vancouver (unhealthy - DNS issues)
+- gluetun-vancouver
 
 The script tests all 3 locations and shows:
 - **Status:** healthy/unhealthy/stopped

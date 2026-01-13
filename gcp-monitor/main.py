@@ -8,6 +8,8 @@ Triggered by Cloud Scheduler every 5 minutes.
 import json
 import logging
 import os
+import socket
+import ssl
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -40,6 +42,7 @@ THRESHOLD_DISK_CAMRAID = float(os.environ.get("THRESHOLD_DISK_CAMRAID", "95"))
 THRESHOLD_DISK_VAR = float(os.environ.get("THRESHOLD_DISK_VAR", "90"))
 THRESHOLD_UPLOAD_MBPS = float(os.environ.get("THRESHOLD_UPLOAD_MBPS", "5"))
 THRESHOLD_SPEEDTEST_STALE_HOURS = float(os.environ.get("THRESHOLD_SPEEDTEST_STALE_HOURS", "2"))
+THRESHOLD_CERT_EXPIRY_DAYS = int(os.environ.get("THRESHOLD_CERT_EXPIRY_DAYS", "14"))
 
 # Endpoints to check (home server services only)
 PUBLIC_ENDPOINTS = [
@@ -111,6 +114,39 @@ def check_endpoint(name: str, url: str) -> dict[str, Any]:
         return {"name": name, "url": url, "up": False, "error": "timeout"}
     except requests.exceptions.RequestException as e:
         return {"name": name, "url": url, "up": False, "error": str(e)}
+
+
+def check_ssl_cert(hostname: str, port: int = 443) -> dict[str, Any]:
+    """Check SSL certificate expiry for a hostname."""
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((hostname, port), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                cert = ssock.getpeercert()
+
+        # Parse expiry date
+        not_after = cert.get("notAfter")
+        if not not_after:
+            return {"hostname": hostname, "error": "No expiry date in cert"}
+
+        # Format: 'Apr 12 16:00:18 2026 GMT'
+        expiry = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
+        expiry = expiry.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        days_remaining = (expiry - now).days
+
+        return {
+            "hostname": hostname,
+            "expiry": expiry.isoformat(),
+            "days_remaining": days_remaining,
+            "expiring_soon": days_remaining < THRESHOLD_CERT_EXPIRY_DAYS,
+        }
+    except socket.timeout:
+        return {"hostname": hostname, "error": "Connection timeout"}
+    except ssl.SSLError as e:
+        return {"hostname": hostname, "error": f"SSL error: {e}"}
+    except Exception as e:
+        return {"hostname": hostname, "error": str(e)}
 
 
 def check_health_api() -> dict[str, Any]:
@@ -272,6 +308,7 @@ def run_health_check() -> dict[str, Any]:
         "health_api": None,
         "vpn": None,
         "plex": None,
+        "ssl_cert": None,
         "alerts": [],
         "overall_status": "healthy",
     }
@@ -333,6 +370,25 @@ def run_health_check() -> dict[str, Any]:
         recovery_with_dedup("plex", "Plex Server Back Online",
                           f"Plex is now reachable. Libraries: {', '.join(plex.get('libraries', []))}")
 
+    # Check SSL certificate expiry
+    ssl_result = check_ssl_cert("camerontora.ca")
+    results["ssl_cert"] = ssl_result
+
+    if ssl_result.get("error"):
+        alert_with_dedup("ssl_cert", "SSL Certificate Check Failed",
+                        f"Cannot check SSL cert for camerontora.ca.\n{ssl_result['error']}")
+    elif ssl_result.get("expiring_soon"):
+        days = ssl_result.get("days_remaining", 0)
+        alert_with_dedup("ssl_cert_expiry", "SSL Certificate Expiring Soon",
+                        f"camerontora.ca SSL certificate expires in **{days} days**.\n"
+                        f"Expiry: {ssl_result.get('expiry', 'unknown')}\n\n"
+                        f"Run `certbot renew` on home server to renew.")
+        results["alerts"].append(f"SSL cert expires in {days} days")
+        results["overall_status"] = "warning" if results["overall_status"] == "healthy" else results["overall_status"]
+    else:
+        recovery_with_dedup("ssl_cert_expiry", "SSL Certificate Renewed",
+                          f"camerontora.ca SSL certificate is valid for {ssl_result.get('days_remaining', '?')} more days.")
+
     return results
 
 
@@ -384,6 +440,13 @@ def check():
         logger.info(f"Plex: reachable, {plex.get('library_count')} libraries")
     else:
         logger.info(f"Plex: UNREACHABLE - {plex.get('error')}")
+
+    ssl_cert = results.get("ssl_cert", {})
+    if ssl_cert.get("error"):
+        logger.info(f"SSL cert: ERROR - {ssl_cert['error']}")
+    elif ssl_cert.get("days_remaining") is not None:
+        status_str = "EXPIRING SOON" if ssl_cert.get("expiring_soon") else "OK"
+        logger.info(f"SSL cert: {status_str}, {ssl_cert['days_remaining']} days remaining")
 
     # Log summary
     status = results["overall_status"]
