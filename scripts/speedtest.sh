@@ -73,43 +73,67 @@ if transmission_network=$(docker inspect transmission --format '{{.HostConfig.Ne
     fi
 fi
 
-# Run VPN speedtest for all gluetun containers
-log "Checking VPN containers..."
-VPN_RESULTS="{}"
+# Run VPN speedtests CONCURRENTLY for all gluetun containers
+log "Running VPN speedtests concurrently..."
+TEMP_DIR=$(mktemp -d)
 
-for location in "${VPN_LOCATIONS[@]}"; do
-    container="gluetun-$location"
-    location_cap=$(echo "$location" | sed 's/.*/\u&/')  # Capitalize first letter
-    is_active=$([[ "$location" == "$ACTIVE_VPN" ]] && echo "true" || echo "false")
+# Function to test a single VPN
+test_vpn() {
+    local location="$1"
+    local active_vpn="$2"
+    local temp_dir="$3"
+    local container="gluetun-$location"
+    local location_cap=$(echo "$location" | sed 's/.*/\u&/')
+    local is_active=$([[ "$location" == "$active_vpn" ]] && echo "true" || echo "false")
+    local result_file="$temp_dir/$location.json"
 
     # Check if container is running
     if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-        VPN_RESULTS=$(echo "$VPN_RESULTS" | jq --arg loc "$location_cap" --argjson active "$is_active" \
-            '. + {($loc): {"download": null, "upload": null, "ping": null, "status": "stopped", "active": $active}}')
-        log "✗ VPN ($location_cap): Container not running"
-        continue
+        echo "{\"download\": null, \"upload\": null, \"ping\": null, \"status\": \"stopped\", \"active\": $is_active}" > "$result_file"
+        echo "$(date '+%F %T') ✗ VPN ($location_cap): Container not running" >> "$LOGFILE"
+        return
     fi
-
-    log "Running VPN speedtest ($location_cap)..."
 
     if output=$(docker run --rm --network=container:$container appropriate/curl -s "https://speed.cloudflare.com/__down?bytes=25000000" -w '{"time": %{time_total}}' -o /dev/null 2>&1); then
         time_sec=$(echo "$output" | jq -r '.time // 1')
         if [[ "$time_sec" != "0" && "$time_sec" != "null" ]]; then
             download_mbps=$(echo "scale=2; (25 * 8) / $time_sec" | bc)
-            VPN_RESULTS=$(echo "$VPN_RESULTS" | jq --arg loc "$location_cap" --argjson dl "$download_mbps" --argjson active "$is_active" \
-                '. + {($loc): {"download": $dl, "upload": null, "ping": null, "status": "healthy", "active": $active}}')
-            log "✓ VPN ($location_cap): Download≈${download_mbps}Mbps"
+            echo "{\"download\": $download_mbps, \"upload\": null, \"ping\": null, \"status\": \"healthy\", \"active\": $is_active}" > "$result_file"
+            echo "$(date '+%F %T') ✓ VPN ($location_cap): Download≈${download_mbps}Mbps" >> "$LOGFILE"
         else
-            VPN_RESULTS=$(echo "$VPN_RESULTS" | jq --arg loc "$location_cap" --argjson active "$is_active" \
-                '. + {($loc): {"download": null, "upload": null, "ping": null, "status": "error", "active": $active}}')
-            log "✗ VPN ($location_cap): Invalid response"
+            echo "{\"download\": null, \"upload\": null, \"ping\": null, \"status\": \"error\", \"active\": $is_active}" > "$result_file"
+            echo "$(date '+%F %T') ✗ VPN ($location_cap): Invalid response" >> "$LOGFILE"
         fi
     else
-        VPN_RESULTS=$(echo "$VPN_RESULTS" | jq --arg loc "$location_cap" --argjson active "$is_active" \
-            '. + {($loc): {"download": null, "upload": null, "ping": null, "status": "unhealthy", "active": $active}}')
-        log "✗ VPN ($location_cap) speedtest failed (DNS/network issue)"
+        echo "{\"download\": null, \"upload\": null, \"ping\": null, \"status\": \"unhealthy\", \"active\": $is_active}" > "$result_file"
+        echo "$(date '+%F %T') ✗ VPN ($location_cap) speedtest failed (DNS/network issue)" >> "$LOGFILE"
+    fi
+}
+
+# Export function and variables for subshells
+export -f test_vpn
+export LOGFILE
+
+# Start all VPN tests in parallel
+for location in "${VPN_LOCATIONS[@]}"; do
+    test_vpn "$location" "$ACTIVE_VPN" "$TEMP_DIR" &
+done
+
+# Wait for all tests to complete
+wait
+
+# Collect results
+VPN_RESULTS="{}"
+for location in "${VPN_LOCATIONS[@]}"; do
+    location_cap=$(echo "$location" | sed 's/.*/\u&/')
+    if [[ -f "$TEMP_DIR/$location.json" ]]; then
+        result=$(cat "$TEMP_DIR/$location.json")
+        VPN_RESULTS=$(echo "$VPN_RESULTS" | jq --arg loc "$location_cap" --argjson data "$result" '. + {($loc): $data}')
     fi
 done
+
+# Cleanup
+rm -rf "$TEMP_DIR"
 
 # Build final JSON
 cat > "$OUTPUT_FILE" << EOF
