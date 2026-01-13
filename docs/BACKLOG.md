@@ -1,12 +1,5 @@
 # Infrastructure Backlog
 
-## Bugs
-
-### Discord Alerts Not Firing
-- **Status:** Investigate
-- **Description:** No Discord alert when 8 services went offline
-- **Questions:** Is the webhook configured? Is the alert threshold wrong?
-
 ## Admin/Status Dashboard Features
 
 ### SSH Restart Server
@@ -99,3 +92,11 @@
 
 ### Montreal VPN Port (2026-01-13)
 - Fixed: nginx config updated to use port 9092 for Montreal VPN
+
+### Discord Alerts Not Firing (2026-01-13)
+- Fixed: Discord webhook URL in GCP Secret Manager had embedded newline corrupting the URL
+- Fixed: gcp-monitor looked for `upload_mbps` but health API returns `upload`, causing false "0 Mbps" alerts
+
+### GitHub Actions OIDC Provider (2026-01-13)
+- Fixed: Created missing `github-provider` OIDC provider in GCP Workload Identity Pool
+- Added: Attribute condition restricting to `camtora/infrastructure` repo
