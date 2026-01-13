@@ -45,15 +45,6 @@
   - Redirect to main site
   - Custom "Access Denied" page with contact info
 
-### Rename monitor.camerontora.ca to status.camerontora.ca
-- **Status:** Planned
-- **Description:** Rename and decommission the "monitor" subdomain
-- **Steps:**
-  1. Add status.camerontora.ca DNS record
-  2. Update Cloud Run service mapping
-  3. Update any references in code
-  4. Eventually remove monitor subdomain
-
 ## Technical Debt
 
 ### Per-Service Authorization
@@ -81,6 +72,11 @@
 
 ## Completed
 
+### Migrate monitor.camerontora.ca → status.camerontora.ca (2026-01-13)
+- Migrated status dashboard URL from monitor.camerontora.ca to status.camerontora.ca
+- Updated GCP domain mapping, nginx CORS headers, documentation
+- Decommissioned monitor.camerontora.ca subdomain
+
 ### VPN Switch Port Update (2026-01-13)
 - Fixed: VPN switch now updates both nginx proxy_pass lines (health endpoint + main)
 
@@ -100,3 +96,7 @@
 ### GitHub Actions OIDC Provider (2026-01-13)
 - Fixed: Created missing `github-provider` OIDC provider in GCP Workload Identity Pool
 - Added: Attribute condition restricting to `camtora/infrastructure` repo
+
+### Sonarr/Radarr VPN Port Sync (2026-01-13)
+- Fixed: VPN switch now updates Sonarr/Radarr download client ports via API
+- Each VPN location has different port (Toronto=9091, Montreal=9092, Vancouver=9093)

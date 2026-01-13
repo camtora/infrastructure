@@ -2,7 +2,7 @@
 
 Public monitoring dashboard for camerontora.ca services, hosted on GCP Cloud Run.
 
-**URL:** https://monitor.camerontora.ca
+**URL:** https://status.camerontora.ca
 **Alternate URL:** https://status-dashboard-jkdghbnxoq-uc.a.run.app
 
 ## Overview
@@ -29,7 +29,7 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 │        │                                                                 │
 │        ▼ POST /api/check                                                 │
 │                                                                          │
-│   status-dashboard (Cloud Run) ◄──── Users via monitor.camerontora.ca   │
+│   status-dashboard (Cloud Run) ◄──── Users via status.camerontora.ca    │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
 │   │  Frontend (Preact + Tailwind)                                    │   │
 │   │  ├── Status grid (all services)                                  │   │
@@ -60,9 +60,9 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 | Plex | plex.camerontora.ca | Media server |
 | Overseerr | overseerr.camerontora.ca | Media requests |
 | Ombi | ombi.camerontora.ca | Media requests (legacy) |
-| Status Dashboard | monitor.camerontora.ca | GCP-hosted status page |
+| Status Dashboard | status.camerontora.ca | GCP-hosted status page |
 
-> **Note:** `status.camerontora.ca` redirects to `monitor.camerontora.ca`. Uptime Kuma was decommissioned in favor of the GCP status dashboard.
+> **Note:** `monitor.camerontora.ca` has been decommissioned. Uptime Kuma was replaced by the GCP status dashboard at `status.camerontora.ca`.
 
 ### Protected Services (OAuth)
 | Service | URL | Description |
@@ -180,7 +180,7 @@ Returns current DNS configuration from GoDaddy.
 Manually switch DNS between home and GCP. Requires `X-Admin-Key` header.
 
 ```bash
-curl -X POST https://monitor.camerontora.ca/api/dns/failover \
+curl -X POST https://status.camerontora.ca/api/dns/failover \
   -H "Content-Type: application/json" \
   -H "X-Admin-Key: YOUR_ADMIN_KEY" \
   -d '{"target": "gcp", "reason": "Manual failover"}'
@@ -237,7 +237,7 @@ Internal service status - checks each container and local port (requires API key
 - **Target:** POST /api/check
 
 ### Domain Mapping
-- **Domain:** monitor.camerontora.ca
+- **Domain:** status.camerontora.ca
 - **Type:** CNAME to ghs.googlehosted.com
 
 ### Secrets (GCP Secret Manager)
@@ -292,7 +292,7 @@ The dashboard includes manual DNS failover capability for disaster recovery.
 **Failover to GCP:**
 1. Enter admin key in dashboard (stored in localStorage)
 2. Click "Failover to GCP" button
-3. Dashboard calls GoDaddy API to update `@` and `monitor` A records
+3. Dashboard calls GoDaddy API to update `@` A record
 4. Points to Google's anycast IP (`192.178.192.121`)
 5. Visitors to camerontora.ca see status dashboard with failover banner
 
@@ -304,10 +304,10 @@ The dashboard includes manual DNS failover capability for disaster recovery.
 
 ### DNS Records Managed
 ```
-@, monitor
+@
 ```
 
-Only these two records are failed over. Other subdomains (plex, radarr, etc.) stay pointed at home and will timeout cleanly during an outage. This avoids SSL certificate warnings since Cloud Run only has a valid cert for `monitor.camerontora.ca`.
+Only the root record is failed over. Other subdomains (plex, radarr, etc.) stay pointed at home and will timeout cleanly during an outage. This avoids SSL certificate warnings since Cloud Run only has a valid cert for `status.camerontora.ca`.
 
 ### Failover Banner
 When DNS points to GCP, the dashboard displays:
@@ -509,15 +509,15 @@ environment:
 
 - Auto-failover after N consecutive failures (waiting for GoDaddy API rate limit reset in Feb)
 - Cloudflare Access for defense-in-depth (optional extra auth layer)
-- Migrate dashboard to status.camerontora.ca (industry standard subdomain)
+- ✅ **Migrate dashboard URL:** Moved from monitor.camerontora.ca to status.camerontora.ca
 - Server reboot from dashboard
 - RAID array health monitoring
 - VPN download speed alerting (alert if < 10 Mbps)
 - Home download speed alerting
 
 ### Completed
-- ✅ **Integrate into camerontora.ca:** StatusIndicator fetches from monitor.camerontora.ca/api/status
-- ✅ **Deprecate Uptime Kuma:** Container removed, status.camerontora.ca redirects to monitor
+- ✅ **Integrate into camerontora.ca:** StatusIndicator fetches from status.camerontora.ca/api/status
+- ✅ **Deprecate Uptime Kuma:** Container removed, dashboard now at status.camerontora.ca
 - ✅ **SSL certificate expiry warnings:** gcp-monitor alerts if cert expires within 14 days
 - ✅ **VPN health alerting:** gcp-monitor alerts when VPN goes unhealthy
 - ✅ **Container restart from dashboard:** Admin can restart containers via dashboard

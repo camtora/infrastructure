@@ -39,8 +39,7 @@ sudo chmod 600 /etc/godaddy-ddns.env
 The script updates these A records when the IP changes:
 - `@` (camerontora.ca)
 - `ombi`, `plex`, `sonarr`, `radarr`, `tautulli`, `transmission`
-- `jackett`, `status`, `emby`, `jellyfin`, `overseerr`
-- `watchmap`, `haymaker`, `netdata`, `health`
+- `jackett`, `overseerr`, `watchmap`, `haymaker`, `netdata`, `health`
 
 ### Adding a New Subdomain
 1. Edit `scripts/godaddy-ddns.sh`
@@ -67,22 +66,21 @@ All subdomains share a single certificate managed by certbot.
 ```
 camerontora.ca
 www.camerontora.ca
-emby.camerontora.ca
 haymaker.camerontora.ca
 health.camerontora.ca
 jackett.camerontora.ca
-jellyfin.camerontora.ca
 netdata.camerontora.ca
 ombi.camerontora.ca
 overseerr.camerontora.ca
 plex.camerontora.ca
 radarr.camerontora.ca
 sonarr.camerontora.ca
-status.camerontora.ca
 tautulli.camerontora.ca
 transmission.camerontora.ca
 watchmap.camerontora.ca
 ```
+
+> **Note:** `status.camerontora.ca` is a CNAME to GCP Cloud Run (SSL managed by Google). `emby` and `jellyfin` have been decommissioned.
 
 ### Adding a New Subdomain to the Certificate
 
@@ -95,18 +93,15 @@ sudo certbot certonly --webroot \
   --cert-name camerontora-services \
   -d camerontora.ca \
   -d www.camerontora.ca \
-  -d emby.camerontora.ca \
   -d haymaker.camerontora.ca \
   -d health.camerontora.ca \
   -d jackett.camerontora.ca \
-  -d jellyfin.camerontora.ca \
   -d netdata.camerontora.ca \
   -d ombi.camerontora.ca \
   -d overseerr.camerontora.ca \
   -d plex.camerontora.ca \
   -d radarr.camerontora.ca \
   -d sonarr.camerontora.ca \
-  -d status.camerontora.ca \
   -d tautulli.camerontora.ca \
   -d transmission.camerontora.ca \
   -d watchmap.camerontora.ca \
