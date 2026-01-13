@@ -253,6 +253,98 @@ def parse_mdstat_array(mdstat: str, device: str, name: str, mount_point: str) ->
     return array
 
 
+def get_smart_status(device: str) -> dict:
+    """Get SMART status for a single drive."""
+    result = {
+        "device": device,
+        "smart_status": "unknown",
+        "warnings": [],
+    }
+
+    try:
+        # Run smartctl -a to get all SMART data
+        proc = subprocess.run(
+            ["sudo", "smartctl", "-a", f"/dev/{device}"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        output = proc.stdout
+
+        # Parse overall health status
+        if "SMART overall-health self-assessment test result: PASSED" in output:
+            result["smart_status"] = "PASSED"
+        elif "SMART overall-health self-assessment test result: FAILED" in output:
+            result["smart_status"] = "FAILED"
+            result["warnings"].append("SMART self-assessment FAILED")
+
+        # Parse model and serial
+        model_match = re.search(r"Device Model:\s+(.+)", output)
+        serial_match = re.search(r"Serial Number:\s+(.+)", output)
+        if model_match:
+            result["model"] = model_match.group(1).strip()
+        if serial_match:
+            result["serial"] = serial_match.group(1).strip()
+
+        # Parse temperature - RAW_VALUE is after the last '-' on the line
+        temp_match = re.search(r"Temperature_Celsius.*-\s+(\d+)", output)
+        if temp_match:
+            result["temperature"] = int(temp_match.group(1))
+
+        # Parse power-on hours - RAW_VALUE is after the last '-'
+        hours_match = re.search(r"Power_On_Hours.*-\s+(\d+)", output)
+        if hours_match:
+            result["power_on_hours"] = int(hours_match.group(1))
+
+        # Parse critical attributes - RAW_VALUE is after '-' at end of line
+        # SMART format: ID ATTR_NAME FLAGS VALUE WORST THRESH TYPE UPDATED WHEN_FAILED RAW_VALUE
+        attrs = {}
+        for attr_name, attr_id in [
+            ("reallocated_sectors", "Reallocated_Sector_Ct"),
+            ("pending_sectors", "Current_Pending_Sector"),
+            ("uncorrectable", "Offline_Uncorrectable"),
+            ("spin_retry", "Spin_Retry_Count"),
+        ]:
+            # Match attribute name followed by everything up to '-' then the RAW_VALUE
+            match = re.search(rf"{attr_id}.*-\s+(\d+)", output)
+            if match:
+                val = int(match.group(1))
+                attrs[attr_name] = val
+                # Warn on non-zero values for sector-related attributes
+                if val > 0 and attr_name in ("reallocated_sectors", "pending_sectors", "uncorrectable"):
+                    result["warnings"].append(f"{attr_name}: {val}")
+
+        result["attributes"] = attrs
+
+    except subprocess.TimeoutExpired:
+        result["warnings"].append("smartctl timeout")
+    except Exception as e:
+        result["warnings"].append(f"Error: {str(e)}")
+
+    return result
+
+
+def get_all_smart_status() -> list:
+    """Get SMART status for all RAID drives in md1."""
+    drives = []
+    try:
+        with open("/proc/mdstat", "r") as f:
+            mdstat = f.read()
+
+        # Extract drive names from md1 line
+        # Format: md1 : active raid5 sdi[6] sdd[0] sdf[4] sde[5] sdj[1] sdc[3] sdh[8] sdg[7]
+        match = re.search(r"md1\s*:\s*active\s+\w+\s+(.+)\n", mdstat)
+        if match:
+            # Parse "sdi[6] sdd[0] sdf[4]..." format
+            drive_pattern = re.findall(r"(\w+)\[\d+\]", match.group(1))
+            for device in sorted(drive_pattern):
+                drives.append(get_smart_status(device))
+    except Exception as e:
+        app.logger.error(f"Failed to get SMART status: {e}")
+
+    return drives
+
+
 def get_storage_status():
     """Get RAID array and storage mount status."""
     arrays = []
@@ -292,10 +384,21 @@ def get_storage_status():
             pass
     arrays.append(camraid)
 
+    # Get SMART status for all RAID drives
+    drives = get_all_smart_status()
+
+    # Update overall status based on drive health
+    if any(d.get("smart_status") == "FAILED" for d in drives):
+        overall_status = "failed"
+    elif any(d.get("warnings") for d in drives):
+        if overall_status == "healthy":
+            overall_status = "warning"
+
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "status": overall_status,
         "arrays": arrays,
+        "drives": drives,
     }
 
 

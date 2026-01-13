@@ -103,6 +103,14 @@
 - Fixed: VPN switch now updates Sonarr/Radarr download client ports via API
 - Each VPN location has different port (Toronto=9091, Montreal=9092, Vancouver=9093)
 
+### SMART Disk Health Monitoring (2026-01-13)
+- Added: Per-drive SMART health monitoring for HOMENAS RAID5 array
+- Parses smartctl output for each of the 8 drives (sdc-sdj)
+- Displays: model, serial, temperature, power-on hours, SMART status
+- Monitors critical attributes: reallocated sectors, pending sectors, uncorrectable
+- Expandable drive list in StoragePanel shows individual drive health
+- Warnings triggered if any drive has non-zero sector counts
+
 ### RAID Array Health Monitoring (2026-01-13)
 - Added: StoragePanel component showing RAID array health on dashboard
 - HOMENAS (md1): Software RAID5, 8 drives, sync status, usage %

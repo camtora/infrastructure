@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     sudo \
     systemd-sysv \
+    smartmontools \
     && install -m 0755 -d /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && chmod a+r /etc/apt/keyrings/docker.gpg \
@@ -16,7 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update \
     && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/* \
-    && echo "root ALL=(ALL) NOPASSWD: /sbin/reboot" >> /etc/sudoers.d/reboot
+    && echo "root ALL=(ALL) NOPASSWD: /sbin/reboot" >> /etc/sudoers.d/reboot \
+    && echo "root ALL=(ALL) NOPASSWD: /usr/sbin/smartctl" >> /etc/sudoers.d/smartctl
 
 # Install Python dependencies
 COPY requirements.txt .

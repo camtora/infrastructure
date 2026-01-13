@@ -129,6 +129,8 @@ services:
       - /HOMENAS:/hostfs/HOMENAS:ro
       # Mount /proc for CPU/memory stats
       - /proc:/host/proc:ro
+      # Block devices for SMART monitoring
+      - /dev:/dev:ro
       # Docker socket for container management (admin features)
       - /var/run/docker.sock:/var/run/docker.sock
       # Config files for VPN switching (admin features)
