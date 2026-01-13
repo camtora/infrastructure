@@ -46,8 +46,7 @@ services:
       OAUTH2_PROXY_COOKIE_REFRESH: "168h"
       OAUTH2_PROXY_COOKIE_EXPIRE: "720h"
 
-      # Email restrictions
-      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      # Email restrictions - only allow specific emails in the file
       OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE: "/etc/oauth2-proxy/authenticated_emails.txt"
 
       # Proxy settings
