@@ -2,6 +2,7 @@
 
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
 
@@ -143,13 +144,24 @@ def run_health_check() -> dict[str, Any]:
     # Fetch internal service status (container + local port)
     internal_status = fetch_internal_services()
 
-    # Check all services externally and merge with internal status
+    # Check all services externally in parallel (prevents timeout cascade)
     down_count = 0
-    for service in SERVICES:
-        check = check_endpoint(service["name"], service["url"])
-        check["category"] = service.get("category", "unknown")
+    service_checks = {}
 
-        # Merge internal status if available
+    with ThreadPoolExecutor(max_workers=len(SERVICES)) as executor:
+        futures = {
+            executor.submit(check_endpoint, svc["name"], svc["url"]): svc
+            for svc in SERVICES
+        }
+        for future in as_completed(futures):
+            svc = futures[future]
+            check = future.result()
+            check["category"] = svc.get("category", "unknown")
+            service_checks[svc["name"]] = check
+
+    # Merge with internal status and build results (preserve SERVICES order)
+    for service in SERVICES:
+        check = service_checks[service["name"]]
         internal = internal_status.get(service["name"], {})
         if internal:
             check["internal"] = {
