@@ -169,8 +169,9 @@ export function App() {
         return { success: false, error: data.error || 'Restart failed' }
       }
 
-      // Refresh status after restart
-      setTimeout(fetchStatus, 2000)
+      // Wait 2 seconds then refresh status (keep spinner until refresh completes)
+      await new Promise(r => setTimeout(r, 2000))
+      await fetchStatus()
       return { success: true }
     } catch (e) {
       console.error('Restart failed:', e.name, e.message, e)

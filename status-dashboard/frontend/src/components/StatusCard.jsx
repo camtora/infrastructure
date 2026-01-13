@@ -86,17 +86,10 @@ export function StatusCard({ service, adminAuth, onRestart }) {
     setRestarting(true)
     setError(null)
 
-    const startTime = Date.now()
     const result = await onRestart(containerName)
 
     if (!result.success) {
       setError(result.error)
-    }
-
-    // Keep spinner visible for at least 2 seconds for feedback
-    const elapsed = Date.now() - startTime
-    if (elapsed < 2000) {
-      await new Promise(r => setTimeout(r, 2000 - elapsed))
     }
 
     setRestarting(false)
