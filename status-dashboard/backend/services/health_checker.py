@@ -20,7 +20,7 @@ def check_endpoint(name: str, url: str, timeout: int = 15) -> dict[str, Any]:
     """Check if an endpoint is reachable."""
     start_time = time.time()
     try:
-        resp = requests.get(url, timeout=timeout, allow_redirects=True)
+        resp = requests.get(url, timeout=timeout, allow_redirects=False)
         response_time = int((time.time() - start_time) * 1000)
         # Accept 2xx, 3xx, and 401 (protected but reachable)
         is_up = resp.status_code < 400 or resp.status_code == 401
