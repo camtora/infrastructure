@@ -5,6 +5,7 @@ import { ServiceGrid } from './components/ServiceGrid'
 import { MetricsPanel } from './components/MetricsPanel'
 import { SpeedPanel } from './components/SpeedPanel'
 import { DNSPanel } from './components/DNSPanel'
+import { StoragePanel } from './components/StoragePanel'
 import { HistoryPanel } from './components/HistoryPanel'
 import { RebootDialog } from './components/RebootDialog'
 
@@ -66,6 +67,7 @@ export function App() {
   // Reboot state
   const [rebootPhase, setRebootPhase] = useState(null) // null | 'confirm' | 'rebooting' | 'complete'
   const [rebootServices, setRebootServices] = useState([])
+  const [rebootStorage, setRebootStorage] = useState(null)
   const rebootPollRef = useRef(null)
 
   // Check admin authentication
@@ -228,9 +230,15 @@ export function App() {
           const data = await res.json()
           // Update services status
           setRebootServices(data.services?.map(s => ({ name: s.name, status: s.status })) || [])
-          // Check if all services are up
+          // Update storage status for dialog
+          setRebootStorage(data.metrics?.storage)
+
+          // Check if all services are up AND storage is healthy/mounted
           const allUp = data.services?.every(s => s.status === 'up')
-          if (allUp) {
+          const storageHealthy = data.metrics?.storage?.status === 'healthy'
+          const mountsOk = data.metrics?.storage?.arrays?.every(a => a.mounted !== false) ?? true
+
+          if (allUp && (storageHealthy || !data.metrics?.storage) && mountsOk) {
             setRebootPhase('complete')
             if (rebootPollRef.current) {
               clearInterval(rebootPollRef.current)
@@ -245,6 +253,7 @@ export function App() {
       } catch (e) {
         // Expected during reboot - mark all services as offline
         setRebootServices(prev => prev.map(s => ({ ...s, status: 'down' })))
+        setRebootStorage(null)
       }
 
       if (attempts >= maxAttempts) {
@@ -398,6 +407,10 @@ export function App() {
           <DNSPanel dns={status?.dns} adminAuth={adminAuth} />
         </div>
 
+        <div class="mb-8">
+          <StoragePanel storage={status?.metrics?.storage} />
+        </div>
+
         <ServiceGrid
           services={status?.services || []}
           adminAuth={adminAuth}
@@ -419,6 +432,7 @@ export function App() {
       <RebootDialog
         phase={rebootPhase}
         services={rebootServices}
+        storage={rebootStorage}
         onConfirm={executeReboot}
         onCancel={cancelReboot}
         onClose={closeRebootDialog}

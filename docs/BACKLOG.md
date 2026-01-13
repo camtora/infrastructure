@@ -12,11 +12,13 @@
   - Auto-detects when all services are back online
 
 ### Reboot Health Verification
-- **Status:** Planned
+- **Status:** Completed (2026-01-13)
 - **Description:** After reboot is detected, verify system is healthy
-- **Checks:**
-  - All Docker containers are up and running
-  - NAS mounts are correct (CAMRAID and HOMENAS)
+- **Implementation:**
+  - RebootDialog shows storage array status during reboot polling
+  - Verifies HOMENAS (RAID5) and CAMRAID are healthy and mounted
+  - Only transitions to "complete" phase when all services UP AND storage healthy
+  - StoragePanel added to main dashboard showing RAID health
 
 ### Auto-Failover VPN
 - **Status:** Planned
@@ -100,3 +102,10 @@
 ### Sonarr/Radarr VPN Port Sync (2026-01-13)
 - Fixed: VPN switch now updates Sonarr/Radarr download client ports via API
 - Each VPN location has different port (Toronto=9091, Montreal=9092, Vancouver=9093)
+
+### RAID Array Health Monitoring (2026-01-13)
+- Added: StoragePanel component showing RAID array health on dashboard
+- HOMENAS (md1): Software RAID5, 8 drives, sync status, usage %
+- CAMRAID (sdk): Hardware RAID5, mount status, usage %
+- health-api parses /proc/mdstat for software RAID status
+- Critical warning displayed if HOMENAS is degraded/failed

@@ -531,6 +531,41 @@ Reboot the entire home server from the dashboard. Useful for recovering from sys
 | `frontend/src/components/MetricsPanel.jsx` | Restart button |
 | `frontend/src/components/RebootDialog.jsx` | Multi-phase dialog component |
 
+#### Storage Monitoring
+
+The dashboard displays RAID array health and mount status for critical storage.
+
+**Storage Arrays Monitored:**
+| Array | Device | Type | Mount Point | Purpose |
+|-------|--------|------|-------------|---------|
+| HOMENAS | /dev/md1 | Software RAID5 (8 drives) | /HOMENAS | Plex media (critical) |
+| CAMRAID | /dev/sdk | Hardware RAID5 (JMicron) | /CAMRAID | Personal media |
+
+**StoragePanel displays:**
+- Array name and device
+- RAID status (healthy/degraded/rebuilding/failed)
+- Sync status for software RAID (e.g., `[UUUUUUUU]`)
+- Drive count (active/total)
+- Mount status
+- Usage percentage with color-coded bar
+
+**HOMENAS is critical** - if degraded or failed, the panel shows a red warning border and message. The reboot verification also checks storage status before showing "complete".
+
+**How it works:**
+1. health-api parses `/proc/mdstat` for software RAID status
+2. Checks mount points via `os.path.ismount()`
+3. Returns status via `/api/health` response
+4. Frontend displays in StoragePanel component
+5. RebootDialog includes storage verification
+
+**Files involved:**
+| File | Purpose |
+|------|---------|
+| `health-api/app.py` | `get_storage_status()`, `parse_mdstat_array()` |
+| `status-dashboard/backend/services/health_checker.py` | Passes storage data to frontend |
+| `frontend/src/components/StoragePanel.jsx` | Dashboard storage display |
+| `frontend/src/components/RebootDialog.jsx` | Storage status during reboot |
+
 ### Admin API Endpoints
 
 | Endpoint | Method | Description |
@@ -554,7 +589,6 @@ environment:
 
 - Auto-failover after N consecutive failures (waiting for GoDaddy API rate limit reset in Feb)
 - Cloudflare Access for defense-in-depth (optional extra auth layer)
-- RAID array health monitoring
 - VPN download speed alerting (alert if < 10 Mbps)
 - Home download speed alerting
 
@@ -566,3 +600,5 @@ environment:
 - ✅ **SSL certificate expiry warnings:** gcp-monitor alerts if cert expires within 14 days
 - ✅ **VPN health alerting:** gcp-monitor alerts when VPN goes unhealthy
 - ✅ **Container restart from dashboard:** Admin can restart containers via dashboard
+- ✅ **RAID array health monitoring:** StoragePanel shows RAID status, mount status, and usage for HOMENAS and CAMRAID
+- ✅ **Reboot health verification:** Reboot dialog verifies storage arrays are healthy and mounted before showing complete

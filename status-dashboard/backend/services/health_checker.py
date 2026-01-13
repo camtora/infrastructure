@@ -207,6 +207,7 @@ def run_health_check() -> dict[str, Any]:
             },
             "disks": disks_array,
             "speed_test": data.get("speed_test"),
+            "storage": data.get("storage"),
         }
         # Include Plex from health API
         results["plex"] = data.get("plex")

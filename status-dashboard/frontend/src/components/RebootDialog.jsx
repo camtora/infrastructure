@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'preact/hooks'
 
-export function RebootDialog({ phase, services, onConfirm, onCancel, onClose }) {
+export function RebootDialog({ phase, services, storage, onConfirm, onCancel, onClose }) {
   // phase: 'confirm' | 'rebooting' | 'complete'
   // services: array of { name, status } from /api/status polling
+  // storage: storage status from /api/status polling
 
   if (!phase) return null
 
@@ -13,10 +14,10 @@ export function RebootDialog({ phase, services, onConfirm, onCancel, onClose }) 
           <ConfirmPhase onConfirm={onConfirm} onCancel={onCancel} />
         )}
         {phase === 'rebooting' && (
-          <RebootingPhase services={services} />
+          <RebootingPhase services={services} storage={storage} />
         )}
         {phase === 'complete' && (
-          <CompletePhase onClose={onClose} />
+          <CompletePhase onClose={onClose} storage={storage} />
         )}
       </div>
     </div>
@@ -61,7 +62,7 @@ function ConfirmPhase({ onConfirm, onCancel }) {
   )
 }
 
-function RebootingPhase({ services }) {
+function RebootingPhase({ services, storage }) {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
@@ -80,6 +81,9 @@ function RebootingPhase({ services }) {
   const onlineCount = services?.filter(s => s.status === 'up').length || 0
   const totalCount = services?.length || 0
 
+  const storageHealthy = storage?.status === 'healthy'
+  const mountsOk = storage?.arrays?.every(a => a.mounted !== false) ?? true
+
   return (
     <>
       <div class="flex items-center gap-3 mb-4">
@@ -96,7 +100,7 @@ function RebootingPhase({ services }) {
       </div>
 
       <p class="text-white/70 text-sm mb-4">
-        Waiting for services to come back online...
+        Waiting for services and storage to come back online...
       </p>
 
       <div class="mb-4">
@@ -112,10 +116,38 @@ function RebootingPhase({ services }) {
         </div>
       </div>
 
-      <div class="max-h-64 overflow-y-auto space-y-2">
+      <div class="max-h-48 overflow-y-auto space-y-2 mb-4">
         {services?.map(service => (
           <ServiceStatus key={service.name} service={service} />
         ))}
+      </div>
+
+      {/* Storage status section */}
+      <div class="pt-4 border-t border-white/10">
+        <div class="flex justify-between text-xs text-white/50 mb-2">
+          <span>Storage Arrays</span>
+          <span class={storageHealthy && mountsOk ? 'text-emerald-400' : 'text-amber-400'}>
+            {storage ? (storageHealthy && mountsOk ? 'Healthy' : 'Checking...') : 'Waiting...'}
+          </span>
+        </div>
+        {storage?.arrays?.map(array => (
+          <div key={array.name} class="flex items-center justify-between py-1.5 px-3 rounded bg-white/5 mb-1">
+            <div class="flex items-center gap-2">
+              <span class={`w-2 h-2 rounded-full ${
+                array.status === 'healthy' && array.mounted ? 'bg-emerald-400' : 'bg-red-400'
+              }`}></span>
+              <span class="text-sm text-white/80">{array.name}</span>
+            </div>
+            <span class="text-xs text-white/50">
+              {array.mounted ? 'Mounted' : 'Not Mounted'}
+            </span>
+          </div>
+        ))}
+        {!storage && (
+          <div class="py-1.5 px-3 rounded bg-white/5 text-xs text-white/40">
+            Waiting for storage status...
+          </div>
+        )}
       </div>
     </>
   )
@@ -137,7 +169,9 @@ function ServiceStatus({ service }) {
   )
 }
 
-function CompletePhase({ onClose }) {
+function CompletePhase({ onClose, storage }) {
+  const storageHealthy = storage?.status === 'healthy'
+
   return (
     <>
       <div class="flex items-center gap-3 mb-4">
@@ -150,7 +184,12 @@ function CompletePhase({ onClose }) {
       </div>
 
       <p class="text-white/70 text-sm mb-6">
-        All services have been restored successfully.
+        All services and storage arrays have been verified.
+        {!storageHealthy && storage && (
+          <span class="block mt-2 text-amber-400">
+            Note: Storage status is {storage.status}
+          </span>
+        )}
       </p>
 
       <button

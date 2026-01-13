@@ -200,6 +200,105 @@ def get_load_average():
     }
 
 
+def parse_mdstat_array(mdstat: str, device: str, name: str, mount_point: str) -> dict:
+    """Parse a single array from mdstat output."""
+    array = {
+        "name": name,
+        "device": device,
+        "type": "raid5",
+        "mount_point": mount_point,
+        "mounted": os.path.ismount(f"/hostfs{mount_point}"),
+        "status": "unknown",
+        "active_devices": 0,
+        "total_devices": 0,
+        "sync_status": None,
+        "rebuild_progress": None,
+    }
+
+    # Find the array block - pattern matches mdstat format:
+    # md1 : active raid5 sdi[6] sdd[0] ...
+    #       109380232192 blocks super 1.2 level 5, 512k chunk, algorithm 2 [8/8] [UUUUUUUU]
+    pattern = rf"{device}\s*:\s*active\s+(\w+)\s+.+\n\s+\d+\s+blocks.*\[(\d+)/(\d+)\]\s+\[([U_]+)\]"
+    match = re.search(pattern, mdstat)
+
+    if match:
+        array["type"] = match.group(1)
+        array["total_devices"] = int(match.group(2))
+        array["active_devices"] = int(match.group(3))
+        array["sync_status"] = f"[{match.group(4)}]"
+
+        # Determine status from sync string
+        sync = match.group(4)
+        if "_" not in sync:
+            array["status"] = "healthy"
+        elif sync.count("_") == len(sync):
+            array["status"] = "failed"
+        else:
+            array["status"] = "degraded"
+
+        # Check for rebuild/recovery progress
+        rebuild_match = re.search(rf"{device}.*?recovery\s*=\s*([\d.]+)%", mdstat, re.DOTALL)
+        if rebuild_match:
+            array["status"] = "rebuilding"
+            array["rebuild_progress"] = float(rebuild_match.group(1))
+
+    # Add usage if mounted
+    if array["mounted"]:
+        try:
+            usage = psutil.disk_usage(f"/hostfs{mount_point}")
+            array["usage_percent"] = round(usage.percent, 1)
+        except (OSError, FileNotFoundError):
+            pass
+
+    return array
+
+
+def get_storage_status():
+    """Get RAID array and storage mount status."""
+    arrays = []
+    overall_status = "healthy"
+
+    # Parse /proc/mdstat for software RAID
+    try:
+        with open("/proc/mdstat", "r") as f:
+            mdstat = f.read()
+
+        # Parse md1 (HOMENAS - Plex media, critical)
+        if "md1" in mdstat:
+            array = parse_mdstat_array(mdstat, "md1", "HOMENAS", "/HOMENAS")
+            arrays.append(array)
+            # HOMENAS is critical - propagate its status to overall
+            if array["status"] in ("degraded", "failed"):
+                overall_status = array["status"]
+    except Exception as e:
+        app.logger.error(f"Failed to read mdstat: {e}")
+
+    # Check hardware RAID mount (CAMRAID - personal media)
+    camraid_mounted = os.path.ismount("/hostfs/CAMRAID")
+    camraid = {
+        "name": "CAMRAID",
+        "device": "sdk",
+        "type": "hardware_raid",
+        "mount_point": "/CAMRAID",
+        "mounted": camraid_mounted,
+        "status": "healthy" if camraid_mounted else "unmounted",
+    }
+    # Add usage if mounted
+    if camraid_mounted:
+        try:
+            usage = psutil.disk_usage("/hostfs/CAMRAID")
+            camraid["usage_percent"] = round(usage.percent, 1)
+        except (OSError, FileNotFoundError):
+            pass
+    arrays.append(camraid)
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "status": overall_status,
+        "arrays": arrays,
+    }
+
+
 def get_public_ip():
     """Get public IP address using external service."""
     services = [
@@ -345,6 +444,7 @@ def health():
         "disk": get_disk_info(),
         "plex": get_plex_status(),
         "speed_test": get_speedtest_results(),
+        "storage": get_storage_status(),
     })
 
 
