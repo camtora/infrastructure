@@ -146,6 +146,30 @@ export function App() {
     }
   }
 
+  // Restart a container
+  const restartContainer = async (containerName) => {
+    try {
+      const res = await fetch(`${HEALTH_API}/api/admin/container/restart`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ container: containerName })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Restart failed' }
+      }
+
+      // Refresh status after restart
+      setTimeout(fetchStatus, 2000)
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  }
+
   const fetchStatus = async () => {
     try {
       const response = await fetch('/api/status')
@@ -273,7 +297,11 @@ export function App() {
           <DNSPanel dns={status?.dns} adminAuth={adminAuth} />
         </div>
 
-        <ServiceGrid services={status?.services || []} />
+        <ServiceGrid
+          services={status?.services || []}
+          adminAuth={adminAuth}
+          onRestartContainer={restartContainer}
+        />
 
         <div class="mt-8">
           <HistoryPanel services={status?.services || []} />

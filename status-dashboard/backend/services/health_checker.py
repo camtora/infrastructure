@@ -86,6 +86,7 @@ def fetch_internal_services() -> dict[str, Any]:
         # Convert to dict keyed by service name for easy lookup
         return {
             svc["name"]: {
+                "container_name": svc["container"].get("name"),
                 "container_running": svc["container"]["running"],
                 "container_health": svc["container"].get("health"),
                 "port_responding": svc["local_port"]["responding"],
@@ -151,6 +152,7 @@ def run_health_check() -> dict[str, Any]:
         internal = internal_status.get(service["name"], {})
         if internal:
             check["internal"] = {
+                "container_name": internal.get("container_name"),
                 "container_running": internal.get("container_running"),
                 "container_health": internal.get("container_health"),
                 "port_responding": internal.get("port_responding"),

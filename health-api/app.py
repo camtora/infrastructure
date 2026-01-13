@@ -336,6 +336,7 @@ def root():
             "/api/admin/whoami": "Check authentication status (OAuth protected)",
             "/api/admin/vpn/status": "Get VPN location status (OAuth protected)",
             "/api/admin/vpn/switch": "Switch VPN location (OAuth protected, POST)",
+            "/api/admin/container/restart": "Restart a container (OAuth protected, POST)",
         }
     })
 
@@ -637,6 +638,69 @@ def admin_vpn_switch():
         return jsonify({
             "error": str(e),
             "steps_completed": steps_completed
+        }), 500
+
+
+@app.route("/api/admin/container/restart", methods=["POST"])
+@require_admin
+def admin_container_restart():
+    """Restart a Docker container."""
+    data = request.get_json() or {}
+    container_name = data.get("container", "").strip()
+
+    if not container_name:
+        return jsonify({"error": "container name required"}), 400
+
+    # Build allowed container list from SERVICE_CHECKS and VPN_LOCATIONS
+    allowed_containers = set()
+    for svc in SERVICE_CHECKS:
+        allowed_containers.add(svc["container"])
+    for config in VPN_LOCATIONS.values():
+        allowed_containers.add(config["container"])
+
+    # Don't allow restarting health-api itself
+    allowed_containers.discard("health-api")
+
+    if container_name not in allowed_containers:
+        return jsonify({
+            "error": f"Container '{container_name}' not in allowed list",
+            "allowed": sorted(allowed_containers)
+        }), 400
+
+    email = request.headers.get("X-Forwarded-Email", "unknown")
+
+    try:
+        result = subprocess.run(
+            ["docker", "restart", container_name],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode != 0:
+            return jsonify({
+                "error": "Docker restart failed",
+                "stderr": result.stderr,
+                "container": container_name
+            }), 500
+
+        return jsonify({
+            "success": True,
+            "message": f"Container '{container_name}' restarted",
+            "container": container_name,
+            "restarted_by": email,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "error": "Restart command timed out",
+            "container": container_name
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "container": container_name
         }), 500
 
 

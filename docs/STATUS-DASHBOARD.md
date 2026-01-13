@@ -491,12 +491,17 @@ environment:
 
 ## Future Enhancements
 
-- Auto-failover after N consecutive failures
-- SSL certificate expiry warnings
-- Container restart from dashboard
+- Auto-failover after N consecutive failures (waiting for GoDaddy API rate limit reset in Feb)
 - Cloudflare Access for defense-in-depth (optional extra auth layer)
 - Migrate dashboard to status.camerontora.ca (industry standard subdomain)
+- Server reboot from dashboard
+- RAID array health monitoring
+- VPN download speed alerting (alert if < 10 Mbps)
+- Home download speed alerting
 
 ### Completed
 - ✅ **Integrate into camerontora.ca:** StatusIndicator fetches from monitor.camerontora.ca/api/status
 - ✅ **Deprecate Uptime Kuma:** Container removed, status.camerontora.ca redirects to monitor
+- ✅ **SSL certificate expiry warnings:** gcp-monitor alerts if cert expires within 14 days
+- ✅ **VPN health alerting:** gcp-monitor alerts when VPN goes unhealthy
+- ✅ **Container restart from dashboard:** Admin can restart containers via dashboard
