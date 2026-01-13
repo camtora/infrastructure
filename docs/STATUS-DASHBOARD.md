@@ -486,7 +486,7 @@ Admin email allowlist is configured via `ADMIN_EMAILS` environment variable in h
 
 ```yaml
 environment:
-  - ADMIN_EMAILS=camerontora@gmail.com
+  - ADMIN_EMAILS=cameron.tora@gmail.com
 ```
 
 ## Future Enhancements
