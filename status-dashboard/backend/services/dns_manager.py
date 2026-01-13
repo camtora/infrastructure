@@ -88,7 +88,24 @@ def get_dns_records() -> dict[str, Any]:
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to fetch DNS records: {e}")
-        return {"error": str(e)[:100]}
+
+        # Return mock data when GoDaddy is unavailable (rate limited, etc.)
+        # This allows the UI to be tested while waiting for API access
+        home_result = _get_home_ip(use_cache=True)
+        home_ip = home_result.get("ip", "Unknown")
+
+        return {
+            "domain": GODADDY_DOMAIN,
+            "current_ip": home_ip,  # Assume we're on home when can't check
+            "target": "home",
+            "home_ip": home_ip,
+            "gcp_ip": GCP_IP or "192.178.192.121",
+            "records": DNS_RECORDS,
+            "record_count": len(DNS_RECORDS),
+            "last_check": datetime.now(timezone.utc).isoformat(),
+            "mock_data": True,
+            "api_error": str(e)[:100],
+        }
 
 
 def get_cached_dns_state() -> dict[str, Any]:

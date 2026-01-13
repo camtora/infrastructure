@@ -99,6 +99,16 @@ export function DNSPanel({ dns }) {
         </div>
       </div>
 
+      {/* Mock data warning */}
+      {dns.mock_data && (
+        <div class="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <p class="text-xs text-amber-400">
+            <span class="font-medium">GoDaddy API unavailable</span> - showing estimated data.
+            Failover will work when API access is restored.
+          </p>
+        </div>
+      )}
+
       {/* Two-card layout showing both IPs */}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         {/* Home Server Card */}
