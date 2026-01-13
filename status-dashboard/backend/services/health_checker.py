@@ -156,6 +156,7 @@ def run_health_check() -> dict[str, Any]:
                 "container_name": internal.get("container_name"),
                 "container_running": internal.get("container_running"),
                 "container_health": internal.get("container_health"),
+                "container_uptime": internal.get("container_uptime"),
                 "port_responding": internal.get("port_responding"),
             }
         else:
