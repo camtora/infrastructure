@@ -57,6 +57,12 @@
 - **Problem:** nginx `auth_request_set` doesn't capture oauth2-proxy's `X-Auth-Request-Email` header
 - **Needs:** Investigation of oauth2-proxy configuration or alternative approach
 
+### DNS Failover
+- **Status:** Blocked (pending GoDaddy API resolution)
+- **Description:** Automatically switch DNS to GCP when home internet is down
+- **Problem:** GoDaddy API returning 429 rate limit errors
+- **Blocked Until:** Feb 1, 2026 - awaiting GoDaddy API access resolution
+
 ---
 
 ## Completed
