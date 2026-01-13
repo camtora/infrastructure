@@ -46,12 +46,6 @@
 - **Problem:** nginx `auth_request_set` doesn't capture oauth2-proxy's `X-Auth-Request-Email` header
 - **Needs:** Investigation of oauth2-proxy configuration or alternative approach
 
-### Nginx http2 Deprecation
-- **Status:** Low Priority
-- **Description:** `listen 443 ssl http2` syntax is deprecated
-- **Fix:** Change to `listen 443 ssl` + separate `http2 on;` directive
-
-
 ---
 
 ## Completed
@@ -109,3 +103,8 @@
 ### Jellyfin / Emby (2026-01-13)
 - Decision: Keep containers but don't run them, not monitored
 - DNS entries removed
+
+### Nginx http2 Deprecation Fix (2026-01-13)
+- Fixed: Changed deprecated `listen 443 ssl http2;` to `listen 443 ssl;` + `http2 on;`
+- Updated all 5 nginx config files (14 server blocks total)
+- No more deprecation warnings on nginx reload
