@@ -9,6 +9,8 @@ import json
 import os
 import re
 import subprocess
+import threading
+import time
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
@@ -360,6 +362,7 @@ def root():
             "/api/admin/vpn/status": "Get VPN location status (OAuth protected)",
             "/api/admin/vpn/switch": "Switch VPN location (OAuth protected, POST)",
             "/api/admin/container/restart": "Restart a container (OAuth protected, POST)",
+            "/api/admin/server/reboot": "Reboot the server (OAuth protected, POST)",
         }
     })
 
@@ -737,7 +740,6 @@ def admin_vpn_switch():
 
 def _do_container_restart(container_name: str, email: str):
     """Background task to restart a container."""
-    import logging
     try:
         result = subprocess.run(
             ["docker", "restart", container_name],
@@ -746,11 +748,11 @@ def _do_container_restart(container_name: str, email: str):
             timeout=60
         )
         if result.returncode != 0:
-            logging.error(f"Container restart failed: {container_name} by {email}: {result.stderr}")
+            app.logger.error(f"Container restart failed: {container_name} by {email}: {result.stderr}")
         else:
-            logging.info(f"Container restarted: {container_name} by {email}")
+            app.logger.info(f"Container restarted: {container_name} by {email}")
     except Exception as e:
-        logging.error(f"Container restart exception: {container_name} by {email}: {e}")
+        app.logger.error(f"Container restart exception: {container_name} by {email}: {e}")
 
 
 @app.route("/api/admin/container/restart", methods=["POST"])
@@ -782,7 +784,6 @@ def admin_container_restart():
     email = request.headers.get("X-Forwarded-Email", "unknown")
 
     # Start restart in background thread and return immediately
-    import threading
     thread = threading.Thread(target=_do_container_restart, args=(container_name, email))
     thread.daemon = True
     thread.start()
@@ -794,6 +795,36 @@ def admin_container_restart():
         "message": f"Container '{container_name}' restart initiated",
         "container": container_name,
         "restarted_by": email,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def _do_server_reboot(email: str):
+    """Background task to reboot the server."""
+    app.logger.warning(f"SERVER REBOOT executing in 2 seconds (initiated by {email})")
+    time.sleep(2)  # Give time for HTTP response to be sent
+    subprocess.run(["sudo", "reboot"], check=False)
+
+
+@app.route("/api/admin/server/reboot", methods=["POST"])
+@require_admin
+def admin_server_reboot():
+    """Initiate server reboot. Returns immediately, server reboots after 2 seconds."""
+    email = request.headers.get("X-Forwarded-Email", "unknown")
+
+    # Log the reboot request
+    app.logger.warning(f"SERVER REBOOT initiated by {email}")
+
+    # Execute reboot in background thread (returns immediately)
+    thread = threading.Thread(target=_do_server_reboot, args=(email,))
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({
+        "success": True,
+        "status": "rebooting",
+        "message": "Server reboot initiated. System will be offline for ~60-90 seconds.",
+        "initiated_by": email,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 

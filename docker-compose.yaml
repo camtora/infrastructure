@@ -111,6 +111,7 @@ services:
     container_name: health-api
     restart: unless-stopped
     pid: host
+    privileged: true  # Required for server reboot capability
     ports:
       - "5000:5000"
     extra_hosts:

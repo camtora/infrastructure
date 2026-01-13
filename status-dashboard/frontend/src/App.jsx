@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect, useRef } from 'preact/hooks'
 import { Header } from './components/Header'
 import { FailoverBanner } from './components/FailoverBanner'
 import { ServiceGrid } from './components/ServiceGrid'
@@ -6,6 +6,7 @@ import { MetricsPanel } from './components/MetricsPanel'
 import { SpeedPanel } from './components/SpeedPanel'
 import { DNSPanel } from './components/DNSPanel'
 import { HistoryPanel } from './components/HistoryPanel'
+import { RebootDialog } from './components/RebootDialog'
 
 const NETDATA_BASE = 'https://netdata.camerontora.ca'
 const HEALTH_API = 'https://health.camerontora.ca'
@@ -61,6 +62,11 @@ export function App() {
   const [vpnStatus, setVpnStatus] = useState(null)
   const [vpnSwitching, setVpnSwitching] = useState(null) // location being switched to
   const [vpnMessage, setVpnMessage] = useState(null)
+
+  // Reboot state
+  const [rebootPhase, setRebootPhase] = useState(null) // null | 'confirm' | 'rebooting' | 'complete'
+  const [rebootServices, setRebootServices] = useState([])
+  const rebootPollRef = useRef(null)
 
   // Check admin authentication
   const checkAdminAuth = async () => {
@@ -178,6 +184,91 @@ export function App() {
     }
   }
 
+  // Reboot functions
+  const initiateReboot = () => {
+    setRebootPhase('confirm')
+  }
+
+  const cancelReboot = () => {
+    setRebootPhase(null)
+    if (rebootPollRef.current) {
+      clearInterval(rebootPollRef.current)
+      rebootPollRef.current = null
+    }
+  }
+
+  const executeReboot = async () => {
+    setRebootPhase('rebooting')
+    // Initialize services list from current status
+    setRebootServices(status?.services?.map(s => ({ name: s.name, status: s.status })) || [])
+
+    try {
+      await fetch(`${HEALTH_API}/api/admin/server/reboot`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (e) {
+      // Expected - server is rebooting, request may fail
+      console.log('Reboot request sent (error expected):', e.message)
+    }
+
+    // Start polling after a delay (give server time to go down)
+    setTimeout(startRebootPolling, 10000)
+  }
+
+  const startRebootPolling = () => {
+    let attempts = 0
+    const maxAttempts = 60 // 5 minutes at 5-second intervals
+
+    const poll = async () => {
+      attempts++
+      try {
+        const res = await fetch('/api/status')
+        if (res.ok) {
+          const data = await res.json()
+          // Update services status
+          setRebootServices(data.services?.map(s => ({ name: s.name, status: s.status })) || [])
+          // Check if all services are up
+          const allUp = data.services?.every(s => s.status === 'up')
+          if (allUp) {
+            setRebootPhase('complete')
+            if (rebootPollRef.current) {
+              clearInterval(rebootPollRef.current)
+              rebootPollRef.current = null
+            }
+            // Also update the main status
+            setStatus(data)
+            setLastUpdate(new Date())
+            return
+          }
+        }
+      } catch (e) {
+        // Expected during reboot - mark all services as offline
+        setRebootServices(prev => prev.map(s => ({ ...s, status: 'down' })))
+      }
+
+      if (attempts >= maxAttempts) {
+        // Timeout - stop polling but stay in rebooting phase
+        if (rebootPollRef.current) {
+          clearInterval(rebootPollRef.current)
+          rebootPollRef.current = null
+        }
+      }
+    }
+
+    // Poll every 5 seconds
+    rebootPollRef.current = setInterval(poll, 5000)
+    poll() // Run immediately
+  }
+
+  const closeRebootDialog = () => {
+    setRebootPhase(null)
+    if (rebootPollRef.current) {
+      clearInterval(rebootPollRef.current)
+      rebootPollRef.current = null
+    }
+  }
+
   const fetchStatus = async () => {
     try {
       const response = await fetch('/api/status')
@@ -287,6 +378,8 @@ export function App() {
               metrics={status?.metrics}
               realtimeMetrics={realtimeMetrics}
               metricsError={metricsError}
+              adminAuth={adminAuth}
+              onRebootClick={initiateReboot}
             />
           </div>
           <div>
@@ -322,6 +415,14 @@ export function App() {
           <p class="text-white/30 text-xs mt-2">Last updated: {lastUpdate.toLocaleTimeString()}</p>
         )}
       </footer>
+
+      <RebootDialog
+        phase={rebootPhase}
+        services={rebootServices}
+        onConfirm={executeReboot}
+        onCancel={cancelReboot}
+        onClose={closeRebootDialog}
+      />
     </div>
   )
 }

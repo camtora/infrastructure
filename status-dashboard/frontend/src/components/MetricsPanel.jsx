@@ -1,4 +1,4 @@
-export function MetricsPanel({ metrics, realtimeMetrics, metricsError }) {
+export function MetricsPanel({ metrics, realtimeMetrics, metricsError, adminAuth, onRebootClick }) {
   if (!metrics) {
     return (
       <div class="glass-card p-6 h-full">
@@ -19,17 +19,34 @@ export function MetricsPanel({ metrics, realtimeMetrics, metricsError }) {
     <div class="glass-card p-6 h-full">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-lg font-medium text-white">System Metrics</h2>
-        {isRealtime && !metricsError && (
-          <span class="text-xs text-emerald-400 flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-            Live
-          </span>
-        )}
-        {metricsError && (
-          <span class="text-xs text-amber-400" title={metricsError}>
-            Using cached data
-          </span>
-        )}
+        <div class="flex items-center gap-3">
+          {isRealtime && !metricsError && (
+            <span class="text-xs text-emerald-400 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+              Live
+            </span>
+          )}
+          {metricsError && (
+            <span class="text-xs text-amber-400" title={metricsError}>
+              Using cached data
+            </span>
+          )}
+          {adminAuth?.is_admin && (
+            <button
+              onClick={onRebootClick}
+              class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-500/10
+                     hover:bg-red-500/20 text-red-400 hover:text-red-300
+                     transition-all duration-200 text-xs"
+              title="Restart Server"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Restart
+            </button>
+          )}
+        </div>
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
