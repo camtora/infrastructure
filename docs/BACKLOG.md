@@ -51,15 +51,6 @@
 - **Description:** `listen 443 ssl http2` syntax is deprecated
 - **Fix:** Change to `listen 443 ssl` + separate `http2 on;` directive
 
-## New Services
-
-### Jellyfin / Emby
-- **Status:** Decision Needed
-- **Description:** What to do about Jellyfin and Emby?
-- **Options:**
-  - Add to monitoring
-  - Remove/decommission
-  - Keep but don't monitor
 
 ---
 
@@ -114,3 +105,7 @@
 - Dark glassmorphism design matching status dashboard theme
 - Shows friendly message with links to home page and status dashboard
 - Applied to all 7 protected services: Radarr, Sonarr, Jackett, Tautulli, Transmission, Watchmap, Netdata
+
+### Jellyfin / Emby (2026-01-13)
+- Decision: Keep containers but don't run them, not monitored
+- DNS entries removed
