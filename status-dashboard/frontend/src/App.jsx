@@ -166,7 +166,8 @@ export function App() {
       setTimeout(fetchStatus, 2000)
       return { success: true }
     } catch (e) {
-      return { success: false, error: e.message }
+      console.error('Restart failed:', e.name, e.message, e)
+      return { success: false, error: `${e.name}: ${e.message}` }
     }
   }
 

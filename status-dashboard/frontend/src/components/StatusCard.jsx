@@ -130,6 +130,7 @@ export function StatusCard({ service, adminAuth, onRestart }) {
           {/* Restart button - admin only */}
           {canRestart && (
             <button
+              type="button"
               onClick={handleRestartClick}
               disabled={restarting}
               class={`text-xs px-2 py-1 rounded transition-all ${
