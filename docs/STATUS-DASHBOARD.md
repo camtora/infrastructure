@@ -472,6 +472,21 @@ Switch Transmission between VPN locations (Toronto, Montreal, Vancouver) with on
 3. Updates nginx config (proxy port)
 4. Reloads nginx
 
+#### Container Restart
+Restart any monitored container directly from the dashboard. Each service card shows a restart button (refresh icon) for authenticated admins.
+
+**How it works:**
+1. Click restart icon → "Confirm?" prompt appears
+2. Click again to confirm → spinner appears
+3. Backend triggers `docker restart` asynchronously (returns immediately)
+4. Spinner continues until status refresh shows new uptime
+5. Uptime displays in green for 5 minutes after restart
+
+**Container uptime display:**
+- Shows "Up Xs", "Up 5m", "Up 2h", "Up 3d" etc. under response time
+- Green text for first 5 minutes after restart
+- Confirms restart worked without checking Docker manually
+
 ### Admin API Endpoints
 
 | Endpoint | Method | Description |
@@ -479,6 +494,7 @@ Switch Transmission between VPN locations (Toronto, Montreal, Vancouver) with on
 | `/api/admin/whoami` | GET | Check authentication status |
 | `/api/admin/vpn/status` | GET | Get VPN locations and active location |
 | `/api/admin/vpn/switch` | POST | Switch VPN location |
+| `/api/admin/container/restart` | POST | Restart a container (async) |
 
 ### Configuration
 
