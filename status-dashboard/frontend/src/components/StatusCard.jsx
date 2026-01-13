@@ -90,8 +90,12 @@ export function StatusCard({ service, adminAuth, onRestart }) {
 
     if (!result.success) {
       setError(result.error)
+      setRestarting(false)
+      return
     }
 
+    // Keep spinner for 5 seconds to give visual feedback
+    await new Promise(r => setTimeout(r, 5000))
     setRestarting(false)
   }
 

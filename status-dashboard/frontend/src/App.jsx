@@ -169,23 +169,8 @@ export function App() {
         return { success: false, error: data.error || 'Restart failed' }
       }
 
-      // Poll until we see the container has restarted (uptime drops)
-      // GCP backend caches for 60s, so we need to keep checking
-      const maxAttempts = 15  // 15 attempts * 2 seconds = 30 seconds max
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        const response = await fetch('/api/status')
-        if (response.ok) {
-          const data = await response.json()
-          setStatus(data)
-          setLastUpdate(new Date())
-          // Check if this container's uptime is now low (just restarted)
-          const svc = data.services?.find(s => s.internal?.container_name === containerName)
-          if (svc?.internal?.container_uptime && svc.internal.container_uptime < 60) {
-            break  // Container has restarted, stop polling
-          }
-        }
-      }
+      // Refresh status after restart
+      setTimeout(fetchStatus, 2000)
       return { success: true }
     } catch (e) {
       console.error('Restart failed:', e.name, e.message, e)
