@@ -641,10 +641,28 @@ def admin_vpn_switch():
         }), 500
 
 
+def _do_container_restart(container_name: str, email: str):
+    """Background task to restart a container."""
+    import logging
+    try:
+        result = subprocess.run(
+            ["docker", "restart", container_name],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode != 0:
+            logging.error(f"Container restart failed: {container_name} by {email}: {result.stderr}")
+        else:
+            logging.info(f"Container restarted: {container_name} by {email}")
+    except Exception as e:
+        logging.error(f"Container restart exception: {container_name} by {email}: {e}")
+
+
 @app.route("/api/admin/container/restart", methods=["POST"])
 @require_admin
 def admin_container_restart():
-    """Restart a Docker container."""
+    """Restart a Docker container (async - returns immediately)."""
     data = request.get_json() or {}
     container_name = data.get("container", "").strip()
 
@@ -669,39 +687,21 @@ def admin_container_restart():
 
     email = request.headers.get("X-Forwarded-Email", "unknown")
 
-    try:
-        result = subprocess.run(
-            ["docker", "restart", container_name],
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
+    # Start restart in background thread and return immediately
+    import threading
+    thread = threading.Thread(target=_do_container_restart, args=(container_name, email))
+    thread.daemon = True
+    thread.start()
 
-        if result.returncode != 0:
-            return jsonify({
-                "error": "Docker restart failed",
-                "stderr": result.stderr,
-                "container": container_name
-            }), 500
-
-        return jsonify({
-            "success": True,
-            "message": f"Container '{container_name}' restarted",
-            "container": container_name,
-            "restarted_by": email,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-
-    except subprocess.TimeoutExpired:
-        return jsonify({
-            "error": "Restart command timed out",
-            "container": container_name
-        }), 500
-    except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "container": container_name
-        }), 500
+    # Return immediately - frontend will refresh status to see result
+    return jsonify({
+        "success": True,
+        "status": "restarting",
+        "message": f"Container '{container_name}' restart initiated",
+        "container": container_name,
+        "restarted_by": email,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
 
 
 if __name__ == "__main__":
