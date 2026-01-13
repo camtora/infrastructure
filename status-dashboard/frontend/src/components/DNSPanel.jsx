@@ -75,8 +75,8 @@ export function DNSPanel({ dns, adminAuth }) {
         </div>
       </div>
 
-      {/* Mock data warning */}
-      {dns.mock_data && (
+      {/* Mock data warning - only show to admins */}
+      {isAdmin && dns.mock_data && (
         <div class="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
           <p class="text-xs text-amber-400">
             <span class="font-medium">GoDaddy API unavailable</span> - showing estimated data.
@@ -86,7 +86,7 @@ export function DNSPanel({ dns, adminAuth }) {
       )}
 
       {/* Two-card layout showing both IPs */}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* CAMNAS2 Card */}
         <div class={`rounded-lg p-4 transition-all ${
           isHome
@@ -105,18 +105,16 @@ export function DNSPanel({ dns, adminAuth }) {
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span class="text-xs font-medium text-emerald-400">Active</span>
             </div>
-          ) : (
+          ) : isAdmin ? (
             <button
               onClick={() => initiateFailover('home')}
-              disabled={failoverLoading || !isAdmin}
-              class={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                isAdmin
-                  ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
-                  : 'bg-white/5 text-white/30 cursor-not-allowed'
-              }`}
+              disabled={failoverLoading}
+              class="w-full px-3 py-2 rounded-lg text-sm font-medium transition-all bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30"
             >
-              {failoverLoading && pendingTarget === 'home' ? 'Switching...' : 'Switch to Home'}
+              {failoverLoading && pendingTarget === 'home' ? 'Switching...' : 'Switch to CAMNAS2'}
             </button>
+          ) : (
+            <span class="text-xs text-white/40">Standby</span>
           )}
         </div>
 
@@ -138,49 +136,33 @@ export function DNSPanel({ dns, adminAuth }) {
               <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
               <span class="text-xs font-medium text-amber-400">Active</span>
             </div>
-          ) : (
+          ) : isAdmin ? (
             <button
               onClick={() => initiateFailover('gcp')}
-              disabled={failoverLoading || !isAdmin}
-              class={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                isAdmin
-                  ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30'
-                  : 'bg-white/5 text-white/30 cursor-not-allowed'
-              }`}
+              disabled={failoverLoading}
+              class="w-full px-3 py-2 rounded-lg text-sm font-medium transition-all bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30"
             >
               {failoverLoading && pendingTarget === 'gcp' ? 'Switching...' : 'Failover to GCP'}
             </button>
+          ) : (
+            <span class="text-xs text-white/40">Standby</span>
           )}
         </div>
       </div>
 
-      {/* Status Messages */}
+      {/* Status Messages - only shown after admin actions */}
       {failoverError && (
-        <div class="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+        <div class="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
           <p class="text-sm text-red-400">{failoverError}</p>
         </div>
       )}
 
       {failoverSuccess && (
-        <div class="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+        <div class="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
           <p class="text-sm text-emerald-400">{failoverSuccess}</p>
         </div>
       )}
 
-      {/* Footer info */}
-      <div class="border-t border-white/[0.06] pt-4">
-        {!isAdmin && (
-          <p class="text-xs text-white/30 text-center">
-            Sign in as admin to enable failover controls
-          </p>
-        )}
-
-        {dns.last_check && (
-          <p class="text-xs text-white/30 text-center mt-2">
-            Last checked: {new Date(dns.last_check).toLocaleString()}
-          </p>
-        )}
-      </div>
 
       {/* Confirmation Modal */}
       {showConfirm && (
