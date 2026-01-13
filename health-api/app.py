@@ -34,6 +34,12 @@ ADMIN_EMAILS = os.environ.get("ADMIN_EMAILS", "cameron.tora@gmail.com").split(",
 DOCKER_COMPOSE_FILE = "/docker-services/docker-compose.yaml"
 NGINX_TRANSMISSION_CONF = "/nginx-conf/10-protected-services.conf"
 
+# Sonarr/Radarr API configuration for VPN switch port updates
+SONARR_API_KEY = os.environ.get("SONARR_API_KEY", "")
+SONARR_URL = "http://host.docker.internal:8989"
+RADARR_API_KEY = os.environ.get("RADARR_API_KEY", "")
+RADARR_URL = "http://host.docker.internal:7878"
+
 # VPN location configuration
 VPN_LOCATIONS = {
     "toronto": {"container": "gluetun-toronto", "port": 9091},
@@ -471,6 +477,54 @@ def admin_vpn_status():
     })
 
 
+def update_arr_download_client_port(app_name: str, api_url: str, api_key: str, new_port: int) -> dict:
+    """Update the Transmission download client port in Sonarr/Radarr.
+
+    Returns dict with 'success' bool and 'message' or 'error'.
+    """
+    if not api_key:
+        return {"success": False, "error": f"No API key configured for {app_name}"}
+
+    headers = {"X-Api-Key": api_key}
+
+    try:
+        # Get current download clients
+        resp = requests.get(f"{api_url}/api/v3/downloadclient", headers=headers, timeout=10)
+        resp.raise_for_status()
+        clients = resp.json()
+
+        # Find Transmission client
+        transmission_client = None
+        for client in clients:
+            if client.get("implementation") == "Transmission":
+                transmission_client = client
+                break
+
+        if not transmission_client:
+            return {"success": False, "error": f"No Transmission client found in {app_name}"}
+
+        # Update the port in the fields array
+        for field in transmission_client.get("fields", []):
+            if field.get("name") == "port":
+                field["value"] = new_port
+                break
+
+        # PUT the updated client
+        client_id = transmission_client["id"]
+        resp = requests.put(
+            f"{api_url}/api/v3/downloadclient/{client_id}",
+            headers=headers,
+            json=transmission_client,
+            timeout=10
+        )
+        resp.raise_for_status()
+
+        return {"success": True, "message": f"Updated {app_name} Transmission port to {new_port}"}
+
+    except requests.exceptions.RequestException as e:
+        return {"success": False, "error": f"{app_name} API error: {str(e)}"}
+
+
 @app.route("/api/admin/vpn/switch", methods=["POST"])
 @require_admin
 def admin_vpn_switch():
@@ -645,6 +699,19 @@ def admin_vpn_switch():
         except Exception as e:
             # Non-fatal - speedtest will update on next run
             steps_completed.append(f"Note: Could not update speedtest.json: {e}")
+
+        # Step 6: Update Sonarr/Radarr download client ports
+        sonarr_result = update_arr_download_client_port("Sonarr", SONARR_URL, SONARR_API_KEY, target_port)
+        if sonarr_result["success"]:
+            steps_completed.append(sonarr_result["message"])
+        else:
+            steps_completed.append(f"Note: {sonarr_result['error']}")
+
+        radarr_result = update_arr_download_client_port("Radarr", RADARR_URL, RADARR_API_KEY, target_port)
+        if radarr_result["success"]:
+            steps_completed.append(radarr_result["message"])
+        else:
+            steps_completed.append(f"Note: {radarr_result['error']}")
 
         return jsonify({
             "success": True,
