@@ -229,10 +229,27 @@ def check_container_status(container_name: str) -> dict:
         container = client.containers.get(container_name)
         status = container.status
         health = container.attrs.get("State", {}).get("Health", {}).get("Status")
+
+        # Get uptime if running
+        uptime_seconds = None
+        if status == "running":
+            started_at = container.attrs.get("State", {}).get("StartedAt")
+            if started_at:
+                try:
+                    # Parse ISO format: 2026-01-13T02:15:00.123456789Z
+                    started_str = started_at.split(".")[0]  # Remove nanoseconds
+                    if started_str.endswith("Z"):
+                        started_str = started_str[:-1]
+                    started_dt = datetime.fromisoformat(started_str).replace(tzinfo=timezone.utc)
+                    uptime_seconds = int((datetime.now(timezone.utc) - started_dt).total_seconds())
+                except Exception:
+                    pass  # Skip uptime if parsing fails
+
         return {
             "running": status == "running",
             "status": status,
             "health": health,  # healthy, unhealthy, starting, or None
+            "uptime_seconds": uptime_seconds,
         }
     except docker.errors.NotFound:
         return {"running": False, "status": "not_found"}

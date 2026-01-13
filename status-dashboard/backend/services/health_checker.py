@@ -89,6 +89,7 @@ def fetch_internal_services() -> dict[str, Any]:
                 "container_name": svc["container"].get("name"),
                 "container_running": svc["container"]["running"],
                 "container_health": svc["container"].get("health"),
+                "container_uptime": svc["container"].get("uptime_seconds"),
                 "port_responding": svc["local_port"]["responding"],
                 "port_status_code": svc["local_port"].get("status_code"),
             }

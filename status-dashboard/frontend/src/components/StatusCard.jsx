@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'preact/hooks'
 
+function formatUptime(seconds) {
+  if (!seconds && seconds !== 0) return null
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
+  return `${Math.floor(seconds / 86400)}d`
+}
+
 export function StatusCard({ service, adminAuth, onRestart }) {
   const [restarting, setRestarting] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -126,7 +134,7 @@ export function StatusCard({ service, adminAuth, onRestart }) {
           <div class="flex items-center gap-4">
             <span class={`flex items-center gap-1.5 text-xs ${internal.container_running ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
               <span class={`w-1.5 h-1.5 rounded-full ${internal.container_running ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-              Container
+              {internal.container_uptime ? `Up ${formatUptime(internal.container_uptime)}` : 'Container'}
             </span>
             <span class={`flex items-center gap-1.5 text-xs ${internal.port_responding ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
               <span class={`w-1.5 h-1.5 rounded-full ${internal.port_responding ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
