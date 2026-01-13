@@ -24,20 +24,19 @@ GCP_IP = os.environ.get("GCP_IP", "")  # Static GCP IP for failover
 ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
 
 # Services to monitor (external HTTP checks)
-# Protected services use dedicated health endpoints that bypass OAuth/admin auth
 SERVICES = [
     {"name": "Main Site", "url": "https://camerontora.ca", "category": "public"},
     {"name": "Plex", "url": "https://plex.camerontora.ca", "category": "public"},
-    {"name": "Haymaker", "url": "https://haymaker.camerontora.ca", "category": "protected"},  # No admin check, 401 = up
-    {"name": "Watchmap", "url": "https://watchmap.camerontora.ca/health", "category": "protected"},
+    {"name": "Haymaker", "url": "https://haymaker.camerontora.ca", "category": "protected"},
+    {"name": "Watchmap", "url": "https://watchmap.camerontora.ca", "category": "protected"},
     {"name": "Overseerr", "url": "https://overseerr.camerontora.ca", "category": "public"},
     {"name": "Ombi", "url": "https://ombi.camerontora.ca", "category": "public"},
-    {"name": "Radarr", "url": "https://radarr.camerontora.ca/ping", "category": "protected"},
-    {"name": "Sonarr", "url": "https://sonarr.camerontora.ca/ping", "category": "protected"},
-    {"name": "Jackett", "url": "https://jackett.camerontora.ca/UI/Login", "category": "protected"},
-    {"name": "Tautulli", "url": "https://tautulli.camerontora.ca/status", "category": "protected"},
-    {"name": "Transmission", "url": "https://transmission.camerontora.ca/transmission/web/", "category": "protected"},
-    {"name": "Netdata", "url": "https://netdata.camerontora.ca/api/v1/info", "category": "protected"},
+    {"name": "Radarr", "url": "https://radarr.camerontora.ca", "category": "protected"},
+    {"name": "Sonarr", "url": "https://sonarr.camerontora.ca", "category": "protected"},
+    {"name": "Jackett", "url": "https://jackett.camerontora.ca", "category": "protected"},
+    {"name": "Tautulli", "url": "https://tautulli.camerontora.ca", "category": "protected"},
+    {"name": "Transmission", "url": "https://transmission.camerontora.ca", "category": "protected"},
+    {"name": "Netdata", "url": "https://netdata.camerontora.ca", "category": "protected"},
     {"name": "Health API", "url": "https://health.camerontora.ca/api/health/ping", "category": "api"},
 ]
 

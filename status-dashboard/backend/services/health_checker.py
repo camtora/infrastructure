@@ -2,7 +2,6 @@
 
 import time
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
 
@@ -21,7 +20,7 @@ def check_endpoint(name: str, url: str, timeout: int = 15) -> dict[str, Any]:
     """Check if an endpoint is reachable."""
     start_time = time.time()
     try:
-        resp = requests.get(url, timeout=timeout, allow_redirects=False)
+        resp = requests.get(url, timeout=timeout, allow_redirects=True)
         response_time = int((time.time() - start_time) * 1000)
         # Accept 2xx, 3xx, and 401 (protected but reachable)
         is_up = resp.status_code < 400 or resp.status_code == 401
@@ -144,24 +143,13 @@ def run_health_check() -> dict[str, Any]:
     # Fetch internal service status (container + local port)
     internal_status = fetch_internal_services()
 
-    # Check all services externally in parallel (prevents timeout cascade)
+    # Check all services externally and merge with internal status
     down_count = 0
-    service_checks = {}
-
-    with ThreadPoolExecutor(max_workers=len(SERVICES)) as executor:
-        futures = {
-            executor.submit(check_endpoint, svc["name"], svc["url"]): svc
-            for svc in SERVICES
-        }
-        for future in as_completed(futures):
-            svc = futures[future]
-            check = future.result()
-            check["category"] = svc.get("category", "unknown")
-            service_checks[svc["name"]] = check
-
-    # Merge with internal status and build results (preserve SERVICES order)
     for service in SERVICES:
-        check = service_checks[service["name"]]
+        check = check_endpoint(service["name"], service["url"])
+        check["category"] = service.get("category", "unknown")
+
+        # Merge internal status if available
         internal = internal_status.get(service["name"], {})
         if internal:
             check["internal"] = {
