@@ -185,6 +185,57 @@ def check_health_api() -> dict[str, Any]:
         return {"reachable": False, "error": "Health API returned invalid JSON"}
 
 
+def check_vpn_health(health_data: dict[str, Any]) -> dict[str, Any]:
+    """Check VPN health status from health API data."""
+    results = {"checked": False, "locations": []}
+
+    if not health_data:
+        return results
+
+    speed_test = health_data.get("speed_test", {})
+    if "error" in speed_test or not speed_test:
+        return results
+
+    vpn_data = speed_test.get("vpn", {})
+    if not vpn_data or not isinstance(vpn_data, dict):
+        return results
+
+    results["checked"] = True
+
+    for location, data in vpn_data.items():
+        if not isinstance(data, dict):
+            continue
+
+        status = data.get("status", "unknown")
+        is_active = data.get("active", False)
+
+        location_result = {
+            "name": location,
+            "status": status,
+            "active": is_active,
+            "healthy": status == "healthy",
+        }
+        results["locations"].append(location_result)
+
+        # Alert on unhealthy VPN (but not stopped - that's intentional)
+        if status == "unhealthy":
+            alert_with_dedup(
+                f"vpn_{location.lower()}",
+                f"VPN {location} is Unhealthy",
+                f"VPN connection to {location} is experiencing issues.\n"
+                f"Status: {status}\n"
+                f"Active: {'Yes' if is_active else 'No'}"
+            )
+        elif status in ("healthy", "stopped"):
+            recovery_with_dedup(
+                f"vpn_{location.lower()}",
+                f"VPN {location} Recovered",
+                f"VPN connection to {location} is now {status}."
+            )
+
+    return results
+
+
 def check_plex_library() -> dict[str, Any]:
     """Check Plex library directly via external API."""
     if not PLEX_TOKEN:
@@ -219,6 +270,7 @@ def run_health_check() -> dict[str, Any]:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "endpoints": [],
         "health_api": None,
+        "vpn": None,
         "plex": None,
         "alerts": [],
         "overall_status": "healthy",
@@ -257,6 +309,16 @@ def run_health_check() -> dict[str, Any]:
             alert_with_dedup(f"threshold_{issue[:20]}", "Threshold Alert", issue)
             results["alerts"].append(issue)
             results["overall_status"] = "warning" if results["overall_status"] == "healthy" else results["overall_status"]
+
+        # Check VPN health (from health API data)
+        vpn_result = check_vpn_health(health.get("data", {}))
+        results["vpn"] = vpn_result
+
+        if vpn_result.get("checked"):
+            for loc in vpn_result.get("locations", []):
+                if not loc.get("healthy") and loc.get("status") == "unhealthy":
+                    results["alerts"].append(f"VPN {loc['name']} unhealthy")
+                    results["overall_status"] = "warning" if results["overall_status"] == "healthy" else results["overall_status"]
 
     # Direct Plex check
     plex = check_plex_library()
@@ -309,6 +371,13 @@ def check():
             logger.info(f"  Disk {mount}: {info.get('percent')}%")
     else:
         logger.info(f"Health API: UNREACHABLE - {health.get('error')}")
+
+    vpn = results.get("vpn", {})
+    if vpn.get("checked"):
+        for loc in vpn.get("locations", []):
+            status_str = "HEALTHY" if loc.get("healthy") else loc.get("status", "UNKNOWN").upper()
+            active_str = " (active)" if loc.get("active") else ""
+            logger.info(f"VPN {loc['name']}: {status_str}{active_str}")
 
     plex = results.get("plex", {})
     if plex.get("reachable"):
