@@ -14,10 +14,17 @@ export function Header({ status, lastUpdate, adminAuth }) {
       color: 'text-amber-400',
       bg: 'bg-amber-400',
       glow: '',
-      label: 'Partial Outage',
+      label: 'Performance Degraded',
       pulse: '',
     },
-    unhealthy: {
+    minor: {
+      color: 'text-orange-400',
+      bg: 'bg-orange-400',
+      glow: '',
+      label: 'Minor Outage',
+      pulse: '',
+    },
+    major: {
       color: 'text-red-400',
       bg: 'bg-red-500',
       glow: 'glow-red',

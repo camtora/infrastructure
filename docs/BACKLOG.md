@@ -31,12 +31,19 @@
 ## Alerting Improvements
 
 ### Outage Severity Levels
-- **Status:** Planned
+- **Status:** Completed (2026-01-13)
 - **Description:** Differentiate between major and minor outages
-- **Proposal:**
-  - **Major Outage:** Plex is inaccessible
-  - **Outage:** Any other service is inaccessible
-- **Questions:** What actions should each level trigger?
+- **Implementation:**
+  - **Major (Red):** Home internet down, Plex down, HOMENAS RAID unhealthy
+  - **Minor (Orange):** Other services down (Radarr, Sonarr, Jackett, etc.)
+  - **Degraded (Yellow):** CPU maxed (>90%), RAM maxed (>95%), upload speed low (<5Mbps)
+  - **Healthy (Green):** All systems operational
+- **Updated Files:**
+  - `status-dashboard/backend/services/health_checker.py` - severity determination logic
+  - `status-dashboard/frontend/src/components/Header.jsx` - status display configs
+  - `gcp-monitor/main.py` - Discord alert colors and prefixes
+  - `camerontora.ca/app/app/api/status/route.ts` - API mapping
+  - `camerontora.ca/app/app/components/StatusBanner.tsx` - banner colors/messages
 
 ## Technical Debt
 

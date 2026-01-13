@@ -53,17 +53,37 @@ PUBLIC_ENDPOINTS = [
 _alert_state: dict[str, bool] = {}
 
 
-def send_discord_alert(title: str, message: str, is_recovery: bool = False):
-    """Send alert to Discord webhook."""
+def send_discord_alert(title: str, message: str, severity: str = "major"):
+    """Send alert to Discord webhook.
+
+    Args:
+        title: Alert title
+        message: Alert description
+        severity: One of 'major' (red), 'minor' (orange), 'degraded' (yellow), 'recovery' (green)
+    """
     if not DISCORD_WEBHOOK_URL:
         logger.info(f"Discord webhook not configured. Alert: {title} - {message}")
         return
 
-    color = 0x00FF00 if is_recovery else 0xFF0000  # Green for recovery, red for alert
+    colors = {
+        "major": 0xFF0000,      # Red
+        "minor": 0xFF8C00,      # Orange
+        "degraded": 0xFFD700,   # Yellow
+        "recovery": 0x00FF00,   # Green
+    }
+    prefixes = {
+        "major": "🔴 MAJOR:",
+        "minor": "🟠 MINOR:",
+        "degraded": "🟡 DEGRADED:",
+        "recovery": "✅",
+    }
+
+    color = colors.get(severity, colors["major"])
+    prefix = prefixes.get(severity, prefixes["major"])
 
     payload = {
         "embeds": [{
-            "title": f"{'✅' if is_recovery else '🚨'} {title}",
+            "title": f"{prefix} {title}",
             "description": message,
             "color": color,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -79,7 +99,7 @@ def send_discord_alert(title: str, message: str, is_recovery: bool = False):
         logger.info(f"Failed to send Discord alert: {e}")
 
 
-def alert_with_dedup(key: str, title: str, message: str):
+def alert_with_dedup(key: str, title: str, message: str, severity: str = "major"):
     """Send alert with deduplication - only alert on state change."""
     global _alert_state
 
@@ -87,7 +107,7 @@ def alert_with_dedup(key: str, title: str, message: str):
 
     if not was_failing:
         # New failure
-        send_discord_alert(title, message, is_recovery=False)
+        send_discord_alert(title, message, severity=severity)
         _alert_state[key] = True
 
 
@@ -99,7 +119,7 @@ def recovery_with_dedup(key: str, title: str, message: str):
 
     if was_failing:
         # Recovered from failure
-        send_discord_alert(title, message, is_recovery=True)
+        send_discord_alert(title, message, severity="recovery")
         _alert_state[key] = False
 
 
@@ -260,7 +280,8 @@ def check_vpn_health(health_data: dict[str, Any]) -> dict[str, Any]:
                 f"VPN {location} is Unhealthy",
                 f"VPN connection to {location} is experiencing issues.\n"
                 f"Status: {status}\n"
-                f"Active: {'Yes' if is_active else 'No'}"
+                f"Active: {'Yes' if is_active else 'No'}",
+                severity="minor"
             )
         elif status in ("healthy", "stopped"):
             recovery_with_dedup(
@@ -321,9 +342,10 @@ def run_health_check() -> dict[str, Any]:
         if not check["up"]:
             error_detail = check.get('error') or f"Status: {check.get('status_code', 'N/A')}"
             alert_with_dedup(f"endpoint_{name}", f"{name} is DOWN",
-                           f"Endpoint {url} is unreachable.\n{error_detail}")
+                           f"Endpoint {url} is unreachable.\n{error_detail}",
+                           severity="minor")
             results["alerts"].append(f"{name} is down")
-            results["overall_status"] = "unhealthy"
+            results["overall_status"] = "minor"
         else:
             recovery_with_dedup(f"endpoint_{name}", f"{name} is UP",
                               f"Endpoint {url} is now reachable.")
@@ -334,18 +356,20 @@ def run_health_check() -> dict[str, Any]:
 
     if not health.get("reachable"):
         alert_with_dedup("health_api", "Home Server Unreachable",
-                        f"Cannot reach health API.\n{health.get('error', 'Unknown error')}\n\n**This likely means your internet is down!**")
+                        f"Cannot reach health API.\n{health.get('error', 'Unknown error')}\n\n**This likely means your internet is down!**",
+                        severity="major")
         results["alerts"].append("Health API unreachable")
-        results["overall_status"] = "unhealthy"
+        results["overall_status"] = "major"
     else:
         recovery_with_dedup("health_api", "Home Server Back Online",
                           "Health API is now reachable. Internet connection restored.")
 
-        # Check for threshold issues
+        # Check for threshold issues (degraded severity)
         for issue in health.get("issues", []):
-            alert_with_dedup(f"threshold_{issue[:20]}", "Threshold Alert", issue)
+            alert_with_dedup(f"threshold_{issue[:20]}", "Threshold Alert", issue, severity="degraded")
             results["alerts"].append(issue)
-            results["overall_status"] = "warning" if results["overall_status"] == "healthy" else results["overall_status"]
+            if results["overall_status"] == "healthy":
+                results["overall_status"] = "degraded"
 
         # Check VPN health (from health API data)
         vpn_result = check_vpn_health(health.get("data", {}))
@@ -355,7 +379,8 @@ def run_health_check() -> dict[str, Any]:
             for loc in vpn_result.get("locations", []):
                 if not loc.get("healthy") and loc.get("status") == "unhealthy":
                     results["alerts"].append(f"VPN {loc['name']} unhealthy")
-                    results["overall_status"] = "warning" if results["overall_status"] == "healthy" else results["overall_status"]
+                    if results["overall_status"] == "healthy":
+                        results["overall_status"] = "minor"
 
     # Direct Plex check
     plex = check_plex_library()
@@ -363,9 +388,10 @@ def run_health_check() -> dict[str, Any]:
 
     if plex.get("checked") and not plex.get("reachable"):
         alert_with_dedup("plex", "Plex Server Unreachable",
-                        f"Cannot reach Plex at {PLEX_URL}.\n{plex.get('error', 'Unknown error')}")
+                        f"Cannot reach Plex at {PLEX_URL}.\n{plex.get('error', 'Unknown error')}",
+                        severity="major")
         results["alerts"].append("Plex unreachable")
-        results["overall_status"] = "unhealthy"
+        results["overall_status"] = "major"
     elif plex.get("checked") and plex.get("reachable"):
         recovery_with_dedup("plex", "Plex Server Back Online",
                           f"Plex is now reachable. Libraries: {', '.join(plex.get('libraries', []))}")
@@ -376,15 +402,18 @@ def run_health_check() -> dict[str, Any]:
 
     if ssl_result.get("error"):
         alert_with_dedup("ssl_cert", "SSL Certificate Check Failed",
-                        f"Cannot check SSL cert for camerontora.ca.\n{ssl_result['error']}")
+                        f"Cannot check SSL cert for camerontora.ca.\n{ssl_result['error']}",
+                        severity="degraded")
     elif ssl_result.get("expiring_soon"):
         days = ssl_result.get("days_remaining", 0)
         alert_with_dedup("ssl_cert_expiry", "SSL Certificate Expiring Soon",
                         f"camerontora.ca SSL certificate expires in **{days} days**.\n"
                         f"Expiry: {ssl_result.get('expiry', 'unknown')}\n\n"
-                        f"Run `certbot renew` on home server to renew.")
+                        f"Run `certbot renew` on home server to renew.",
+                        severity="degraded")
         results["alerts"].append(f"SSL cert expires in {days} days")
-        results["overall_status"] = "warning" if results["overall_status"] == "healthy" else results["overall_status"]
+        if results["overall_status"] == "healthy":
+            results["overall_status"] = "degraded"
     else:
         recovery_with_dedup("ssl_cert_expiry", "SSL Certificate Renewed",
                           f"camerontora.ca SSL certificate is valid for {ssl_result.get('days_remaining', '?')} more days.")

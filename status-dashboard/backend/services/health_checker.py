@@ -215,15 +215,38 @@ def run_health_check() -> dict[str, Any]:
         # Try direct Plex check
         results["plex"] = check_plex_library()
 
-    # Determine overall status
+    # Determine overall status (major > minor > degraded > healthy)
+    # Major: Home internet down, Plex down, HOMENAS unhealthy
+    # Minor: Other services down
+    # Degraded: CPU/RAM maxed, speed low
+    # Healthy: All operational
+
     if not results["home_server_reachable"]:
-        results["overall_status"] = "unhealthy"
-    elif down_count > 3:
-        results["overall_status"] = "unhealthy"
-    elif down_count > 0:
-        results["overall_status"] = "degraded"
+        results["overall_status"] = "major"
     else:
-        results["overall_status"] = "healthy"
+        # Check if Plex is down
+        plex_down = any(s["name"] == "Plex" and s["status"] != "up" for s in results["services"])
+
+        # Check if HOMENAS RAID is unhealthy
+        storage = results.get("metrics", {}).get("storage", {}) if results.get("metrics") else {}
+        homenas_unhealthy = storage.get("status") in ["degraded", "failed", "unhealthy"]
+
+        if plex_down or homenas_unhealthy:
+            results["overall_status"] = "major"
+        elif down_count > 0:
+            results["overall_status"] = "minor"
+        else:
+            # Check for degraded (threshold warnings)
+            metrics = results.get("metrics", {}) or {}
+            cpu_high = (metrics.get("cpu", {}) or {}).get("percent", 0) > 90
+            ram_high = (metrics.get("memory", {}) or {}).get("percent", 0) > 95
+            speed_test = metrics.get("speed_test", {}) or {}
+            speed_low = speed_test.get("upload", 999) < 5 if speed_test else False
+
+            if cpu_high or ram_high or speed_low:
+                results["overall_status"] = "degraded"
+            else:
+                results["overall_status"] = "healthy"
 
     # Cache results
     _status_cache = results
