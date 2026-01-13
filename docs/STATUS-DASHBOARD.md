@@ -487,6 +487,50 @@ Restart any monitored container directly from the dashboard. Each service card s
 - Green text for first 5 minutes after restart
 - Confirms restart worked without checking Docker manually
 
+#### Server Reboot
+Reboot the entire home server from the dashboard. Useful for recovering from system issues or applying updates that require a restart.
+
+**UI Components:**
+- **Restart Button:** Red button in the MetricsPanel header (System Metrics section), only visible to admins
+- **Confirmation Dialog:** "Are you sure?" modal with Cancel/Restart buttons
+- **Reboot Status Dialog:** Full-screen modal showing all services with live status
+- **Completion Screen:** Success message when all services are back online
+
+**How it works:**
+1. Admin clicks "Restart" button in System Metrics panel
+2. Confirmation dialog appears: "Are you sure you want to restart the server?"
+3. User confirms → POST to `/api/admin/server/reboot`
+4. Backend triggers `sudo reboot` in background thread (2-second delay to allow HTTP response)
+5. Dialog transitions to "Server Restarting" phase with service grid
+6. Frontend polls GCP `/api/status` every 5 seconds
+7. Each service shows red (offline) or green (online) status dot
+8. Progress bar shows "X of Y services online"
+9. When all services green → "Server is Back Online" success screen
+
+**Reboot Dialog Phases:**
+| Phase | Display |
+|-------|---------|
+| `confirm` | "Are you sure?" with Cancel/Restart buttons |
+| `rebooting` | Service grid with status dots, elapsed timer, progress bar |
+| `complete` | Success message with Close button |
+
+**Key Implementation Details:**
+- Polling happens from GCP dashboard (not health-api) since health-api goes down during reboot
+- 2-second delay before reboot ensures HTTP response is sent
+- Timeout after 5 minutes of polling (60 attempts × 5 seconds)
+- health-api container runs with `privileged: true` for host system access
+- Reboot command: `sudo reboot` via sudoers.d allowlist
+
+**Files involved:**
+| File | Purpose |
+|------|---------|
+| `health-api/app.py` | `/api/admin/server/reboot` endpoint |
+| `health-api/Dockerfile` | sudo + systemd-sysv packages, sudoers.d config |
+| `docker-compose.yaml` | `privileged: true` for health-api |
+| `frontend/src/App.jsx` | Reboot state management and polling |
+| `frontend/src/components/MetricsPanel.jsx` | Restart button |
+| `frontend/src/components/RebootDialog.jsx` | Multi-phase dialog component |
+
 ### Admin API Endpoints
 
 | Endpoint | Method | Description |
@@ -495,6 +539,7 @@ Restart any monitored container directly from the dashboard. Each service card s
 | `/api/admin/vpn/status` | GET | Get VPN locations and active location |
 | `/api/admin/vpn/switch` | POST | Switch VPN location |
 | `/api/admin/container/restart` | POST | Restart a container (async) |
+| `/api/admin/server/reboot` | POST | Initiate server reboot (async, returns immediately) |
 
 ### Configuration
 
@@ -509,8 +554,6 @@ environment:
 
 - Auto-failover after N consecutive failures (waiting for GoDaddy API rate limit reset in Feb)
 - Cloudflare Access for defense-in-depth (optional extra auth layer)
-- ✅ **Migrate dashboard URL:** Moved from monitor.camerontora.ca to status.camerontora.ca
-- Server reboot from dashboard
 - RAID array health monitoring
 - VPN download speed alerting (alert if < 10 Mbps)
 - Home download speed alerting
@@ -518,6 +561,8 @@ environment:
 ### Completed
 - ✅ **Integrate into camerontora.ca:** StatusIndicator fetches from status.camerontora.ca/api/status
 - ✅ **Deprecate Uptime Kuma:** Container removed, dashboard now at status.camerontora.ca
+- ✅ **Migrate dashboard URL:** Moved from monitor.camerontora.ca to status.camerontora.ca
+- ✅ **Server reboot from dashboard:** Admin can reboot server with confirmation dialog and live service status tracking
 - ✅ **SSL certificate expiry warnings:** gcp-monitor alerts if cert expires within 14 days
 - ✅ **VPN health alerting:** gcp-monitor alerts when VPN goes unhealthy
 - ✅ **Container restart from dashboard:** Admin can restart containers via dashboard
