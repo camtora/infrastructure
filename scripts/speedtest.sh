@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+# Load environment variables (for HEALTH_API_KEY used in auto-sync)
+ENV_FILE="/home/camerontora/infrastructure/.env"
+if [[ -f "$ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    set -a; source "$ENV_FILE"; set +a
+fi
+
 OUTPUT_DIR="/var/lib/health-api"
 OUTPUT_FILE="${OUTPUT_DIR}/speedtest.json"
 LOGFILE="/var/log/speedtest.log"
@@ -85,8 +92,8 @@ fi
 # Check for nginx port mismatch and auto-repair
 NGINX_CONF="/home/camerontora/infrastructure/nginx/conf.d/10-protected-services.conf"
 if [[ -n "$ACTIVE_VPN" && -f "$NGINX_CONF" ]]; then
-    # Get current nginx port for transmission
-    NGINX_PORT=$(grep -oP 'proxy_pass http://host\.docker\.internal:\K[0-9]+' "$NGINX_CONF" | head -1)
+    # Get current nginx port for transmission (909x ports are unique to transmission)
+    NGINX_PORT=$(grep -oP 'proxy_pass http://host\.docker\.internal:\K909[0-9]' "$NGINX_CONF" | head -1)
 
     # Expected port based on active VPN
     case "$ACTIVE_VPN" in

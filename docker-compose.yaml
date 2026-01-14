@@ -115,6 +115,8 @@ services:
       - "5000:5000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - .env  # Explicitly load .env to ensure API keys are always available
     volumes:
       # Speed test results written by cron job
       - /var/lib/health-api:/data:ro

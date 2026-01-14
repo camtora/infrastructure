@@ -1,8 +1,106 @@
 # VPN Switch Troubleshooting Guide
 
-Session: 2026-01-14
+Session: 2026-01-14 (updated)
 
-## Issues Fixed This Session
+## Issues Fixed 2026-01-14 Afternoon
+
+### 4. Transmission Orphaned When VPN Container Restarts
+
+**Symptoms:**
+- Transmission container shows "Up" but has no network connectivity
+- `docker exec transmission wget -qO- https://ipinfo.io/ip` fails with "bad address"
+- `docker exec gluetun-X nc -z localhost 9091` says port not open
+- Status dashboard shows Transmission as down
+
+**Root Cause:**
+When a gluetun container restarts, it gets a new network namespace. Transmission keeps running but its `network_mode: container:X` reference becomes stale. Docker doesn't automatically reconnect dependent containers.
+
+**How to Diagnose:**
+```bash
+# Check if transmission can reach the internet
+docker exec transmission wget -qO- --timeout=5 https://ipinfo.io/ip
+
+# Check if port 9091 is visible inside gluetun (should be if sharing namespace)
+docker exec gluetun-montreal nc -z localhost 9091
+
+# Compare network namespaces (should match if sharing)
+docker inspect transmission --format '{{.HostConfig.NetworkMode}}'
+docker inspect gluetun-montreal --format '{{.Id}}'
+```
+
+**Fix Applied:**
+Updated `/home/camerontora/docker-services/scripts/watch-gluetun.sh`:
+- Use `--force-recreate` flag to actually recreate transmission
+- Only trigger when the ACTIVE VPN restarts (not inactive ones)
+
+**Manual Fix:**
+```bash
+cd /home/camerontora/docker-services
+docker stop transmission && docker rm transmission && docker-compose up -d transmission
+```
+
+### 5. API Keys Missing in Cron Jobs / Scripts
+
+**Symptoms:**
+- speedtest.sh logs show: `✗ AUTO-SYNC: Failed to re-sync - Unauthorized`
+- Any script calling health-api fails with auth errors
+
+**Root Cause:**
+`.env` files are only auto-loaded by docker-compose. Cron jobs and systemd services run in a bare environment with no access to these variables.
+
+**Fix Applied:**
+1. Added to `scripts/speedtest.sh`:
+```bash
+ENV_FILE="/home/camerontora/infrastructure/.env"
+if [[ -f "$ENV_FILE" ]]; then
+    set -a; source "$ENV_FILE"; set +a
+fi
+```
+
+2. Added explicit `env_file: .env` to health-api in docker-compose.yaml
+
+**Remember:** Any new script that needs API keys must source the .env file!
+
+### 6. Speedtest Port Detection Finding Wrong Service
+
+**Symptoms:**
+- Speedtest logs show: `⚠ PORT MISMATCH: nginx=7878, expected=9093`
+- But nginx config actually has correct port
+
+**Root Cause:**
+The grep pattern `proxy_pass http://host.docker.internal:\K[0-9]+` matched the FIRST port in the file (Radarr's 7878), not Transmission's port.
+
+**Fix Applied:**
+Changed grep in speedtest.sh to look for transmission-specific ports:
+```bash
+NGINX_PORT=$(grep -oP 'proxy_pass http://host\.docker\.internal:\K909[0-9]' "$NGINX_CONF" | head -1)
+```
+
+### 7. docker-compose.yaml Networks Syntax Error
+
+**Symptoms:**
+- `docker-compose up` fails with: `networks.default value Additional properties are not allowed ('name' was unexpected)`
+
+**Root Cause:**
+docker-compose v1 (1.25.4) uses different syntax for external networks than v2.
+
+**Fix Applied:**
+Changed from:
+```yaml
+networks:
+  default:
+    name: docker-services_default
+    external: true
+```
+To:
+```yaml
+networks:
+  default:
+    external:
+      name: docker-services_default
+```
+
+## Issues Fixed This Session (Earlier)
 
 ### 1. Transmission Container Missing After VPN Switch
 
