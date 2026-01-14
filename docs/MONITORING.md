@@ -204,6 +204,21 @@ Alerts are sent to Discord via webhook. The webhook URL is stored in GCP Secret 
 - Subsequent failures (while still failing) do NOT re-alert
 - Recovery triggers a "back online" notification
 
+### Alert Severity Levels
+
+| Severity | Color | Use Case |
+|----------|-------|----------|
+| 🔴 Major | Red | Home server unreachable, Plex down |
+| 🟠 Minor | Orange | Active VPN unhealthy, endpoint down, VPN failover failed |
+| 🟡 Degraded | Yellow | Threshold breaches (CPU, disk), SSL cert expiring, VPN failover starting |
+| ✅ Recovery | Green | Service restored |
+
+### VPN Health Alerting
+
+VPN health is monitored for all configured locations (Toronto, Montreal, Vancouver), but **alerts are only sent for the active VPN**. Inactive VPN locations that are unhealthy do not trigger Discord notifications since they don't affect current operations.
+
+When the active VPN is unhealthy for 30+ minutes (6 consecutive checks), automatic failover is triggered to the healthiest available VPN location.
+
 ### Alert Format
 
 **Failure Alert:**
