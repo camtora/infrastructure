@@ -839,6 +839,7 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
 
             # Use container NAME instead of ID - more readable and resilient
             # Note: Docker still resolves to ID internally, but using name is clearer
+            # Note: Cannot use --dns with container network mode - DNS comes from gluetun
             run_result = subprocess.run([
                 "docker", "run", "-d",
                 "--name", "transmission",
@@ -847,7 +848,6 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
                 "-e", "PGID=1000",
                 "-e", "USER=camerontora",
                 "-e", "TZ=America/Toronto",
-                "--dns", "1.1.1.1",
                 "-v", "/home/camerontora/docker-services/transmission/config:/config",
                 "-v", "/HOMENAS:/HOMENAS",
                 "--restart", "unless-stopped",
