@@ -145,7 +145,34 @@ docker rm transmission 2>/dev/null || true
 docker-compose up -d transmission
 ```
 
-### 10. Gluetun Internal DNS Broken After Recreation
+### 10. Auto-Repair Not Triggering (Missing Connectivity Check)
+
+**Symptoms:**
+- Transmission breaks but auto-repair never kicks in
+- speedtest.log shows "Active VPN: montreal" but transmission has no connectivity
+- Manual intervention required every time
+
+**Root Cause:**
+The orphan detection only checked if the container ID existed - NOT if transmission could actually reach the internet. It missed:
+- Container exists but internal DNS broken
+- Container exists but VPN tunnel down
+- Stale network namespace after gluetun restart
+
+**Fix Applied:**
+Added actual connectivity test to `/home/camerontora/infrastructure/scripts/speedtest.sh`:
+```bash
+# CRITICAL: Test actual connectivity, not just container existence
+if ! docker exec transmission wget -qO- --timeout=5 https://ipinfo.io/ip >/dev/null 2>&1; then
+    log "⚠ Container exists but network is broken - treating as ORPHANED"
+    TRANSMISSION_ORPHANED=true
+fi
+```
+
+Also fixed:
+- Added missing `X-API-Key` header to auto-repair API call
+- Added fallback: if no healthy VPN available, restart current VPN + transmission
+
+### 11. Gluetun Internal DNS Broken After Recreation
 
 **Symptoms:**
 - Gluetun container shows "healthy" but transmission has no connectivity
