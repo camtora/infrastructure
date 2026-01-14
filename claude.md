@@ -100,6 +100,51 @@ networks:
       name: docker-services_default
 ```
 
+### 8. Gluetun Memory Leak When VPN Unhealthy
+
+**Symptoms:**
+- Unhealthy gluetun containers using excessive memory (Vancouver: 2.4GB, Toronto: 1GB)
+- Containers may crash/restart unexpectedly
+
+**Root Cause:**
+When VPN connection is flaky, DNS-over-TLS requests fail repeatedly. Each failed connection accumulates state that isn't cleaned up - memory leak in error handling paths.
+
+Logs show:
+```
+WARN [dns] getting tls connection... read: connection reset by peer
+```
+
+**Fix Applied:**
+- Added `mem_limit: 1g` to all gluetun containers
+- Changed docker-compose version from "3" to "2.4" (mem_limit not supported in v3)
+- Containers auto-restart when hitting limit, resetting the leak
+
+**Check memory usage:**
+```bash
+docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}" | grep gluetun
+```
+
+### 9. watch-gluetun.sh Restart Loop
+
+**Symptoms:**
+- gluetun and transmission keep recreating in infinite loop
+- Logs show repeated "recreating transmission" messages every few seconds
+
+**Root Cause:**
+`docker-compose up -d --force-recreate transmission` also recreates gluetun (dependency), which triggers another watch event.
+
+**Fix Applied:**
+Changed from:
+```bash
+docker-compose up -d --force-recreate transmission
+```
+To:
+```bash
+docker stop transmission 2>/dev/null || true
+docker rm transmission 2>/dev/null || true
+docker-compose up -d transmission
+```
+
 ## Issues Fixed This Session (Earlier)
 
 ### 1. Transmission Container Missing After VPN Switch
