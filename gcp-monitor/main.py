@@ -277,17 +277,16 @@ def check_vpn_health(health_data: dict[str, Any]) -> dict[str, Any]:
         }
         results["locations"].append(location_result)
 
-        # Alert on unhealthy VPN (but not stopped - that's intentional)
-        if status == "unhealthy":
+        # Alert only if the active VPN is unhealthy (not stopped - that's intentional)
+        if status == "unhealthy" and is_active:
             alert_with_dedup(
                 f"vpn_{location.lower()}",
                 f"VPN {location} is Unhealthy",
                 f"VPN connection to {location} is experiencing issues.\n"
-                f"Status: {status}\n"
-                f"Active: {'Yes' if is_active else 'No'}",
+                f"Status: {status}",
                 severity="minor"
             )
-        elif status in ("healthy", "stopped"):
+        elif status in ("healthy", "stopped") and is_active:
             recovery_with_dedup(
                 f"vpn_{location.lower()}",
                 f"VPN {location} Recovered",
