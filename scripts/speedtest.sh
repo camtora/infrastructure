@@ -82,6 +82,39 @@ else
     log "Transmission container not found"
 fi
 
+# Check for nginx port mismatch and auto-repair
+NGINX_CONF="/home/camerontora/infrastructure/nginx/conf.d/10-protected-services.conf"
+if [[ -n "$ACTIVE_VPN" && -f "$NGINX_CONF" ]]; then
+    # Get current nginx port for transmission
+    NGINX_PORT=$(grep -oP 'proxy_pass http://host\.docker\.internal:\K[0-9]+' "$NGINX_CONF" | head -1)
+
+    # Expected port based on active VPN
+    case "$ACTIVE_VPN" in
+        toronto) EXPECTED_PORT=9091 ;;
+        montreal) EXPECTED_PORT=9092 ;;
+        vancouver) EXPECTED_PORT=9093 ;;
+        *) EXPECTED_PORT="" ;;
+    esac
+
+    # If mismatch, call health-api to re-sync
+    if [[ -n "$EXPECTED_PORT" && "$NGINX_PORT" != "$EXPECTED_PORT" ]]; then
+        log "⚠ PORT MISMATCH: nginx=$NGINX_PORT, expected=$EXPECTED_PORT for $ACTIVE_VPN"
+        log "🔧 AUTO-SYNC: Calling health-api to re-sync VPN configuration..."
+        sync_result=$(curl -s -X POST "http://localhost:5000/api/health/vpn/switch" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${HEALTH_API_KEY:-}" \
+            -d "{\"location\": \"$ACTIVE_VPN\", \"reason\": \"auto-sync-port-mismatch\"}" \
+            --max-time 120 2>&1)
+
+        if echo "$sync_result" | jq -e '.success' >/dev/null 2>&1; then
+            log "✓ AUTO-SYNC: VPN configuration re-synced to $ACTIVE_VPN"
+        else
+            error_msg=$(echo "$sync_result" | jq -r '.error // "Unknown error"' 2>/dev/null || echo "$sync_result")
+            log "✗ AUTO-SYNC: Failed to re-sync - $error_msg"
+        fi
+    fi
+fi
+
 # Run VPN speedtests CONCURRENTLY for all gluetun containers
 log "Running VPN speedtests concurrently..."
 TEMP_DIR=$(mktemp -d)

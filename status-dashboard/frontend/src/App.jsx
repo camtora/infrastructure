@@ -110,12 +110,19 @@ export function App() {
     setVpnMessage(null)
 
     try {
+      // VPN switch takes ~2 minutes, set 3 minute timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 180000)
+
       const res = await fetch(`${HEALTH_API}/api/admin/vpn/switch`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location })
+        body: JSON.stringify({ location }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       const data = await res.json()
 

@@ -38,9 +38,9 @@ NGINX_TRANSMISSION_CONF = "/nginx-conf/10-protected-services.conf"
 
 # Sonarr/Radarr API configuration for VPN switch port updates
 SONARR_API_KEY = os.environ.get("SONARR_API_KEY", "")
-SONARR_URL = "http://host.docker.internal:8989"
+SONARR_URL = "http://host.docker.internal:8989/sonarr"
 RADARR_API_KEY = os.environ.get("RADARR_API_KEY", "")
-RADARR_URL = "http://host.docker.internal:7878"
+RADARR_URL = "http://host.docker.internal:7878/radarr"
 
 # VPN location configuration
 VPN_LOCATIONS = {
@@ -726,7 +726,7 @@ def update_arr_download_client_port(app_name: str, api_url: str, api_key: str, n
     if not api_key:
         return {"success": False, "error": f"No API key configured for {app_name}"}
 
-    headers = {"X-Api-Key": api_key}
+    headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
 
     try:
         # Get current download clients
@@ -758,7 +758,14 @@ def update_arr_download_client_port(app_name: str, api_url: str, api_key: str, n
             json=transmission_client,
             timeout=10
         )
-        resp.raise_for_status()
+
+        if resp.status_code >= 400:
+            # Try to get error details from response
+            try:
+                error_detail = resp.json()
+            except Exception:
+                error_detail = resp.text[:200]
+            return {"success": False, "error": f"{app_name} API error {resp.status_code}: {error_detail}"}
 
         return {"success": True, "message": f"Updated {app_name} Transmission port to {new_port}"}
 
@@ -809,57 +816,54 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
             f.write(new_content)
         steps_completed.append("Updated docker-compose.yaml")
 
-        # Step 2: Recreate transmission container
+        # Step 2: Update Sonarr/Radarr download client ports BEFORE stopping Transmission
+        # This allows them to validate the connection while Transmission is still running
+        sonarr_result = update_arr_download_client_port("Sonarr", SONARR_URL, SONARR_API_KEY, target_port)
+        if sonarr_result["success"]:
+            steps_completed.append(sonarr_result["message"])
+        else:
+            steps_completed.append(f"Note: {sonarr_result['error']}")
+
+        radarr_result = update_arr_download_client_port("Radarr", RADARR_URL, RADARR_API_KEY, target_port)
+        if radarr_result["success"]:
+            steps_completed.append(radarr_result["message"])
+        else:
+            steps_completed.append(f"Note: {radarr_result['error']}")
+
+        # Step 3: Recreate transmission container
         subprocess.run(["docker", "stop", "transmission"], capture_output=True, timeout=30)
         subprocess.run(["docker", "rm", "transmission"], capture_output=True, timeout=30)
 
-        result = subprocess.run(
-            ["docker", "exec", "docker-services-helper",
-             "docker-compose", "-f", "/docker-services/docker-compose.yaml",
-             "--project-name", "docker-services", "up", "-d", "transmission"],
+        # Verify target VPN container exists and is running
+        gluetun_result = subprocess.run(
+            ["docker", "inspect", target_container, "--format", "{{.State.Running}}"],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=10
+        )
+        if gluetun_result.returncode != 0 or gluetun_result.stdout.strip() != "true":
+            return {
+                "error": f"Target VPN container {target_container} not running",
+                "steps_completed": steps_completed
+            }, 500
+
+        # Use docker compose to start transmission (reads updated docker-compose.yaml)
+        # Run from docker-services directory to auto-detect project name and avoid network label issues
+        # Note: /docker-services is the mount point inside the container
+        result = subprocess.run(
+            ["docker", "compose", "up", "-d", "transmission"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd="/docker-services"
         )
 
-        # Fallback: if helper container doesn't exist, try direct docker run
         if result.returncode != 0:
-            # Verify target VPN container exists
-            gluetun_result = subprocess.run(
-                ["docker", "inspect", target_container, "--format", "{{.State.Running}}"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if gluetun_result.returncode != 0:
-                return {
-                    "error": f"Target VPN container {target_container} not found",
-                    "steps_completed": steps_completed
-                }, 500
-
-            # Use container NAME instead of ID - more readable and resilient
-            # Note: Docker still resolves to ID internally, but using name is clearer
-            # Note: Cannot use --dns with container network mode - DNS comes from gluetun
-            run_result = subprocess.run([
-                "docker", "run", "-d",
-                "--name", "transmission",
-                "--network", f"container:{target_container}",
-                "-e", "PUID=1000",
-                "-e", "PGID=1000",
-                "-e", "USER=camerontora",
-                "-e", "TZ=America/Toronto",
-                "-v", "/home/camerontora/docker-services/transmission/config:/config",
-                "-v", "/HOMENAS:/HOMENAS",
-                "--restart", "unless-stopped",
-                "linuxserver/transmission"
-            ], capture_output=True, text=True, timeout=60)
-
-            if run_result.returncode != 0:
-                return {
-                    "error": "Failed to start transmission container",
-                    "stderr": run_result.stderr,
-                    "steps_completed": steps_completed
-                }, 500
+            return {
+                "error": "Failed to start transmission container",
+                "stderr": result.stderr,
+                "steps_completed": steps_completed
+            }, 500
 
         steps_completed.append("Recreated transmission container")
 
@@ -926,19 +930,6 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
                     steps_completed.append("Updated speedtest.json active status")
         except Exception as e:
             steps_completed.append(f"Note: Could not update speedtest.json: {e}")
-
-        # Step 6: Update Sonarr/Radarr download client ports
-        sonarr_result = update_arr_download_client_port("Sonarr", SONARR_URL, SONARR_API_KEY, target_port)
-        if sonarr_result["success"]:
-            steps_completed.append(sonarr_result["message"])
-        else:
-            steps_completed.append(f"Note: {sonarr_result['error']}")
-
-        radarr_result = update_arr_download_client_port("Radarr", RADARR_URL, RADARR_API_KEY, target_port)
-        if radarr_result["success"]:
-            steps_completed.append(radarr_result["message"])
-        else:
-            steps_completed.append(f"Note: {radarr_result['error']}")
 
         return {
             "success": True,

@@ -51,6 +51,17 @@
 
 ## Technical Debt
 
+### Haymaker Health Endpoint
+- **Status:** Pending
+- **Description:** Add nginx health endpoint for Haymaker that bypasses OAuth
+- **Why:** Status dashboard checks protected services via health endpoints. Haymaker is the only protected service without one.
+- **Implementation:**
+  - Add `location = /api/health` block to `nginx/conf.d/02-haymaker.conf` (no auth)
+  - Update `status-dashboard/backend/config.py` URL from `/` to `/api/health`
+- **Files:**
+  - `nginx/conf.d/02-haymaker.conf`
+  - `status-dashboard/backend/config.py`
+
 ### Per-Service Authorization
 - **Status:** Blocked
 - **Description:** Admin-only access for Radarr/Sonarr/Jackett/Tautulli/Transmission/Netdata while allowing other users on Haymaker
