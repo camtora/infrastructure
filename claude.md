@@ -145,6 +145,35 @@ docker rm transmission 2>/dev/null || true
 docker-compose up -d transmission
 ```
 
+### 10. Gluetun Internal DNS Broken After Recreation
+
+**Symptoms:**
+- Gluetun container shows "healthy" but transmission has no connectivity
+- `docker exec transmission wget -qO- https://ipinfo.io/ip` fails with "bad address"
+- Direct IP access works: `docker exec gluetun-X wget -qO- http://1.1.1.1/cdn-cgi/trace` succeeds
+- DNS resolution fails: `docker exec gluetun-X nslookup ipinfo.io` times out
+
+**Root Cause:**
+After `docker-compose up -d --force-recreate gluetun-X`, the internal DNS server (127.0.0.1:53) sometimes doesn't initialize properly. The VPN tunnel works but DNS queries to the local resolver fail.
+
+**How to Diagnose:**
+```bash
+# VPN works (returns IP)
+docker exec gluetun-montreal wget -qO- http://1.1.1.1/cdn-cgi/trace | grep ip
+
+# DNS broken (times out)
+docker exec gluetun-montreal nslookup ipinfo.io
+```
+
+**Fix:**
+Restart the gluetun container, then recreate transmission:
+```bash
+docker restart gluetun-montreal
+sleep 10
+docker rm -f transmission
+docker-compose up -d transmission
+```
+
 ## Issues Fixed This Session (Earlier)
 
 ### 1. Transmission Container Missing After VPN Switch
