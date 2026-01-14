@@ -824,8 +824,9 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
 
         # Fallback: if helper container doesn't exist, try direct docker run
         if result.returncode != 0:
+            # Verify target VPN container exists
             gluetun_result = subprocess.run(
-                ["docker", "inspect", target_container, "--format", "{{.Id}}"],
+                ["docker", "inspect", target_container, "--format", "{{.State.Running}}"],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -836,15 +837,17 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
                     "steps_completed": steps_completed
                 }, 500
 
-            gluetun_id = gluetun_result.stdout.strip()
-
+            # Use container NAME instead of ID - more readable and resilient
+            # Note: Docker still resolves to ID internally, but using name is clearer
             run_result = subprocess.run([
                 "docker", "run", "-d",
                 "--name", "transmission",
-                "--network", f"container:{gluetun_id}",
+                "--network", f"container:{target_container}",
                 "-e", "PUID=1000",
                 "-e", "PGID=1000",
                 "-e", "USER=camerontora",
+                "-e", "TZ=America/Toronto",
+                "--dns", "1.1.1.1",
                 "-v", "/home/camerontora/docker-services/transmission/config:/config",
                 "-v", "/HOMENAS:/HOMENAS",
                 "--restart", "unless-stopped",

@@ -55,6 +55,7 @@ VPN_LOCATIONS=("montreal" "toronto" "vancouver")
 # Detect which VPN is active (Transmission uses it)
 log "Detecting active VPN..."
 ACTIVE_VPN=""
+TRANSMISSION_ORPHANED=false
 if transmission_network=$(docker inspect transmission --format '{{.HostConfig.NetworkMode}}' 2>/dev/null); then
     # NetworkMode can be "container:<id>" or "container:gluetun-toronto"
     if [[ "$transmission_network" =~ ^container:(.+)$ ]]; then
@@ -62,6 +63,12 @@ if transmission_network=$(docker inspect transmission --format '{{.HostConfig.Ne
         # If it's a container ID, look up the name
         if [[ "$container_ref" =~ ^[a-f0-9]+$ ]]; then
             container_name=$(docker inspect "$container_ref" --format '{{.Name}}' 2>/dev/null | sed 's|^/||')
+            # Check if the referenced container no longer exists (orphaned transmission)
+            if [[ -z "$container_name" ]]; then
+                log "⚠ WARNING: Transmission references non-existent container ID: $container_ref"
+                log "⚠ Transmission is ORPHANED - needs to be recreated with a valid VPN container"
+                TRANSMISSION_ORPHANED=true
+            fi
         else
             container_name="$container_ref"
         fi
@@ -71,6 +78,8 @@ if transmission_network=$(docker inspect transmission --format '{{.HostConfig.Ne
             log "Active VPN: $ACTIVE_VPN (Transmission via $container_name)"
         fi
     fi
+else
+    log "Transmission container not found"
 fi
 
 # Run VPN speedtests CONCURRENTLY for all gluetun containers
@@ -134,6 +143,51 @@ done
 
 # Cleanup
 rm -rf "$TEMP_DIR"
+
+# Auto-repair orphaned transmission
+if [[ "$TRANSMISSION_ORPHANED" == "true" ]]; then
+    log "🔧 AUTO-REPAIR: Attempting to fix orphaned transmission..."
+
+    # Find healthiest VPN from results (highest download speed)
+    best_vpn=""
+    best_speed=0
+    for location in "${VPN_LOCATIONS[@]}"; do
+        location_cap=$(echo "$location" | sed 's/.*/\u&/')
+        speed=$(echo "$VPN_RESULTS" | jq -r --arg loc "$location_cap" '.[$loc].download // 0')
+        status=$(echo "$VPN_RESULTS" | jq -r --arg loc "$location_cap" '.[$loc].status // "unknown"')
+        if [[ "$status" == "healthy" ]] && (( $(echo "$speed > $best_speed" | bc -l) )); then
+            best_speed=$speed
+            best_vpn=$location
+        fi
+    done
+
+    if [[ -n "$best_vpn" ]]; then
+        log "🔧 Best healthy VPN: $best_vpn (${best_speed}Mbps) - calling health-api to switch..."
+
+        # Call health-api switch endpoint (handles transmission, nginx, sonarr, radarr)
+        switch_result=$(curl -s -X POST "http://localhost:5000/api/health/vpn/switch" \
+            -H "Content-Type: application/json" \
+            -d "{\"location\": \"$best_vpn\", \"reason\": \"auto-repair-orphaned-transmission\"}" \
+            --max-time 120 2>&1)
+
+        if echo "$switch_result" | jq -e '.success' >/dev/null 2>&1; then
+            log "✓ AUTO-REPAIR: VPN switched to $best_vpn via health-api"
+            ACTIVE_VPN="$best_vpn"
+
+            # Update VPN_RESULTS to mark the new active VPN
+            for location in "${VPN_LOCATIONS[@]}"; do
+                location_cap=$(echo "$location" | sed 's/.*/\u&/')
+                is_active=$([[ "$location" == "$best_vpn" ]] && echo "true" || echo "false")
+                VPN_RESULTS=$(echo "$VPN_RESULTS" | jq --arg loc "$location_cap" --argjson active "$is_active" '.[$loc].active = $active')
+            done
+        else
+            error_msg=$(echo "$switch_result" | jq -r '.error // "Unknown error"' 2>/dev/null || echo "$switch_result")
+            log "✗ AUTO-REPAIR: Failed to switch VPN - $error_msg"
+        fi
+    else
+        log "✗ AUTO-REPAIR: No healthy VPN available to use"
+    fi
+fi
 
 # Build final JSON
 cat > "$OUTPUT_FILE" << EOF

@@ -407,3 +407,117 @@ curl -H "X-API-Key: $(grep HEALTH_API_KEY .env | cut -d= -f2)" \
 | `/etc/cron.d/speedtest` | Installed cron job |
 | `/var/lib/health-api/speedtest.json` | Speed test results |
 | `/var/log/speedtest.log` | Speed test log |
+
+## VPN Management
+
+### Architecture
+
+Transmission routes through one of three gluetun VPN containers:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  VPN Container          Port    Location                        │
+├─────────────────────────────────────────────────────────────────┤
+│  gluetun-toronto        9091    Toronto, ON                     │
+│  gluetun-montreal       9092    Montreal, QC                    │
+│  gluetun-vancouver      9093    Vancouver, BC                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  transmission container                                         │
+│  network_mode: container:gluetun-<active>                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  nginx-proxy                                                    │
+│  proxy_pass http://host.docker.internal:<port>                  │
+│  (port matches active VPN: 9091/9092/9093)                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### VPN Switching
+
+The health-api provides endpoints to switch transmission between VPN locations:
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `POST /api/admin/vpn/switch` | OAuth | Manual switch (web UI) |
+| `POST /api/health/vpn/switch` | X-API-Key | Auto-failover (gcp-monitor) |
+
+**Switch process** (handled by health-api):
+1. Update docker-compose.yaml with new VPN
+2. Stop and remove transmission container
+3. Recreate transmission with new VPN network
+4. Update nginx config with correct port
+5. Reload nginx
+6. Update Sonarr/Radarr download client ports
+7. Update speedtest.json active status
+
+### Auto-Failover (30 minutes)
+
+When the **active** VPN is unhealthy for 6 consecutive checks (~30 minutes), the gcp-monitor automatically triggers a switch to the healthiest available VPN.
+
+See "VPN Health Alerting" section above for alert behavior.
+
+### Auto-Repair: Orphaned Transmission
+
+**Problem**: If gluetun containers are recreated independently (e.g., manual `docker-compose up -d gluetun-*`), they get new container IDs. Transmission keeps referencing the old ID and loses network connectivity.
+
+**Solution**: The speedtest script (runs every 5 minutes) detects and repairs this automatically:
+
+```
+speedtest.sh runs
+    │
+    ▼
+Detect transmission network mode
+    │
+    ├── References valid container? ──► Continue normal operation
+    │
+    └── References non-existent ID? ──► AUTO-REPAIR
+                                            │
+                                            ▼
+                                    Find healthiest VPN
+                                            │
+                                            ▼
+                                    Call /api/health/vpn/switch
+                                            │
+                                            ▼
+                                    Full switch process executes
+                                    (transmission, nginx, sonarr, radarr)
+```
+
+**Log output** (`/var/log/speedtest.log`):
+```
+2026-01-14 01:30:01 ⚠ WARNING: Transmission references non-existent container ID: 9f90f530...
+2026-01-14 01:30:01 ⚠ Transmission is ORPHANED - needs to be recreated with a valid VPN container
+2026-01-14 01:30:15 🔧 AUTO-REPAIR: Attempting to fix orphaned transmission...
+2026-01-14 01:30:15 🔧 Best healthy VPN: vancouver (154.14Mbps) - calling health-api to switch...
+2026-01-14 01:30:45 ✓ AUTO-REPAIR: VPN switched to vancouver via health-api
+```
+
+### Best Practices
+
+**DO**: Use docker-compose to manage gluetun and transmission together:
+```bash
+cd /home/camerontora/docker-services
+docker-compose up -d gluetun-vancouver transmission
+```
+
+**DON'T**: Recreate gluetun containers without transmission:
+```bash
+# This will orphan transmission!
+docker-compose up -d gluetun-vancouver
+```
+
+**Recovery**: If transmission is orphaned, it will auto-repair within 5 minutes, or manually trigger:
+```bash
+# Force speedtest to run (will detect and repair)
+/home/camerontora/infrastructure/scripts/speedtest.sh
+
+# Or manually switch VPN
+curl -X POST http://localhost:5000/api/health/vpn/switch \
+  -H "Content-Type: application/json" \
+  -d '{"location": "vancouver"}'
+```
