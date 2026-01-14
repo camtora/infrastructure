@@ -83,6 +83,13 @@ if transmission_network=$(docker inspect transmission --format '{{.HostConfig.Ne
         if [[ "$container_name" =~ gluetun-([a-z]+) ]]; then
             ACTIVE_VPN="${BASH_REMATCH[1]}"
             log "Active VPN: $ACTIVE_VPN (Transmission via $container_name)"
+
+            # CRITICAL: Test actual connectivity, not just container existence
+            if ! docker exec transmission wget -qO- --timeout=5 https://ipinfo.io/ip >/dev/null 2>&1; then
+                log "⚠ WARNING: Transmission has no internet connectivity!"
+                log "⚠ Container exists but network is broken - treating as ORPHANED"
+                TRANSMISSION_ORPHANED=true
+            fi
         fi
     fi
 else
@@ -207,6 +214,7 @@ if [[ "$TRANSMISSION_ORPHANED" == "true" ]]; then
         # Call health-api switch endpoint (handles transmission, nginx, sonarr, radarr)
         switch_result=$(curl -s -X POST "http://localhost:5000/api/health/vpn/switch" \
             -H "Content-Type: application/json" \
+            -H "X-API-Key: ${HEALTH_API_KEY:-}" \
             -d "{\"location\": \"$best_vpn\", \"reason\": \"auto-repair-orphaned-transmission\"}" \
             --max-time 120 2>&1)
 
@@ -225,7 +233,26 @@ if [[ "$TRANSMISSION_ORPHANED" == "true" ]]; then
             log "✗ AUTO-REPAIR: Failed to switch VPN - $error_msg"
         fi
     else
-        log "✗ AUTO-REPAIR: No healthy VPN available to use"
+        log "✗ AUTO-REPAIR: No healthy VPN available - trying to restart current VPN ($ACTIVE_VPN)..."
+
+        # Restart current gluetun container to reset its state (fixes DNS issues)
+        if [[ -n "$ACTIVE_VPN" ]]; then
+            docker restart "gluetun-$ACTIVE_VPN" >/dev/null 2>&1 || true
+            sleep 10  # Let VPN reconnect
+
+            # Recreate transmission to attach to fresh network namespace
+            cd /home/camerontora/docker-services
+            docker rm -f transmission >/dev/null 2>&1 || true
+            docker-compose up -d transmission >/dev/null 2>&1 || true
+
+            # Verify fix worked
+            sleep 5
+            if docker exec transmission wget -qO- --timeout=5 https://ipinfo.io/ip >/dev/null 2>&1; then
+                log "✓ AUTO-REPAIR: Restart of $ACTIVE_VPN fixed the issue"
+            else
+                log "✗ AUTO-REPAIR: Restart didn't help - VPN may be down at provider level"
+            fi
+        fi
     fi
 fi
 
