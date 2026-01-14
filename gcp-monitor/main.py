@@ -358,7 +358,7 @@ def trigger_failover(failed_location: str, vpn_data: dict[str, Any]) -> dict[str
         send_discord_alert("VPN Failover Failed",
             f"Active VPN (**{failed_location.title()}**) is unhealthy but no healthy alternatives available.\n"
             f"All VPN locations are currently down.",
-            severity="major")
+            severity="minor")
         return {"failover": False, "reason": "No healthy VPNs available"}
 
     # Sort by download speed (highest first)
@@ -400,7 +400,7 @@ def trigger_failover(failed_location: str, vpn_data: dict[str, Any]) -> dict[str
         send_discord_alert("VPN Failover Failed",
             f"Failed to switch from **{failed_location.title()}** to **{target.title()}**\n"
             f"Error: {e}",
-            severity="major")
+            severity="minor")
         logger.error(f"VPN failover failed: {e}")
         return {"failover": False, "error": str(e)}
 
