@@ -136,3 +136,9 @@
 - Fixed: Changed deprecated `listen 443 ssl http2;` to `listen 443 ssl;` + `http2 on;`
 - Updated all 5 nginx config files (14 server blocks total)
 - No more deprecation warnings on nginx reload
+
+### VPN Switch Sonarr/Radarr Update Order (2026-01-16)
+- Fixed: VPN switch was updating Sonarr/Radarr ports BEFORE recreating Transmission
+- Problem: Sonarr/Radarr validate connection on update, so API call failed if Transmission wasn't ready
+- Solution: Move Sonarr/Radarr update to AFTER Transmission is recreated, with 30s wait loop
+- New order: recreate transmission → wait for ready → update Sonarr/Radarr → update nginx

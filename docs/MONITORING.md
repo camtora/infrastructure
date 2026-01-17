@@ -450,10 +450,13 @@ The health-api provides endpoints to switch transmission between VPN locations:
 1. Update docker-compose.yaml with new VPN
 2. Stop and remove transmission container
 3. Recreate transmission with new VPN network
-4. Update nginx config with correct port
-5. Reload nginx
-6. Update Sonarr/Radarr download client ports
-7. Update speedtest.json active status
+4. Wait for Transmission to respond on new port (up to 30s)
+5. Update Sonarr/Radarr download client ports
+6. Update nginx config with correct port
+7. Reload nginx
+8. Update speedtest.json active status
+
+**Important**: Sonarr/Radarr validate the connection when updating the download client port. The switch process waits for Transmission to be ready before updating them, otherwise the API call fails.
 
 ### Auto-Failover (30 minutes)
 

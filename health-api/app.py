@@ -816,21 +816,7 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
             f.write(new_content)
         steps_completed.append("Updated docker-compose.yaml")
 
-        # Step 2: Update Sonarr/Radarr download client ports BEFORE stopping Transmission
-        # This allows them to validate the connection while Transmission is still running
-        sonarr_result = update_arr_download_client_port("Sonarr", SONARR_URL, SONARR_API_KEY, target_port)
-        if sonarr_result["success"]:
-            steps_completed.append(sonarr_result["message"])
-        else:
-            steps_completed.append(f"Note: {sonarr_result['error']}")
-
-        radarr_result = update_arr_download_client_port("Radarr", RADARR_URL, RADARR_API_KEY, target_port)
-        if radarr_result["success"]:
-            steps_completed.append(radarr_result["message"])
-        else:
-            steps_completed.append(f"Note: {radarr_result['error']}")
-
-        # Step 3: Recreate transmission container
+        # Step 2: Recreate transmission container
         subprocess.run(["docker", "stop", "transmission"], capture_output=True, timeout=30)
         subprocess.run(["docker", "rm", "transmission"], capture_output=True, timeout=30)
 
@@ -867,7 +853,39 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
 
         steps_completed.append("Recreated transmission container")
 
-        # Step 3: Update nginx config
+        # Step 3: Wait for Transmission to be ready on new port
+        max_wait = 30  # seconds
+        transmission_ready = False
+        for i in range(max_wait):
+            try:
+                resp = requests.get(f"{HOST_URL}:{target_port}/transmission/rpc", timeout=2)
+                # 401 = auth required, 409 = CSRF token needed - both mean it's responding
+                if resp.status_code in (200, 401, 409):
+                    transmission_ready = True
+                    break
+            except requests.exceptions.RequestException:
+                pass
+            time.sleep(1)
+
+        if transmission_ready:
+            steps_completed.append("Transmission is ready")
+        else:
+            steps_completed.append(f"Warning: Transmission not responding on port {target_port} after {max_wait}s")
+
+        # Step 4: Update Sonarr/Radarr download client ports (after Transmission is ready)
+        sonarr_result = update_arr_download_client_port("Sonarr", SONARR_URL, SONARR_API_KEY, target_port)
+        if sonarr_result["success"]:
+            steps_completed.append(sonarr_result["message"])
+        else:
+            steps_completed.append(f"Warning: {sonarr_result['error']}")
+
+        radarr_result = update_arr_download_client_port("Radarr", RADARR_URL, RADARR_API_KEY, target_port)
+        if radarr_result["success"]:
+            steps_completed.append(radarr_result["message"])
+        else:
+            steps_completed.append(f"Warning: {radarr_result['error']}")
+
+        # Step 5: Update nginx config
         if not Path(NGINX_TRANSMISSION_CONF).exists():
             return {"error": f"Nginx config not found: {NGINX_TRANSMISSION_CONF}"}, 500
 
@@ -899,7 +917,7 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
             f.write(new_nginx)
         steps_completed.append("Updated nginx config")
 
-        # Step 4: Reload nginx
+        # Step 6: Reload nginx
         result = subprocess.run(
             ["docker", "exec", "nginx-proxy", "nginx", "-s", "reload"],
             capture_output=True,
@@ -914,7 +932,7 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
             }, 500
         steps_completed.append("Reloaded nginx")
 
-        # Step 5: Update speedtest.json
+        # Step 7: Update speedtest.json
         try:
             speedtest_path = Path(SPEEDTEST_FILE)
             if speedtest_path.exists():
