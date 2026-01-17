@@ -42,6 +42,49 @@ sudo ufw reload
 
 Config location: `/etc/ssh/sshd_config`
 
+## VNC Remote Access (RealVNC)
+
+RealVNC Server is used for remote desktop access via RealVNC's cloud service.
+
+- **Service**: `vncserver-x11-serviced`
+- **Mode**: Service Mode (runs as system service)
+- **Authentication**: RealVNC cloud account (cameron.tora@gmail.com)
+
+### Known Issue: Sticky Cloud Sessions
+
+RealVNC's cloud service sometimes fails to receive disconnect notifications from the local server. This causes "session already active" errors when trying to reconnect, even though no session is actually active locally.
+
+**Quick fix:**
+```bash
+vnc-reset
+```
+
+This restarts the VNC service, forcing re-registration with RealVNC's cloud and clearing stale session state.
+
+### Maintenance
+
+- **Auto-clear on disconnect**: The `vnc-session-monitor` service watches for disconnect events and automatically restarts VNC 10 seconds later to clear cloud state
+- **Daily restart**: A cron job restarts the VNC service at 4am daily as a fallback (`/etc/cron.d/vnc-maintenance`)
+- **Manual reset**: Run `vnc-reset` if needed
+
+**Scripts:**
+- `scripts/vnc-reset.sh` - Manual reset (symlinked to `/usr/local/bin/vnc-reset`)
+- `scripts/vnc-session-monitor.sh` - Auto-reset service
+- `scripts/vnc-session-monitor.service` - systemd unit file
+
+### Troubleshooting
+
+```bash
+# Check VNC service status
+systemctl status vncserver-x11-serviced
+
+# View recent connection logs
+journalctl -u vncserver-x11-serviced --since "1 hour ago"
+
+# Force clear stuck session
+vnc-reset
+```
+
 ## Disabled Services
 
 - **Samba (smbd, nmbd)**: Disabled - not in use

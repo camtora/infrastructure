@@ -1,0 +1,13 @@
+[Unit]
+Description=VNC Session Monitor - auto-clear stale cloud sessions
+After=vncserver-x11-serviced.service
+Requires=vncserver-x11-serviced.service
+
+[Service]
+Type=simple
+ExecStart=/home/camerontora/infrastructure/scripts/vnc-session-monitor.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
