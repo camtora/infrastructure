@@ -71,7 +71,7 @@ export function Header({ status, lastUpdate, adminAuth }) {
               </p>
             )}
           </div>
-          {adminAuth?.is_admin && (
+          {adminAuth?.is_admin ? (
             <div class={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
               adminAuth.cached
                 ? 'bg-amber-500/10 border-amber-500/20'
@@ -84,6 +84,16 @@ export function Header({ status, lastUpdate, adminAuth }) {
                 {adminAuth.cached ? 'Admin (Cached)' : 'Admin'}
               </span>
             </div>
+          ) : (
+            <a
+              href="https://health.camerontora.ca/oauth2/start?rd=https://status.camerontora.ca"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200"
+            >
+              <svg class="w-3.5 h-3.5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              <span class="text-xs text-white/50">Login</span>
+            </a>
           )}
         </div>
       </div>
