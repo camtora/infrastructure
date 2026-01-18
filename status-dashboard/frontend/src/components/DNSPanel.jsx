@@ -75,7 +75,7 @@ export function DNSPanel({ dns, adminAuth }) {
         </div>
       </div>
       <p class="text-xs text-white/40 mb-6">
-        If CAMNAS2 goes offline, switch DNS to GCP to keep this dashboard and public services accessible.
+        When home is down, point camerontora.ca to GCP so visitors see this status page instead of an SSL error.
       </p>
 
       {/* Mock data warning - only show to admins */}

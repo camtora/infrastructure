@@ -42,5 +42,5 @@ SERVICES = [
 ]
 
 # DNS records to manage during failover
-# Only @ and monitor - other subdomains timeout cleanly rather than showing SSL warnings
-DNS_RECORDS = ["@", "monitor"]
+# Only @ - other subdomains timeout cleanly rather than showing SSL warnings
+DNS_RECORDS = ["@"]
