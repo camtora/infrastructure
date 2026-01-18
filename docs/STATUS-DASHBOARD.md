@@ -500,7 +500,7 @@ Reboot the entire home server from the dashboard. Useful for recovering from sys
 1. Admin clicks "Restart" button in System Metrics panel
 2. Confirmation dialog appears: "Are you sure you want to restart the server?"
 3. User confirms → POST to `/api/admin/server/reboot`
-4. Backend triggers `sudo reboot` in background thread (2-second delay to allow HTTP response)
+4. Backend triggers reboot via nsenter in background thread (2-second delay to allow HTTP response)
 5. Dialog transitions to "Server Restarting" phase with service grid
 6. Frontend polls GCP `/api/status` every 5 seconds
 7. Each service shows red (offline) or green (online) status dot
@@ -518,8 +518,8 @@ Reboot the entire home server from the dashboard. Useful for recovering from sys
 - Polling happens from GCP dashboard (not health-api) since health-api goes down during reboot
 - 2-second delay before reboot ensures HTTP response is sent
 - Timeout after 5 minutes of polling (60 attempts × 5 seconds)
-- health-api container runs with `privileged: true` for host system access
-- Reboot command: `sudo reboot` via sudoers.d allowlist
+- health-api container runs with `privileged: true` and `pid: host` for host system access
+- Reboot command: `nsenter -t 1 -m -u -i -n -- reboot` (enters host's PID 1 namespace from container)
 
 **Files involved:**
 | File | Purpose |
