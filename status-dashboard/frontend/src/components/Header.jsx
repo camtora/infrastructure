@@ -1,4 +1,4 @@
-export function Header({ status, lastUpdate, adminAuth }) {
+export function Header({ status, lastUpdate, adminAuth, onEmergencyClick, apiKeyActive }) {
   const overallStatus = status?.overall_status || 'unknown'
   const summary = status?.summary || {}
 
@@ -71,7 +71,18 @@ export function Header({ status, lastUpdate, adminAuth }) {
               </p>
             )}
           </div>
-          {adminAuth?.is_admin ? (
+          {apiKeyActive ? (
+            <button
+              onClick={onEmergencyClick}
+              class="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 transition-all duration-200"
+              title="Using API key authentication (click to manage)"
+            >
+              <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              <span class="text-xs text-amber-300">Admin (API Key)</span>
+            </button>
+          ) : adminAuth?.is_admin ? (
             <div class={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
               adminAuth.cached
                 ? 'bg-amber-500/10 border-amber-500/20'
@@ -85,15 +96,26 @@ export function Header({ status, lastUpdate, adminAuth }) {
               </span>
             </div>
           ) : (
-            <a
-              href="https://health.camerontora.ca/oauth2/start?rd=https://status.camerontora.ca"
-              class="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200"
-            >
-              <svg class="w-3.5 h-3.5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              <span class="text-xs text-white/50">Login</span>
-            </a>
+            <div class="flex items-center gap-2">
+              <a
+                href="https://health.camerontora.ca/oauth2/start?rd=https://status.camerontora.ca"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200"
+              >
+                <svg class="w-3.5 h-3.5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                <span class="text-xs text-white/50">Login</span>
+              </a>
+              <button
+                onClick={onEmergencyClick}
+                class="p-1.5 rounded-full border bg-white/5 border-white/10 hover:bg-amber-500/10 hover:border-amber-500/20 transition-all duration-200"
+                title="Emergency access (API key)"
+              >
+                <svg class="w-3.5 h-3.5 text-white/40 hover:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </button>
+            </div>
           )}
         </div>
       </div>

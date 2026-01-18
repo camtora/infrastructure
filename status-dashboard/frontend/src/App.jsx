@@ -8,6 +8,7 @@ import { DNSPanel } from './components/DNSPanel'
 import { StoragePanel } from './components/StoragePanel'
 import { HistoryPanel } from './components/HistoryPanel'
 import { RebootDialog } from './components/RebootDialog'
+import { EmergencyAuthModal } from './components/EmergencyAuthModal'
 
 const NETDATA_BASE = 'https://netdata.camerontora.ca'
 const HEALTH_API = 'https://health.camerontora.ca'
@@ -85,6 +86,11 @@ export function App() {
   const [vpnSwitching, setVpnSwitching] = useState(null) // location being switched to
   const [vpnMessage, setVpnMessage] = useState(null)
 
+  // Emergency API key auth
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('admin-api-key') || '')
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false)
+  const [apiKeyAuthActive, setApiKeyAuthActive] = useState(false)
+
   // Reboot state
   const [rebootPhase, setRebootPhase] = useState(null) // null | 'confirm' | 'rebooting' | 'complete'
   const [rebootServices, setRebootServices] = useState([])
@@ -95,21 +101,31 @@ export function App() {
   const checkAdminAuth = async () => {
     try {
       // Use GCP backend for verification - it caches sessions and handles home being down
+      const headers = {}
+      const usingApiKey = !!apiKey
+      if (usingApiKey) {
+        headers['X-Admin-Key'] = apiKey
+      }
       const res = await fetchWithTimeout('/api/admin/verify', {
-        credentials: 'include'
+        credentials: 'include',
+        headers
       }, 10000) // 10s timeout
       if (res.ok) {
         const data = await res.json()
         setAdminAuth(data)
+        // Track if we authenticated via API key (not OAuth or cached session)
+        setApiKeyAuthActive(usingApiKey && data.is_admin && !data.cached)
         if (data.is_admin) {
           fetchVpnStatus()
         }
       } else {
         setAdminAuth(null)
+        setApiKeyAuthActive(false)
       }
     } catch (e) {
       console.error('Admin auth check failed:', e.message)
       setAdminAuth(null)
+      setApiKeyAuthActive(false)
     }
   }
 
@@ -310,6 +326,23 @@ export function App() {
     }
   }
 
+  // Emergency API key handlers
+  const handleSaveApiKey = (key) => {
+    localStorage.setItem('admin-api-key', key)
+    setApiKey(key)
+    setShowEmergencyModal(false)
+    // Re-check auth with new key
+    checkAdminAuth()
+  }
+
+  const handleForgetApiKey = () => {
+    localStorage.removeItem('admin-api-key')
+    setApiKey('')
+    setShowEmergencyModal(false)
+    setAdminAuth(null)
+    setApiKeyAuthActive(false)
+  }
+
   const fetchStatus = async () => {
     try {
       const response = await fetchWithTimeout('/api/status', {}, 15000) // 15s timeout
@@ -400,6 +433,8 @@ export function App() {
           status={status}
           lastUpdate={lastUpdate}
           adminAuth={adminAuth}
+          onEmergencyClick={() => setShowEmergencyModal(true)}
+          apiKeyActive={apiKeyAuthActive}
         />
 
         {error && (
@@ -468,6 +503,14 @@ export function App() {
         onConfirm={executeReboot}
         onCancel={cancelReboot}
         onClose={closeRebootDialog}
+      />
+
+      <EmergencyAuthModal
+        isOpen={showEmergencyModal}
+        onClose={() => setShowEmergencyModal(false)}
+        onSave={handleSaveApiKey}
+        onForget={handleForgetApiKey}
+        currentKey={apiKey}
       />
     </div>
   )
