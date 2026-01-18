@@ -50,6 +50,27 @@ function parseRamMetrics(data) {
   }
 }
 
+// Fetch with AbortController timeout - prevents hanging when home server is down
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+    return response
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw error
+  }
+}
+
 export function App() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -70,12 +91,13 @@ export function App() {
   const [rebootStorage, setRebootStorage] = useState(null)
   const rebootPollRef = useRef(null)
 
-  // Check admin authentication
+  // Check admin authentication via GCP backend (handles caching when home is down)
   const checkAdminAuth = async () => {
     try {
-      const res = await fetch(`${HEALTH_API}/api/admin/whoami`, {
+      // Use GCP backend for verification - it caches sessions and handles home being down
+      const res = await fetchWithTimeout('/api/admin/verify', {
         credentials: 'include'
-      })
+      }, 10000) // 10s timeout
       if (res.ok) {
         const data = await res.json()
         setAdminAuth(data)
@@ -86,6 +108,7 @@ export function App() {
         setAdminAuth(null)
       }
     } catch (e) {
+      console.error('Admin auth check failed:', e.message)
       setAdminAuth(null)
     }
   }
@@ -93,14 +116,14 @@ export function App() {
   // Fetch VPN status
   const fetchVpnStatus = async () => {
     try {
-      const res = await fetch(`${HEALTH_API}/api/admin/vpn/status`, {
+      const res = await fetchWithTimeout(`${HEALTH_API}/api/admin/vpn/status`, {
         credentials: 'include'
-      })
+      }, 5000) // 5s timeout - direct home call
       if (res.ok) {
         setVpnStatus(await res.json())
       }
     } catch (e) {
-      console.error('Failed to fetch VPN status:', e)
+      console.error('Failed to fetch VPN status:', e.message)
     }
   }
 
@@ -287,7 +310,7 @@ export function App() {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch('/api/status')
+      const response = await fetchWithTimeout('/api/status', {}, 15000) // 15s timeout
       if (!response.ok) throw new Error('Failed to fetch status')
       const data = await response.json()
       setStatus(data)
@@ -304,9 +327,9 @@ export function App() {
   const fetchRealtimeMetrics = async () => {
     try {
       const [cpuRes, ramRes] = await Promise.all([
-        fetch(`${NETDATA_BASE}/api/metrics/cpu`),
-        fetch(`${NETDATA_BASE}/api/metrics/ram`)
-      ])
+        fetchWithTimeout(`${NETDATA_BASE}/api/metrics/cpu`, {}, 5000),
+        fetchWithTimeout(`${NETDATA_BASE}/api/metrics/ram`, {}, 5000)
+      ]) // 5s timeout - direct home call
 
       if (!cpuRes.ok || !ramRes.ok) {
         throw new Error('Netdata metrics endpoint unavailable')

@@ -4,14 +4,43 @@ GCP Status Dashboard Service.
 Public monitoring dashboard for camerontora.ca infrastructure.
 """
 
+import hashlib
 import logging
 import os
 import sys
 from datetime import datetime, timezone
 from functools import wraps
+from threading import Lock
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
+
+# Session cache for admin verification when home server is down
+_session_cache = {}
+_session_lock = Lock()
+SESSION_CACHE_TTL = 86400  # 24 hours in seconds
+
+
+def _cache_admin_session(cache_key: str, data: dict):
+    """Cache a verified admin session."""
+    with _session_lock:
+        _session_cache[cache_key] = {
+            "data": data,
+            "cached_at": datetime.now(timezone.utc),
+        }
+
+
+def _get_cached_session(cache_key: str) -> dict | None:
+    """Get a cached admin session if valid."""
+    with _session_lock:
+        if cache_key not in _session_cache:
+            return None
+        entry = _session_cache[cache_key]
+        age = (datetime.now(timezone.utc) - entry["cached_at"]).total_seconds()
+        if age > SESSION_CACHE_TTL:
+            del _session_cache[cache_key]
+            return None
+        return {**entry["data"], "cached": True}
 
 # Configure logging
 logging.basicConfig(
@@ -40,12 +69,13 @@ app = Flask(__name__, static_folder=static_folder, static_url_path='')
 
 
 def require_admin(f):
-    """Decorator to require admin authentication via OAuth (health-api) or API key."""
+    """Decorator to require admin authentication via OAuth (health-api), cached session, or API key."""
     @wraps(f)
     def decorated(*args, **kwargs):
         # Try OAuth first - verify with health-api by forwarding cookies
         cookie_header = request.headers.get('Cookie', '')
         if cookie_header:
+            cache_key = hashlib.sha256(cookie_header.encode()).hexdigest()[:16]
             try:
                 # Get base URL from HEALTH_API_URL
                 from backend.config import HEALTH_API_URL
@@ -58,9 +88,16 @@ def require_admin(f):
                 if resp.ok:
                     data = resp.json()
                     if data.get('is_admin'):
+                        # Cache the successful verification
+                        _cache_admin_session(cache_key, data)
                         return f(*args, **kwargs)
             except requests.exceptions.RequestException as e:
-                logger.warning(f"OAuth verification failed: {e}")
+                logger.warning(f"OAuth verification failed (home may be down): {e}")
+                # Try cached session when home is unreachable
+                cached = _get_cached_session(cache_key)
+                if cached and cached.get('is_admin'):
+                    logger.info("Using cached admin session for failover access")
+                    return f(*args, **kwargs)
 
         # Fallback to API key
         api_key = request.headers.get('X-Admin-Key')
@@ -243,6 +280,50 @@ def api_history():
     except Exception as e:
         logger.error(f"Error in /api/history: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# ============== Admin Verification ==============
+
+@app.route('/api/admin/verify')
+def api_admin_verify():
+    """
+    Verify admin authentication status with fallback for when home is down.
+    This endpoint is designed to work even when the home server is unreachable.
+
+    Returns admin info if authenticated (via OAuth or cached session).
+    The frontend uses this instead of calling home directly.
+    """
+    cookie_header = request.headers.get('Cookie', '')
+    if not cookie_header:
+        return jsonify({"authenticated": False}), 401
+
+    cache_key = hashlib.sha256(cookie_header.encode()).hexdigest()[:16]
+
+    # Try OAuth first - verify with health-api
+    try:
+        from backend.config import HEALTH_API_URL
+        base_url = HEALTH_API_URL.replace('/api/health', '')
+        resp = requests.get(
+            f"{base_url}/api/admin/whoami",
+            headers={'Cookie': cookie_header},
+            timeout=5,
+        )
+        if resp.ok:
+            data = resp.json()
+            if data.get('is_admin'):
+                # Cache successful verification
+                _cache_admin_session(cache_key, data)
+                return jsonify(data)
+            return jsonify({"authenticated": True, "is_admin": False}), 200
+        return jsonify({"authenticated": False}), 401
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"OAuth verification failed (home may be down): {e}")
+        # Try cached session when home is unreachable
+        cached = _get_cached_session(cache_key)
+        if cached and cached.get('is_admin'):
+            logger.info("Returning cached admin session for frontend")
+            return jsonify(cached)
+        return jsonify({"authenticated": False, "error": "Home server unreachable"}), 401
 
 
 # ============== Error Handlers ==============
