@@ -269,11 +269,13 @@ export function App() {
           const mountsOk = data.metrics?.storage?.arrays?.every(a => a.mounted !== false) ?? true
 
           if (allUp && (storageHealthy || !data.metrics?.storage) && mountsOk) {
-            setRebootPhase('complete')
+            // Stop polling but keep showing the services view with Close button
             if (rebootPollRef.current) {
               clearInterval(rebootPollRef.current)
               rebootPollRef.current = null
             }
+            // Stay in rebooting phase but pass isComplete flag to show Close button
+            // (phase stays 'rebooting', RebootDialog checks if all services up)
             // Also update the main status
             setStatus(data)
             setLastUpdate(new Date())

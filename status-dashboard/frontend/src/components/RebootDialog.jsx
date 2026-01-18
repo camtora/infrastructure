@@ -14,7 +14,7 @@ export function RebootDialog({ phase, services, storage, onConfirm, onCancel, on
           <ConfirmPhase onConfirm={onConfirm} onCancel={onCancel} />
         )}
         {phase === 'rebooting' && (
-          <RebootingPhase services={services} storage={storage} />
+          <RebootingPhase services={services} storage={storage} onClose={onClose} />
         )}
         {phase === 'complete' && (
           <CompletePhase onClose={onClose} storage={storage} />
@@ -62,7 +62,7 @@ function ConfirmPhase({ onConfirm, onCancel }) {
   )
 }
 
-function RebootingPhase({ services, storage }) {
+function RebootingPhase({ services, storage, onClose }) {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
@@ -84,23 +84,39 @@ function RebootingPhase({ services, storage }) {
   const storageHealthy = storage?.status === 'healthy'
   const mountsOk = storage?.arrays?.every(a => a.mounted !== false) ?? true
 
+  // Check if reboot is complete (all services up + storage healthy)
+  const allServicesUp = totalCount > 0 && onlineCount === totalCount
+  const isComplete = allServicesUp && (storageHealthy || !storage) && mountsOk
+
   return (
     <>
       <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-          <svg class="w-5 h-5 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+        <div class={`w-10 h-10 rounded-full flex items-center justify-center ${
+          isComplete ? 'bg-emerald-500/20' : 'bg-amber-500/20'
+        }`}>
+          {isComplete ? (
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg class="w-5 h-5 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          )}
         </div>
         <div>
-          <h3 class="text-lg font-medium text-white">Server Restarting</h3>
+          <h3 class="text-lg font-medium text-white">
+            {isComplete ? 'Server is Back Online' : 'Server Restarting'}
+          </h3>
           <p class="text-xs text-white/50">Elapsed: {formatTime(elapsed)}</p>
         </div>
       </div>
 
       <p class="text-white/70 text-sm mb-4">
-        Waiting for services and storage to come back online...
+        {isComplete
+          ? 'All services and storage have been verified.'
+          : 'Waiting for services and storage to come back online...'}
       </p>
 
       <div class="mb-4">
@@ -149,6 +165,17 @@ function RebootingPhase({ services, storage }) {
           </div>
         )}
       </div>
+
+      {/* Show Close button when reboot is complete */}
+      {isComplete && (
+        <button
+          onClick={onClose}
+          class="w-full px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400
+                 text-white font-medium transition-all duration-200 text-sm mt-4"
+        >
+          Close
+        </button>
+      )}
     </>
   )
 }
