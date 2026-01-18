@@ -1061,10 +1061,34 @@ def admin_container_restart():
 
 
 def _do_server_reboot(email: str):
-    """Background task to reboot the server."""
+    """Background task to reboot the host server.
+
+    Uses nsenter to execute reboot in the host's PID namespace.
+    Requires: privileged=true and pid=host in docker-compose.
+    """
     app.logger.warning(f"SERVER REBOOT executing in 2 seconds (initiated by {email})")
     time.sleep(2)  # Give time for HTTP response to be sent
-    subprocess.run(["sudo", "reboot"], check=False)
+
+    # Use nsenter to run reboot in the host's namespace (PID 1 = host init)
+    # -t 1: target PID 1 (host's init process)
+    # -m: enter mount namespace
+    # -u: enter UTS namespace
+    # -i: enter IPC namespace
+    # -n: enter network namespace
+    cmd = ["nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "reboot"]
+    app.logger.warning(f"SERVER REBOOT running command: {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            app.logger.error(f"SERVER REBOOT failed: returncode={result.returncode}, "
+                           f"stdout={result.stdout}, stderr={result.stderr}")
+        else:
+            app.logger.warning(f"SERVER REBOOT command succeeded (server should be rebooting)")
+    except subprocess.TimeoutExpired:
+        app.logger.error("SERVER REBOOT command timed out")
+    except Exception as e:
+        app.logger.error(f"SERVER REBOOT exception: {type(e).__name__}: {e}")
 
 
 @app.route("/api/admin/server/reboot", methods=["POST"])
