@@ -68,12 +68,15 @@ export function DNSPanel({ dns, adminAuth }) {
 
   return (
     <div class="glass-card p-6">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-2">
         <h2 class="text-lg font-medium text-white">DNS Configuration</h2>
         <div class="text-xs text-white/40">
           {dns.record_count || 0} A records
         </div>
       </div>
+      <p class="text-xs text-white/40 mb-6">
+        If CAMNAS2 goes offline, switch DNS to GCP to keep this dashboard and public services accessible.
+      </p>
 
       {/* Mock data warning - only show to admins */}
       {isAdmin && dns.mock_data && (
