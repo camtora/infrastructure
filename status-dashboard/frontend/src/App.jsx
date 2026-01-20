@@ -96,6 +96,10 @@ export function App() {
   const [rebootServices, setRebootServices] = useState([])
   const [rebootStorage, setRebootStorage] = useState(null)
   const rebootPollRef = useRef(null)
+  // New state for tracking reboot lifecycle
+  const [rebootStage, setRebootStage] = useState(null) // 'initiating' | 'waiting_down' | 'down' | 'recovering' | 'verifying' | 'timeout'
+  const [sawDownState, setSawDownState] = useState(false)
+  const [rebootStartTime, setRebootStartTime] = useState(null)
 
   // Check admin authentication via GCP backend (handles caching when home is down)
   const checkAdminAuth = async () => {
@@ -239,16 +243,23 @@ export function App() {
 
   const cancelReboot = () => {
     setRebootPhase(null)
+    setRebootStage(null)
+    setSawDownState(false)
+    setRebootStartTime(null)
     if (rebootPollRef.current) {
-      clearInterval(rebootPollRef.current)
+      clearTimeout(rebootPollRef.current)
       rebootPollRef.current = null
     }
   }
 
   const executeReboot = async () => {
     setRebootPhase('rebooting')
-    // Initialize services list from current status
-    setRebootServices(status?.services?.map(s => ({ name: s.name, status: s.status })) || [])
+    setRebootStage('initiating')
+    setSawDownState(false)
+    setRebootStartTime(Date.now())
+    // Mark all services as "unknown" immediately - don't show stale "up" status
+    setRebootServices(status?.services?.map(s => ({ name: s.name, status: 'unknown' })) || [])
+    setRebootStorage(null)
 
     try {
       await fetch(`${HEALTH_API}/api/admin/server/reboot`, {
@@ -260,68 +271,113 @@ export function App() {
       console.log('Reboot request sent (error expected):', e.message)
     }
 
-    // Start polling after a delay (give server time to go down)
-    setTimeout(startRebootPolling, 10000)
+    // Start polling after a short delay to catch the down state
+    setTimeout(startRebootPolling, 1000)
   }
 
   const startRebootPolling = () => {
+    let consecutiveFailures = 0
+    let consecutiveSuccesses = 0
     let attempts = 0
-    const maxAttempts = 60 // 5 minutes at 5-second intervals
+    let sawDown = false
+    const maxAttempts = 150 // 5 minutes at ~2-3 second intervals
+    const startTime = Date.now()
 
     const poll = async () => {
       attempts++
+      const elapsed = Date.now() - startTime
+
       try {
-        const res = await fetch('/api/status')
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000)
+        const res = await fetch('/api/status', { signal: controller.signal })
+        clearTimeout(timeoutId)
+
         if (res.ok) {
           const data = await res.json()
-          // Update services status
+          consecutiveSuccesses++
+          consecutiveFailures = 0
+
+          // Update services with live data
           setRebootServices(data.services?.map(s => ({ name: s.name, status: s.status })) || [])
-          // Update storage status for dialog
           setRebootStorage(data.metrics?.storage)
 
-          // Check if all services are up AND storage is healthy/mounted
           const allUp = data.services?.every(s => s.status === 'up')
           const storageHealthy = data.metrics?.storage?.status === 'healthy'
           const mountsOk = data.metrics?.storage?.arrays?.every(a => a.mounted !== false) ?? true
 
-          if (allUp && (storageHealthy || !data.metrics?.storage) && mountsOk) {
-            // Stop polling but keep showing the services view with Close button
-            if (rebootPollRef.current) {
-              clearInterval(rebootPollRef.current)
-              rebootPollRef.current = null
+          // Determine current stage based on state machine
+          if (!sawDown) {
+            // Haven't seen server go down yet
+            if (elapsed > 15000 && consecutiveSuccesses > 5) {
+              // Server has been up for too long - reboot may not have happened
+              setRebootStage('waiting_down')
+            } else {
+              setRebootStage('initiating')
             }
-            // Stay in rebooting phase but pass isComplete flag to show Close button
-            // (phase stays 'rebooting', RebootDialog checks if all services up)
-            // Also update the main status
-            setStatus(data)
-            setLastUpdate(new Date())
-            return
+          } else {
+            // We saw the server go down, now it's coming back
+            if (allUp && (storageHealthy || !data.metrics?.storage) && mountsOk) {
+              setRebootStage('verifying')
+              setSawDownState(true)
+              // Stop polling - reboot complete
+              if (rebootPollRef.current) {
+                clearTimeout(rebootPollRef.current)
+                rebootPollRef.current = null
+              }
+              // Update main status
+              setStatus(data)
+              setLastUpdate(new Date())
+              return
+            } else {
+              setRebootStage('recovering')
+            }
           }
+        } else {
+          throw new Error('Non-OK response')
         }
       } catch (e) {
-        // Expected during reboot - mark all services as offline
+        consecutiveFailures++
+        consecutiveSuccesses = 0
+
+        // Server is down - mark all services offline
         setRebootServices(prev => prev.map(s => ({ ...s, status: 'down' })))
         setRebootStorage(null)
+
+        // Once we have 2+ consecutive failures, we've confirmed the server went down
+        if (consecutiveFailures >= 2 && !sawDown) {
+          sawDown = true
+          setSawDownState(true)
+          setRebootStage('down')
+        }
       }
 
       if (attempts >= maxAttempts) {
-        // Timeout - stop polling but stay in rebooting phase
+        // Timeout - stop polling
         if (rebootPollRef.current) {
-          clearInterval(rebootPollRef.current)
+          clearTimeout(rebootPollRef.current)
           rebootPollRef.current = null
         }
+        setRebootStage('timeout')
+        return
       }
+
+      // Schedule next poll with dynamic interval
+      // Poll more frequently while waiting for down state
+      const interval = sawDown ? 3000 : 2000
+      rebootPollRef.current = setTimeout(poll, interval)
     }
 
-    // Poll every 5 seconds
-    rebootPollRef.current = setInterval(poll, 5000)
     poll() // Run immediately
   }
 
   const closeRebootDialog = () => {
     setRebootPhase(null)
+    setRebootStage(null)
+    setSawDownState(false)
+    setRebootStartTime(null)
     if (rebootPollRef.current) {
-      clearInterval(rebootPollRef.current)
+      clearTimeout(rebootPollRef.current)
       rebootPollRef.current = null
     }
   }
@@ -498,8 +554,11 @@ export function App() {
 
       <RebootDialog
         phase={rebootPhase}
+        stage={rebootStage}
         services={rebootServices}
         storage={rebootStorage}
+        sawDownState={sawDownState}
+        startTime={rebootStartTime}
         onConfirm={executeReboot}
         onCancel={cancelReboot}
         onClose={closeRebootDialog}
