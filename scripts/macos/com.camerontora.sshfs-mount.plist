@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.camerontora.sshfs-mount</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/mount-camerontora</string>
+        <string>mount</string>
+    </array>
+
+    <!-- Run at login after a 10-second delay (let network come up) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Delay to ensure network is ready -->
+    <key>StartInterval</key>
+    <integer>10</integer>
+
+    <!-- Only run once at login, not repeatedly -->
+    <key>LaunchOnlyOnce</key>
+    <true/>
+
+    <!-- Log output for debugging -->
+    <key>StandardOutPath</key>
+    <string>/tmp/sshfs-mount.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/sshfs-mount.log</string>
+
+    <!-- Keep trying if it fails initially (network not ready) -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>NetworkState</key>
+        <true/>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Give up after 3 failures -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+</dict>
+</plist>
