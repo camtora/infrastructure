@@ -7,7 +7,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/mount-camerontora</string>
+        <string>/opt/homebrew/bin/mount-camerontora</string>
         <string>mount</string>
     </array>
 

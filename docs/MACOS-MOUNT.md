@@ -30,7 +30,7 @@ Located in `scripts/macos/`:
 ### Installed Locations (on MacBook)
 
 ```
-/usr/local/bin/mount-camerontora          # Mount script
+/opt/homebrew/bin/mount-camerontora          # Mount script
 ~/Library/LaunchAgents/com.camerontora.sshfs-mount.plist  # Automount service
 ```
 

@@ -28,8 +28,8 @@ Copy the files to your MacBook and run:
 
 ```bash
 # Copy mount script
-sudo cp mount-camerontora.sh /usr/local/bin/mount-camerontora
-sudo chmod +x /usr/local/bin/mount-camerontora
+sudo cp mount-camerontora.sh /opt/homebrew/bin/mount-camerontora
+sudo chmod +x /opt/homebrew/bin/mount-camerontora
 
 # Install launchd service (runs at login)
 cp com.camerontora.sshfs-mount.plist ~/Library/LaunchAgents/
