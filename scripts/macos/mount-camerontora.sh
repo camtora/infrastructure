@@ -22,7 +22,7 @@ EXTERNAL_HOST="camerontora.ca"
 EXTERNAL_PORT="2222"
 
 # SSHFS options
-SSHFS_OPTS="-o volname=camerontora,follow_symlinks,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3"
+SSHFS_OPTS="-o volname=HOMENAS,follow_symlinks,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3"
 
 log() {
     echo "[$(date '+%H:%M:%S')] $1"
