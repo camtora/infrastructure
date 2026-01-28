@@ -66,7 +66,7 @@ do_mount() {
 
     # Mount
     log "Mounting $REMOTE_USER@$HOST:$REMOTE_PATH to $MOUNT_POINT"
-    sshfs "$REMOTE_USER@$HOST:$REMOTE_PATH" "$MOUNT_POINT" \
+    /opt/homebrew/bin/sshfs "$REMOTE_USER@$HOST:$REMOTE_PATH" "$MOUNT_POINT" \
         -p "$PORT" \
         $SSHFS_OPTS
 
