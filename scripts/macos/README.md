@@ -15,8 +15,8 @@ brew install macfuse
 brew install gromgit/fuse/sshfs-mac
 
 # 4. Create mount point
-sudo mkdir -p /mnt/HOMENAS
-sudo chown $USER /mnt/HOMENAS
+sudo mkdir -p ~/mnt/HOMENAS
+sudo chown $USER ~/mnt/HOMENAS
 
 # 5. Ensure your SSH key is in keychain
 ssh-add --apple-use-keychain ~/.ssh/id_ed25519  # or your key path
@@ -80,7 +80,7 @@ ssh-add --apple-load-keychain
 ssh -p 2222 camerontora@camerontora.ca "echo connected"
 
 # Force unmount if stuck
-diskutil unmount force /mnt/HOMENAS
+diskutil unmount force ~/mnt/HOMENAS
 ```
 
 ## Network Changes

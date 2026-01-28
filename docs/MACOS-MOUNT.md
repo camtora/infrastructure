@@ -15,7 +15,7 @@ With Samba disabled, we use **SSHFS** to mount `/home/camerontora` from the home
 
 On the MacBook:
 ```
-/mnt/HOMENAS → camerontora@server:/home/camerontora
+~/mnt/HOMENAS → camerontora@server:/home/camerontora
 ```
 
 ## Scripts
@@ -55,7 +55,7 @@ mount-camerontora remount  # Unmount + mount (use after network change)
 - **macFUSE**: `brew install macfuse` (requires reboot + security approval)
 - **SSHFS**: `brew install gromgit/fuse/sshfs-mac`
 - **SSH key in keychain**: `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`
-- **Mount point**: `sudo mkdir -p /mnt/HOMENAS && sudo chown $USER /mnt/HOMENAS`
+- **Mount point**: `sudo mkdir -p ~/mnt/HOMENAS && sudo chown $USER ~/mnt/HOMENAS`
 
 ## Troubleshooting
 
@@ -73,7 +73,7 @@ ssh-add -l
 ssh-add --apple-load-keychain
 
 # Force unmount if stuck
-diskutil unmount force /mnt/HOMENAS
+diskutil unmount force ~/mnt/HOMENAS
 
 # Test SSH connection
 ssh -p 2222 camerontora@camerontora.ca "echo connected"

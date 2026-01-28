@@ -9,7 +9,7 @@
 #   mount-camerontora.sh status   # Check status
 #
 
-MOUNT_POINT="/mnt/HOMENAS"
+MOUNT_POINT="$HOME/mnt/HOMENAS"
 REMOTE_PATH="/home/camerontora"
 REMOTE_USER="camerontora"
 
