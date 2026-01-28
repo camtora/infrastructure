@@ -73,6 +73,13 @@
 - **Description:** Automatically switch DNS to GCP when home internet is down
 - **Problem:** GoDaddy API returning 429 rate limit errors
 - **Blocked Until:** Feb 1, 2026 - awaiting GoDaddy API access resolution
+- **When API Access Restored (Feb 1):**
+  1. Test API manually: `sudo bash -c 'source /etc/godaddy-ddns.env && curl -sS "https://api.godaddy.com/v1/domains/camerontora.ca/records/A" -H "Authorization: sso-key $API_KEY:$API_SECRET"'`
+  2. Fix `scripts/godaddy-ddns.sh` - add error handling around GoDaddy API call (currently `set -e` causes silent exit on 429, no logging)
+  3. Run script manually: `sudo /home/camerontora/infrastructure/scripts/godaddy-ddns.sh`
+  4. Check logs: `tail -20 /var/log/godaddy-ddns.log`
+  5. Verify cron is working (runs every 10 min via `/etc/cron.d/godaddy-ddns`)
+  6. Re-enable DNS failover in status dashboard once DDNS is stable
 
 ---
 
