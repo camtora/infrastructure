@@ -178,11 +178,32 @@ Features implemented:
 
 ### 4.2 Infrastructure Tasks
 
-| Task | Priority | Status |
-|------|----------|--------|
-| Add Uptime Kuma monitor | Medium | Blocked (needs health endpoint) |
-| Update main README.md | Low | Pending |
-| Add to GCP external monitor | Low | Pending |
+| Task | Priority | Status | Notes |
+|------|----------|--------|-------|
+| Rebuild health-api container | High | Pending | Picks up new SERVICE_CHECKS entry |
+| Verify whosup in godaddy-ddns.sh | Medium | Pending | Ensure DDNS updates include whosup |
+| Add Uptime Kuma monitor | Medium | Blocked | Needs health endpoint first |
+| Update main README.md | Low | Pending | Add Who's Up to services table |
+| Add to GCP external monitor | Low | Optional | For internet-down alerts |
+
+#### Infrastructure Commands (When Ready)
+
+```bash
+# 1. Rebuild health-api container
+cd /home/camerontora/infrastructure
+docker compose build health-api
+docker compose up -d health-api
+
+# 2. Verify godaddy-ddns.sh includes whosup
+grep -q "whosup" scripts/godaddy-ddns.sh && echo "OK" || echo "MISSING - add whosup to RECORDS array"
+
+# 3. Reload nginx (if config changed)
+docker exec nginx-proxy nginx -t && docker exec nginx-proxy nginx -s reload
+
+# 4. Add Uptime Kuma monitor (manual via web UI)
+# URL: https://whosup.camerontora.ca/api/health
+# Type: HTTP(s), Interval: 60s
+```
 
 ### 4.3 iOS Tasks
 
@@ -349,32 +370,44 @@ curl -H "X-API-Key: $HEALTH_API_KEY" \
 
 ## 9. Follow-Up Tasks
 
-### 9.1 Immediate (Before Launch)
+### 9.1 Infrastructure Tasks (Our Team)
 
-| # | Task | Owner | Status |
-|---|------|-------|--------|
-| 1 | Add `GET /api/health` endpoint | Backend Team | Pending |
-| 2 | Review `WHOSUP-BACKEND-REQUIREMENTS.md` | Backend Team | Pending |
-| 3 | Implement security checklist items | Backend Team | Pending |
-| 4 | Update iOS app API base URL | iOS Team | Pending |
+| # | Task | Priority | Status | Command/Notes |
+|---|------|----------|--------|---------------|
+| 1 | Rebuild health-api container | High | Pending | `docker compose build health-api && docker compose up -d health-api` |
+| 2 | Add whosup to godaddy-ddns.sh | Medium | ✅ Done | Added to RECORDS array |
+| 3 | Add Uptime Kuma monitor | Medium | Blocked | Needs backend health endpoint first |
+| 4 | Update main README.md | Low | Pending | Add Who's Up to services table |
+| 5 | Add to GCP external monitor | Low | Optional | Add to gcp-monitor config |
 
-### 9.2 Post-Launch
+### 9.2 Backend Team Tasks
 
-| # | Task | Owner | Status |
-|---|------|-------|--------|
-| 5 | Add Uptime Kuma monitor | Infrastructure | Blocked |
-| 6 | Update infrastructure README.md | Infrastructure | Pending |
-| 7 | Add to GCP external monitor | Infrastructure | Optional |
-| 8 | Review iOS App Store requirements | iOS Team | Pending |
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| 1 | Add `GET /api/health` endpoint | High | Pending |
+| 2 | Review `WHOSUP-BACKEND-REQUIREMENTS.md` | High | Pending |
+| 3 | Configure CORS properly | High | Pending |
+| 4 | Implement Socket.io authentication | High | Pending |
+| 5 | Implement security checklist items | High | Pending |
+| 6 | Docker container deployment | Medium | Pending |
 
-### 9.3 Future Considerations
+### 9.3 iOS Team Tasks
+
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| 1 | Update API base URL to production | Medium | Pending |
+| 2 | Review App Store security requirements | Medium | Pending |
+| 3 | Implement certificate pinning | Low | Optional |
+
+### 9.4 Future Considerations
 
 | Task | Priority |
 |------|----------|
-| Web app deployment (Next.js) | Future |
+| Web app deployment (Next.js on port 3002) | Future |
 | CDN for static assets | Future |
 | Horizontal scaling | Future |
 | Database backups | High (when live) |
+| Add whosup to GCP external monitor | Low |
 
 ---
 
