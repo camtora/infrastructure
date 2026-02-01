@@ -23,7 +23,7 @@ whosup.camerontora.ca (PUBLIC)
 | SSL | ✅ Active | Shared Let's Encrypt certificate |
 | Nginx | ✅ Active | `nginx/conf.d/03-whosup.conf` |
 | Health Check | ✅ Active | Added to `health-api/app.py` SERVICE_CHECKS |
-| Uptime Kuma | ⏳ Pending | Add when backend is deployed |
+| Status Dashboard | ✅ Active | Added to `status.camerontora.ca` |
 
 ## Nginx Configuration
 
@@ -105,12 +105,11 @@ curl -H "X-API-Key: $HEALTH_API_KEY" https://health.camerontora.ca/api/health/se
   jq '.services[] | select(.name == "Who'\''s Up API")'
 ```
 
-### Uptime Kuma
-When deployed, add monitor:
-- URL: `https://whosup.camerontora.ca/api/health`
-- Type: HTTP(s)
-- Interval: 60s
-- Retry: 3
+### Status Dashboard
+Who's Up is monitored on the GCP status dashboard at `status.camerontora.ca`:
+- External HTTP check to `https://whosup.camerontora.ca/api/health`
+- Shows up/down status alongside other services
+- Alerts via Discord when service goes down
 
 ## Troubleshooting
 
@@ -150,4 +149,4 @@ docker logs nginx-proxy 2>&1 | grep whosup
 For infrastructure issues, check:
 - Nginx logs: `docker logs nginx-proxy`
 - Health API: `https://health.camerontora.ca/api/health/services`
-- Status page: `https://status.camerontora.ca` (once Uptime Kuma monitor is added)
+- Status page: `https://status.camerontora.ca`
