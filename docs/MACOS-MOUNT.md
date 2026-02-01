@@ -4,19 +4,21 @@ This documents the SSHFS setup for mounting the home server's files on Cameron's
 
 ## Overview
 
-With Samba disabled, we use **SSHFS** to mount `/home/camerontora` from the home server over SSH. This works both on the local network and remotely.
+With Samba disabled, we use **SSHFS** to mount directories from the home server over SSH. This works both on the local network and remotely.
 
 | Location | Host | Port |
 |----------|------|------|
 | Internal (home network) | 192.168.2.34 | 22 |
 | External (away from home) | camerontora.ca | 2222 |
 
-## Mount Point
+## Mount Points
 
 On the MacBook:
-```
-~/mnt/HOMENAS → camerontora@server:/home/camerontora
-```
+
+| Mount Point | Remote Path | Finder Name | Description |
+|-------------|-------------|-------------|-------------|
+| `~/mnt/HOMENAS` | `/home/camerontora` | HOMENAS | Home directory |
+| `~/mnt/CAMNAS2` | `/HOMENAS` | CAMNAS2 | 100TB RAID (media) |
 
 ## Scripts
 
@@ -44,10 +46,16 @@ Located in `scripts/macos/`:
 ## Commands
 
 ```bash
-mount-camerontora          # Mount (auto-detects network)
-mount-camerontora unmount  # Unmount
-mount-camerontora status   # Check if mounted and which network
-mount-camerontora remount  # Unmount + mount (use after network change)
+# Mount/unmount all
+mount-camerontora              # Mount both
+mount-camerontora unmount      # Unmount both
+mount-camerontora status       # Check status of both
+mount-camerontora remount      # Remount both (after network change)
+
+# Mount/unmount specific
+mount-camerontora mount home   # Mount home directory only
+mount-camerontora mount media  # Mount 100TB RAID only
+mount-camerontora unmount media
 ```
 
 ## Prerequisites (MacBook)
@@ -55,7 +63,10 @@ mount-camerontora remount  # Unmount + mount (use after network change)
 - **macFUSE**: `brew install macfuse` (requires reboot + security approval)
 - **SSHFS**: `brew install gromgit/fuse/sshfs-mac`
 - **SSH key in keychain**: `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`
-- **Mount point**: `sudo mkdir -p ~/mnt/HOMENAS && sudo chown $USER ~/mnt/HOMENAS`
+- **Mount points**:
+  ```bash
+  mkdir -p ~/mnt/HOMENAS ~/mnt/CAMNAS2
+  ```
 
 ## Troubleshooting
 
