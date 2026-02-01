@@ -36,13 +36,16 @@ get_mount_config() {
         media)
             echo "$HOME/mnt/CAMNAS2:/HOMENAS:CAMNAS2"
             ;;
+        raid)
+            echo "$HOME/mnt/CAMRAID:/CAMRAID:CAMRAID"
+            ;;
         *)
             echo ""
             ;;
     esac
 }
 
-ALL_MOUNTS="home media"
+ALL_MOUNTS="home media raid"
 
 log() {
     echo "[$(date '+%H:%M:%S')] $1"
@@ -237,12 +240,13 @@ case "$ACTION" in
         do_mount "$TARGET"
         ;;
     *)
-        echo "Usage: $0 [mount|unmount|status|remount] [all|home|media]"
+        echo "Usage: $0 [mount|unmount|status|remount] [all|home|media|raid]"
         echo ""
         echo "Mounts:"
         echo "  home  - ~/mnt/HOMENAS  → /home/camerontora"
         echo "  media - ~/mnt/CAMNAS2  → /HOMENAS (100TB RAID)"
-        echo "  all   - Both mounts (default)"
+        echo "  raid  - ~/mnt/CAMRAID  → /CAMRAID (hardware RAID)"
+        echo "  all   - All mounts (default)"
         exit 1
         ;;
 esac
