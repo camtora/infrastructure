@@ -13,11 +13,6 @@
 #   mount-camerontora.sh status       # Check status of all mounts
 #
 
-# Mount configurations
-declare -A MOUNTS
-MOUNTS[home]="$HOME/mnt/HOMENAS:/home/camerontora:HOMENAS"
-MOUNTS[media]="$HOME/mnt/CAMNAS2:/HOMENAS:CAMNAS2"
-
 REMOTE_USER="camerontora"
 
 # Internal network config
@@ -30,6 +25,24 @@ EXTERNAL_PORT="2222"
 
 # SSHFS base options
 SSHFS_BASE_OPTS="follow_symlinks,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3"
+
+# Mount definitions (compatible with bash 3.2)
+get_mount_config() {
+    local name="$1"
+    case "$name" in
+        home)
+            echo "$HOME/mnt/HOMENAS:/home/camerontora:HOMENAS"
+            ;;
+        media)
+            echo "$HOME/mnt/CAMNAS2:/HOMENAS:CAMNAS2"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+ALL_MOUNTS="home media"
 
 log() {
     echo "[$(date '+%H:%M:%S')] $1"
@@ -54,14 +67,18 @@ get_connection_info() {
 
 do_mount_single() {
     local name="$1"
-    local config="${MOUNTS[$name]}"
+    local config
+    config=$(get_mount_config "$name")
 
     if [[ -z "$config" ]]; then
         log "ERROR: Unknown mount '$name'"
         return 1
     fi
 
-    IFS=':' read -r mount_point remote_path vol_name <<< "$config"
+    local mount_point remote_path vol_name
+    mount_point=$(echo "$config" | cut -d: -f1)
+    remote_path=$(echo "$config" | cut -d: -f2)
+    vol_name=$(echo "$config" | cut -d: -f3)
 
     # Create mount point if needed
     mkdir -p "$mount_point"
@@ -72,7 +89,11 @@ do_mount_single() {
     fi
 
     # Get connection info
-    IFS=':' read -r host port network <<< "$(get_connection_info)"
+    local conn_info host port network
+    conn_info=$(get_connection_info)
+    host=$(echo "$conn_info" | cut -d: -f1)
+    port=$(echo "$conn_info" | cut -d: -f2)
+    network=$(echo "$conn_info" | cut -d: -f3)
     log "[$name] $network network detected, using $host:$port"
 
     # Test SSH connectivity first
@@ -98,14 +119,16 @@ do_mount_single() {
 
 do_unmount_single() {
     local name="$1"
-    local config="${MOUNTS[$name]}"
+    local config
+    config=$(get_mount_config "$name")
 
     if [[ -z "$config" ]]; then
         log "ERROR: Unknown mount '$name'"
         return 1
     fi
 
-    IFS=':' read -r mount_point remote_path vol_name <<< "$config"
+    local mount_point
+    mount_point=$(echo "$config" | cut -d: -f1)
 
     if ! is_mounted "$mount_point"; then
         log "[$name] Not mounted"
@@ -126,9 +149,12 @@ do_unmount_single() {
 
 do_status_single() {
     local name="$1"
-    local config="${MOUNTS[$name]}"
+    local config
+    config=$(get_mount_config "$name")
 
-    IFS=':' read -r mount_point remote_path vol_name <<< "$config"
+    local mount_point vol_name
+    mount_point=$(echo "$config" | cut -d: -f1)
+    vol_name=$(echo "$config" | cut -d: -f3)
 
     if is_mounted "$mount_point"; then
         echo "[$name] Mounted at $mount_point ($vol_name)"
@@ -141,7 +167,7 @@ do_mount() {
     local target="${1:-all}"
 
     if [[ "$target" == "all" ]]; then
-        for name in "${!MOUNTS[@]}"; do
+        for name in $ALL_MOUNTS; do
             do_mount_single "$name"
         done
     else
@@ -153,7 +179,7 @@ do_unmount() {
     local target="${1:-all}"
 
     if [[ "$target" == "all" ]]; then
-        for name in "${!MOUNTS[@]}"; do
+        for name in $ALL_MOUNTS; do
             do_unmount_single "$name"
         done
     else
@@ -173,7 +199,7 @@ do_status() {
     echo ""
 
     if [[ "$target" == "all" ]]; then
-        for name in "${!MOUNTS[@]}"; do
+        for name in $ALL_MOUNTS; do
             do_status_single "$name"
         done
     else
