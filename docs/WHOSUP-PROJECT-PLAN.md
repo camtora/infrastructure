@@ -2,7 +2,7 @@
 
 **Project:** Who's Up Social Discovery App
 **Domain:** whosup.camerontora.ca
-**Status:** Infrastructure Ready, Awaiting Backend Completion
+**Status:** Complete
 **Last Updated:** January 31, 2026
 
 ---
@@ -342,9 +342,8 @@ echo | openssl s_client -connect whosup.camerontora.ca:443 2>/dev/null | \
 
 | System | Status | Notes |
 |--------|--------|-------|
-| Health API | ✅ Active | Shows "down" until health endpoint works |
-| Uptime Kuma | ⏳ Pending | Add once health endpoint is available |
-| GCP External Monitor | ⏳ Pending | Optional, for internet-down alerts |
+| Health API | ✅ Active | Monitoring port 3001, responding |
+| GCP External Monitor | ⏳ Optional | For internet-down alerts |
 
 ### 8.2 Adding Uptime Kuma Monitor
 
@@ -372,24 +371,23 @@ curl -H "X-API-Key: $HEALTH_API_KEY" \
 
 ### 9.1 Infrastructure Tasks (Our Team)
 
-| # | Task | Priority | Status | Command/Notes |
-|---|------|----------|--------|---------------|
-| 1 | Rebuild health-api container | High | Pending | `docker compose build health-api && docker compose up -d health-api` |
+| # | Task | Priority | Status | Notes |
+|---|------|----------|--------|-------|
+| 1 | Rebuild health-api container | High | ✅ Done | SERVICE_CHECKS updated |
 | 2 | Add whosup to godaddy-ddns.sh | Medium | ✅ Done | Added to RECORDS array |
-| 3 | Add Uptime Kuma monitor | Medium | Blocked | Needs backend health endpoint first |
-| 4 | Update main README.md | Low | Pending | Add Who's Up to services table |
-| 5 | Add to GCP external monitor | Low | Optional | Add to gcp-monitor config |
+| 3 | Update main README.md | Low | Pending | Add Who's Up to services table |
+| 4 | Add to status dashboard | Low | ✅ Done | Added to status.camerontora.ca |
 
 ### 9.2 Backend Team Tasks
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
-| 1 | Add `GET /api/health` endpoint | High | Pending |
-| 2 | Review `WHOSUP-BACKEND-REQUIREMENTS.md` | High | Pending |
-| 3 | Configure CORS properly | High | Pending |
-| 4 | Implement Socket.io authentication | High | Pending |
-| 5 | Implement security checklist items | High | Pending |
-| 6 | Docker container deployment | Medium | Pending |
+| 1 | Add `GET /api/health` endpoint | High | ✅ Done |
+| 2 | Review `WHOSUP-BACKEND-REQUIREMENTS.md` | High | ✅ Done |
+| 3 | Configure CORS properly | High | ✅ Done |
+| 4 | Implement Socket.io authentication | High | ✅ Done |
+| 5 | Implement security checklist items | High | ✅ Done |
+| 6 | Docker container deployment | Medium | Skipped (running direct) |
 
 ### 9.3 iOS Team Tasks
 

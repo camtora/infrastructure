@@ -5,7 +5,7 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 - **Nginx reverse proxy** - SSL termination and routing for all subdomains
 - **OAuth2 Proxy** - Unified Google SSO across all protected services
 - **Shared authentication** - Log in once, access all protected services
-- **Uptime Kuma** - Service uptime monitoring (status.camerontora.ca)
+- **Status Dashboard** - GCP-hosted service monitoring (status.camerontora.ca)
 - **Netdata** - Real-time system monitoring with Discord alerts (netdata.camerontora.ca)
 - **External Monitoring** - GCP Cloud Run monitor that alerts when home internet is down
 - **Health API** - System metrics endpoint for external monitoring (health.camerontora.ca)
@@ -59,8 +59,9 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 | Plex | plex.camerontora.ca | 32400 |
 | Ombi | ombi.camerontora.ca | 3579 |
 | Overseerr | overseerr.camerontora.ca | 5055 |
-| Uptime Kuma | status.camerontora.ca | 3001 |
+| Who's Up API | whosup.camerontora.ca | 3001 |
 | Health API | health.camerontora.ca | 5000 |
+| Status Dashboard | status.camerontora.ca | GCP |
 
 ### Special
 | Service | Subdomain | Port | Notes |

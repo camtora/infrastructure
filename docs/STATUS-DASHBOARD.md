@@ -11,7 +11,7 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 
 ## Features
 
-- **Service Status**: Real-time health checks for 14 services
+- **Service Status**: Real-time health checks for 15 services
 - **System Metrics**: CPU, RAM, load average, disk usage
 - **Speed Tests**: Home internet + all VPN locations (Montreal, Toronto, Vancouver)
 - **DNS Controls**: View current DNS state, manual failover capability
@@ -60,6 +60,7 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 | Plex | plex.camerontora.ca | Media server |
 | Overseerr | overseerr.camerontora.ca | Media requests |
 | Ombi | ombi.camerontora.ca | Media requests (legacy) |
+| Who's Up API | whosup.camerontora.ca | Social discovery app API |
 | Status Dashboard | status.camerontora.ca | GCP-hosted status page |
 
 > **Note:** `monitor.camerontora.ca` has been decommissioned. Uptime Kuma was replaced by the GCP status dashboard at `status.camerontora.ca`.
@@ -84,7 +85,7 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 ## How Health Checks Work
 
 ### Service Endpoint Checks
-For each of the 14 services, the dashboard performs an HTTP GET request:
+For each of the 15 services, the dashboard performs an HTTP GET request:
 
 | Check | Result |
 |-------|--------|

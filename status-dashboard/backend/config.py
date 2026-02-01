@@ -39,6 +39,7 @@ SERVICES = [
     {"name": "Transmission", "url": "https://transmission.camerontora.ca/transmission/web/", "category": "protected"},
     {"name": "Netdata", "url": "https://netdata.camerontora.ca/api/v1/info", "category": "protected"},
     {"name": "Health API", "url": "https://health.camerontora.ca/api/health/ping", "category": "api"},
+    {"name": "Who's Up API", "url": "https://whosup.camerontora.ca/api/health", "category": "public"},
 ]
 
 # DNS records to manage during failover

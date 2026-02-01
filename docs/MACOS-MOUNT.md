@@ -18,7 +18,8 @@ On the MacBook:
 | Mount Point | Remote Path | Finder Name | Description |
 |-------------|-------------|-------------|-------------|
 | `~/mnt/HOMENAS` | `/home/camerontora` | HOMENAS | Home directory |
-| `~/mnt/CAMNAS2` | `/HOMENAS` | CAMNAS2 | 100TB RAID (media) |
+| `~/mnt/CAMNAS2` | `/HOMENAS` | CAMNAS2 | 100TB software RAID (media) |
+| `~/mnt/CAMRAID` | `/CAMRAID` | CAMRAID | Hardware RAID (personal media) |
 
 ## Scripts
 
@@ -47,14 +48,15 @@ Located in `scripts/macos/`:
 
 ```bash
 # Mount/unmount all
-mount-camerontora              # Mount both
-mount-camerontora unmount      # Unmount both
-mount-camerontora status       # Check status of both
-mount-camerontora remount      # Remount both (after network change)
+mount-camerontora              # Mount all three
+mount-camerontora unmount      # Unmount all
+mount-camerontora status       # Check status
+mount-camerontora remount      # Remount (after network change)
 
 # Mount/unmount specific
 mount-camerontora mount home   # Mount home directory only
 mount-camerontora mount media  # Mount 100TB RAID only
+mount-camerontora mount raid   # Mount hardware RAID only
 mount-camerontora unmount media
 ```
 
@@ -65,7 +67,7 @@ mount-camerontora unmount media
 - **SSH key in keychain**: `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`
 - **Mount points**:
   ```bash
-  mkdir -p ~/mnt/HOMENAS ~/mnt/CAMNAS2
+  mkdir -p ~/mnt/HOMENAS ~/mnt/CAMNAS2 ~/mnt/CAMRAID
   ```
 
 ## Troubleshooting
