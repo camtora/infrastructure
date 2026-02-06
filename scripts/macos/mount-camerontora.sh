@@ -111,13 +111,19 @@ do_mount_single() {
         -p "$port" \
         -o "volname=$vol_name,$SSHFS_BASE_OPTS"
 
-    if is_mounted "$mount_point"; then
-        log "[$name] Successfully mounted"
-        return 0
-    else
-        log "[$name] ERROR: Mount failed"
-        return 1
-    fi
+    # SSHFS may return before the mount is fully registered; wait briefly
+    local attempts=0
+    while [[ $attempts -lt 5 ]]; do
+        if is_mounted "$mount_point"; then
+            log "[$name] Successfully mounted"
+            return 0
+        fi
+        sleep 1
+        attempts=$((attempts + 1))
+    done
+
+    log "[$name] ERROR: Mount failed"
+    return 1
 }
 
 do_unmount_single() {
