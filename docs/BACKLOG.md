@@ -69,17 +69,20 @@
 - **Needs:** Investigation of oauth2-proxy configuration or alternative approach
 
 ### DNS Failover
-- **Status:** Blocked (pending GoDaddy API resolution)
+- **Status:** In Progress — awaiting SSL cert provisioning, then needs end-to-end test
 - **Description:** Automatically switch DNS to GCP when home internet is down
-- **Problem:** GoDaddy API returning 429 rate limit errors
-- **Blocked Until:** Feb 1, 2026 - awaiting GoDaddy API access resolution
-- **When API Access Restored (Feb 1):**
-  1. Test API manually: `sudo bash -c 'source /etc/godaddy-ddns.env && curl -sS "https://api.godaddy.com/v1/domains/camerontora.ca/records/A" -H "Authorization: sso-key $API_KEY:$API_SECRET"'`
-  2. Fix `scripts/godaddy-ddns.sh` - add error handling around GoDaddy API call (currently `set -e` causes silent exit on 429, no logging)
-  3. Run script manually: `sudo /home/camerontora/infrastructure/scripts/godaddy-ddns.sh`
-  4. Check logs: `tail -20 /var/log/godaddy-ddns.log`
-  5. Verify cron is working (runs every 10 min via `/etc/cron.d/godaddy-ddns`)
-  6. Re-enable DNS failover in status dashboard once DDNS is stable
+- **Implementation (2026-02-20):**
+  - GCP Cloud Run domain mappings created for `camerontora.ca`, `plex`, `ombi`, `overseerr` → `status-dashboard`
+  - `gcp-static-ip` secret updated from placeholder `192.178.192.121` to real value `216.239.32.21`
+  - `DNS_RECORDS` in `status-dashboard/backend/config.py` expanded from `["@"]` to `["@", "plex", "ombi", "overseerr"]`
+  - DDNS sentinel check added to `scripts/godaddy-ddns.sh` — prevents cron from undoing active failover
+  - All 4 domains temporarily pointing to `216.239.32.21` for SSL cert provisioning
+- **Next Steps:**
+  1. Wait for Google-managed SSL certs to provision on all 4 domains (~15-30 min each)
+  2. Check: `gcloud beta run domain-mappings describe --domain=camerontora.ca --project=cameron-tora --region=us-central1`
+  3. Revert all domains to home IP: `sudo /home/camerontora/infrastructure/scripts/godaddy-ddns.sh`
+  4. Run end-to-end test (see `docs/DNS-FAILOVER.md` for checklist)
+- **See:** `docs/DNS-FAILOVER.md` for full documentation
 
 ---
 
