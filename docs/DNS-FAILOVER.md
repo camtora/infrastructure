@@ -181,17 +181,17 @@ curl -X POST https://status.camerontora.ca/api/dns/failover \
 
 ## End-to-End Test Checklist
 
-- [ ] Cert provisioning complete on all 4 domains
-- [ ] Revert all 4 domains to home IP via DDNS script
-- [ ] Confirm DDNS script runs clean (no failover false-positive)
-- [ ] Trigger failover via status dashboard
-- [ ] Confirm `camerontora.ca` → GCP status page (HTTPS, no cert error)
-- [ ] Confirm `plex.camerontora.ca` → GCP status page (HTTPS, no cert error)
-- [ ] Confirm `ombi.camerontora.ca` → GCP status page (HTTPS, no cert error)
-- [ ] Confirm `overseerr.camerontora.ca` → GCP status page (HTTPS, no cert error)
-- [ ] Wait 10+ minutes — confirm DDNS sentinel prevents undo (log shows "DNS failover active, skipping")
-- [ ] Trigger failback via status dashboard
-- [ ] Confirm all 4 domains return to home server
+- [x] Cert provisioning complete on all 4 domains
+- [x] Revert all 4 domains to home IP via DDNS script
+- [x] Confirm DDNS script runs clean (no failover false-positive)
+- [x] Trigger failover via status dashboard
+- [x] Confirm `camerontora.ca` → GCP status page (HTTPS, no cert error)
+- [x] Confirm `plex.camerontora.ca` → GCP status page (HTTPS, no cert error)
+- [x] Confirm `ombi.camerontora.ca` → GCP status page (HTTPS, no cert error)
+- [x] Confirm `overseerr.camerontora.ca` → GCP status page (HTTPS, no cert error)
+- [x] Wait 10+ minutes — confirm DDNS sentinel prevents undo (log shows "DNS failover active, skipping")
+- [x] Trigger failback via status dashboard
+- [x] Confirm all 4 domains return to home server
 
 ---
 
