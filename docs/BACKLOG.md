@@ -69,19 +69,14 @@
 - **Needs:** Investigation of oauth2-proxy configuration or alternative approach
 
 ### DNS Failover
-- **Status:** In Progress — awaiting SSL cert provisioning, then needs end-to-end test
+- **Status:** Completed (2026-02-20)
 - **Description:** Automatically switch DNS to GCP when home internet is down
-- **Implementation (2026-02-20):**
+- **Implementation:**
   - GCP Cloud Run domain mappings created for `camerontora.ca`, `plex`, `ombi`, `overseerr` → `status-dashboard`
-  - `gcp-static-ip` secret updated from placeholder `192.178.192.121` to real value `216.239.32.21`
-  - `DNS_RECORDS` in `status-dashboard/backend/config.py` expanded from `["@"]` to `["@", "plex", "ombi", "overseerr"]`
+  - `gcp-static-ip` secret updated to `216.239.32.21` (GCP anycast)
+  - `DNS_RECORDS` in `status-dashboard/backend/config.py` expanded to `["@", "plex", "ombi", "overseerr"]`
   - DDNS sentinel check added to `scripts/godaddy-ddns.sh` — prevents cron from undoing active failover
-  - All 4 domains temporarily pointing to `216.239.32.21` for SSL cert provisioning
-- **Next Steps:**
-  1. Wait for Google-managed SSL certs to provision on all 4 domains (~15-30 min each)
-  2. Check: `gcloud beta run domain-mappings describe --domain=camerontora.ca --project=cameron-tora --region=us-central1`
-  3. Revert all domains to home IP: `sudo /home/camerontora/infrastructure/scripts/godaddy-ddns.sh`
-  4. Run end-to-end test (see `docs/DNS-FAILOVER.md` for checklist)
+- **Tested:** Failover and failback both confirmed working. DDNS cron correctly skips update when `@` points to GCP IP.
 - **See:** `docs/DNS-FAILOVER.md` for full documentation
 
 ---
