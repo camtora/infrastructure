@@ -56,10 +56,8 @@
 - **Description:** Health checker accepts 2xx, 3xx, and 401 as "up", so the OAuth 302 redirect is sufficient to confirm Haymaker is reachable. No bypass endpoint required.
 
 ### Per-Service Authorization
-- **Status:** Blocked
-- **Description:** Admin-only access for Radarr/Sonarr/Jackett/Tautulli/Transmission/Netdata while allowing other users on Haymaker
-- **Problem:** nginx `auth_request_set` doesn't capture oauth2-proxy's `X-Auth-Request-Email` header
-- **Needs:** Investigation of oauth2-proxy configuration or alternative approach
+- **Status:** Resolved — not needed
+- **Description:** All protected services are admin-only (single user). No tiered access required.
 
 ### DNS Failover
 - **Status:** Completed (2026-02-20)
