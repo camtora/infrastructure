@@ -32,6 +32,17 @@ CURRENT_RECORDS="$(curl -fsS -X GET "https://api.godaddy.com/v1/domains/$DOMAIN/
   -H "Authorization: sso-key $API_KEY:$API_SECRET" \
   -H "Accept: application/json")"
 
+# Check if DNS failover is active (@ record pointing to a GCP IP)
+# If so, skip the update entirely to avoid undoing the failover
+GCP_IPS=("216.239.32.21" "216.239.34.21" "216.239.36.21" "216.239.38.21")
+CURRENT_AT_IP="$(echo "$CURRENT_RECORDS" | jq -r '.[] | select(.name == "@") | .data // empty' | head -1)"
+for gcp_ip in "${GCP_IPS[@]}"; do
+  if [[ "$CURRENT_AT_IP" == "$gcp_ip" ]]; then
+    log "↻ DNS failover active (@→${CURRENT_AT_IP}), skipping DDNS update"
+    exit 0
+  fi
+done
+
 # Check if any records need updating
 NEEDS_UPDATE=false
 for RECORD in "${RECORDS[@]}"; do

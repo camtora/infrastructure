@@ -43,5 +43,5 @@ SERVICES = [
 ]
 
 # DNS records to manage during failover
-# Only @ - other subdomains timeout cleanly rather than showing SSL warnings
-DNS_RECORDS = ["@"]
+# Public-facing services that should show the status dashboard when home is down
+DNS_RECORDS = ["@", "plex", "ombi", "overseerr"]
