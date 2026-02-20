@@ -28,7 +28,7 @@ ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
 SERVICES = [
     {"name": "Main Site", "url": "https://camerontora.ca", "category": "public"},
     {"name": "Plex", "url": "https://plex.camerontora.ca", "category": "public"},
-    {"name": "Haymaker", "url": "https://haymaker.camerontora.ca", "category": "protected"},  # TODO: add /api/health endpoint
+    {"name": "Haymaker", "url": "https://haymaker.camerontora.ca", "category": "protected"},
     {"name": "Watchmap", "url": "https://watchmap.camerontora.ca/health", "category": "protected"},
     {"name": "Overseerr", "url": "https://overseerr.camerontora.ca", "category": "public"},
     {"name": "Ombi", "url": "https://ombi.camerontora.ca", "category": "public"},
