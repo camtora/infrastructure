@@ -298,6 +298,42 @@ docker-compose build health-api
 docker-compose stop health-api && docker-compose rm -f health-api && docker-compose up -d health-api
 ```
 
+## Transmission Configuration Notes
+
+### Download Queue
+- `download-queue-enabled: true`, `download-queue-size: 5` (set 2026-02-23)
+- **Why**: With 1,700+ torrents and `peer-limit-global: 200`, disabling the queue means all torrents compete for ~0.1 peers each → no downloads
+- **Will torrents be missed?** No. Status 3 (download-wait) is a proper queue — Transmission works through all of them as slots free. Sonarr/Radarr treat status 3 as "queued" not "failed", so no retries are triggered. The only risk is an ancient torrent whose swarm dies while waiting, which would be a problem regardless.
+- **Queue order**: FIFO by default (order added). Sonarr/Radarr can set priority (high/normal/low) per torrent.
+- **To change queue size** (no restart required):
+  ```bash
+  SID=$(docker exec transmission curl -si http://localhost:9091/transmission/rpc 2>/dev/null | grep -i 'X-Transmission-Session-Id' | tr -d '\r' | sed 's/.*: //')
+  docker exec transmission curl -s -u "camerontora:$(grep TRANSMISSION_PASS /home/camerontora/docker-services/.env | cut -d= -f2)" \
+    -X POST http://localhost:9091/transmission/rpc \
+    -H "X-Transmission-Session-Id: $SID" \
+    -H "Content-Type: application/json" \
+    -d '{"method":"session-set","arguments":{"download-queue-size":10}}'
+  ```
+
+### Port Forwarding
+- `peer-port: 40707`, `port-forwarding-enabled: true` (set 2026-02-23)
+- Port 40707 is PIA-assigned via gluetun. Check current forwarded port:
+  ```bash
+  docker exec gluetun-toronto cat /tmp/gluetun/forwarded_port
+  ```
+- If gluetun renews to a different port, update settings.json (requires transmission restart):
+  ```bash
+  NEW_PORT=$(docker exec gluetun-toronto cat /tmp/gluetun/forwarded_port)
+  docker stop transmission
+  sed -i "s/\"peer-port\": [0-9]*/\"peer-port\": $NEW_PORT/" /home/camerontora/docker-services/transmission/config/settings.json
+  cd /home/camerontora/docker-services && docker-compose up -d transmission
+  ```
+
+### speedtest.sh Grace Period
+- Connectivity test is skipped if the active gluetun container started <90s ago
+- This prevents false-positive orphan detection during gluetun's DNS initialization window
+- Timeout increased from 5s to 20s for borderline cases
+
 ## VPN Port Mapping
 
 | Location   | Container         | Port |

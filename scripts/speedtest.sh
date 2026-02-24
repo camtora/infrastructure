@@ -84,11 +84,18 @@ if transmission_network=$(docker inspect transmission --format '{{.HostConfig.Ne
             ACTIVE_VPN="${BASH_REMATCH[1]}"
             log "Active VPN: $ACTIVE_VPN (Transmission via $container_name)"
 
-            # CRITICAL: Test actual connectivity, not just container existence
-            if ! docker exec transmission wget -qO- --timeout=5 https://ipinfo.io/ip >/dev/null 2>&1; then
-                log "⚠ WARNING: Transmission has no internet connectivity!"
-                log "⚠ Container exists but network is broken - treating as ORPHANED"
-                TRANSMISSION_ORPHANED=true
+            # Skip connectivity test if gluetun just started (DNS takes ~30-60s to initialize)
+            gluetun_started=$(docker inspect "gluetun-${ACTIVE_VPN}" --format '{{.State.StartedAt}}' 2>/dev/null)
+            gluetun_age=$(( $(date +%s) - $(date -d "$gluetun_started" +%s 2>/dev/null || echo 0) ))
+            if [[ "$gluetun_age" -lt 90 ]]; then
+                log "⏳ Skipping connectivity test - gluetun-${ACTIVE_VPN} only started ${gluetun_age}s ago (grace period: 90s)"
+            else
+                # CRITICAL: Test actual connectivity, not just container existence
+                if ! docker exec transmission wget -qO- --timeout=20 https://ipinfo.io/ip >/dev/null 2>&1; then
+                    log "⚠ WARNING: Transmission has no internet connectivity!"
+                    log "⚠ Container exists but network is broken - treating as ORPHANED"
+                    TRANSMISSION_ORPHANED=true
+                fi
             fi
         fi
     fi

@@ -133,6 +133,23 @@
 - Updated all 5 nginx config files (14 server blocks total)
 - No more deprecation warnings on nginx reload
 
+### Transmission Fixes (2026-02-23)
+- Fixed: Constant logouts caused by speedtest.sh falsely detecting orphaned transmission during gluetun DNS init
+  - Root cause: gluetun takes 30-60s to initialize DNS after restart; speedtest ran `wget --timeout=5` during that window
+  - Fix: Added 90s grace period — connectivity test is skipped if gluetun started <90s ago
+  - Fix: Increased wget timeout from 5s to 20s for borderline-slow DNS cases
+  - File: `scripts/speedtest.sh`
+- Fixed: No download traffic due to disabled download queue
+  - Root cause: `download-queue-enabled: false` caused all 1,749 torrents to compete simultaneously for 200 global peer slots (~0.1 peers/torrent average)
+  - Fix: Enabled download queue with size=5 via RPC (no restart required, persisted to settings.json)
+  - Result: 1,651 torrents properly queued (status=3), 5 active at a time, downloads resumed
+  - No torrents are lost — status 3 is a queue, not a drop. Sonarr/Radarr treat it as "queued" not "failed"
+- Fixed: Port forwarding not configured
+  - Root cause: `peer-port: 46755`, `port-forwarding-enabled: false` — Transmission wasn't using gluetun's forwarded port
+  - Fix: Set `peer-port: 40707` (matches gluetun's PIA-assigned forwarded port) and `port-forwarding-enabled: true`
+  - Note: Port 40707 is PIA-assigned and renews periodically; if gluetun gets a new port, settings.json needs updating
+  - File: `/home/camerontora/docker-services/transmission/config/settings.json`
+
 ### VPN Switch Sonarr/Radarr Update Order (2026-01-16)
 - Fixed: VPN switch was updating Sonarr/Radarr ports BEFORE recreating Transmission
 - Problem: Sonarr/Radarr validate connection on update, so API call failed if Transmission wasn't ready
