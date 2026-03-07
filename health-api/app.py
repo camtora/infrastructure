@@ -66,6 +66,7 @@ SERVICE_CHECKS = [
     {"name": "Netdata", "container": "netdata", "port": 19999, "path": "/api/v1/info"},
     {"name": "Health API", "container": "health-api", "port": 5000, "path": "/api/health/ping"},
     {"name": "Who's Up API", "container": "whosup-api", "port": 3001, "path": "/api/health"},
+    {"name": "SBA API", "container": "sba-api", "port": 3003, "path": "/api/health"},
 ]
 
 # Disk mounts to monitor (mapped to container paths via /hostfs)
