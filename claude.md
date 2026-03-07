@@ -301,18 +301,15 @@ docker-compose stop health-api && docker-compose rm -f health-api && docker-comp
 ## Transmission Configuration Notes
 
 ### Download Queue
-- `download-queue-enabled: true`, `download-queue-size: 5` (set 2026-02-23)
-- **Why**: With 1,700+ torrents and `peer-limit-global: 200`, disabling the queue means all torrents compete for ~0.1 peers each → no downloads
-- **Will torrents be missed?** No. Status 3 (download-wait) is a proper queue — Transmission works through all of them as slots free. Sonarr/Radarr treat status 3 as "queued" not "failed", so no retries are triggered. The only risk is an ancient torrent whose swarm dies while waiting, which would be a problem regardless.
-- **Queue order**: FIFO by default (order added). Sonarr/Radarr can set priority (high/normal/low) per torrent.
-- **To change queue size** (no restart required):
+- `download-queue-enabled: false` (disabled 2026-02-24; was enabled 2026-02-23 to address ~0 KB/s due to 1,700+ torrents competing for 200 peer slots)
+- **To re-enable** (no restart required):
   ```bash
   SID=$(docker exec transmission curl -si http://localhost:9091/transmission/rpc 2>/dev/null | grep -i 'X-Transmission-Session-Id' | tr -d '\r' | sed 's/.*: //')
   docker exec transmission curl -s -u "camerontora:$(grep TRANSMISSION_PASS /home/camerontora/docker-services/.env | cut -d= -f2)" \
     -X POST http://localhost:9091/transmission/rpc \
     -H "X-Transmission-Session-Id: $SID" \
     -H "Content-Type: application/json" \
-    -d '{"method":"session-set","arguments":{"download-queue-size":10}}'
+    -d '{"method":"session-set","arguments":{"download-queue-enabled":true,"download-queue-size":5}}'
   ```
 
 ### Port Forwarding
