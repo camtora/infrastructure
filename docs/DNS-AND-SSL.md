@@ -78,6 +78,9 @@ sonarr.camerontora.ca
 tautulli.camerontora.ca
 transmission.camerontora.ca
 watchmap.camerontora.ca
+whosup.camerontora.ca
+sba.camerontora.ca
+admin.sba.camerontora.ca
 ```
 
 > **Note:** `status.camerontora.ca` is a CNAME to GCP Cloud Run (SSL managed by Google). `emby` and `jellyfin` have been decommissioned.
@@ -105,6 +108,9 @@ sudo certbot certonly --webroot \
   -d tautulli.camerontora.ca \
   -d transmission.camerontora.ca \
   -d watchmap.camerontora.ca \
+  -d whosup.camerontora.ca \
+  -d sba.camerontora.ca \
+  -d admin.sba.camerontora.ca \
   -d NEW_SUBDOMAIN.camerontora.ca
 
 # Reload nginx to pick up new cert
@@ -116,6 +122,30 @@ docker exec nginx-proxy nginx -s reload
 2. Certbot writes challenge files to `/var/www/acme/.well-known/acme-challenge/`
 3. Let's Encrypt verifies the challenge via HTTP
 4. No downtime - nginx stays running throughout
+
+### Gotcha: Named Server Blocks Override the Default ACME Handler
+
+`00-http-redirect.conf` uses `default_server` to catch all HTTP traffic and serve ACME challenges. However, any subdomain with its own named `server { listen 80; server_name ...; }` block will match **before** the default server and bypass the ACME handler.
+
+**Any nginx HTTP server block with a specific `server_name` must include its own ACME location:**
+
+```nginx
+server {
+    listen 80;
+    server_name example.camerontora.ca;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/acme;
+        allow all;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+```
+
+Do not use a bare `return 301` at the server block level — it will intercept certbot challenges.
 
 ### Checking Current Certificate
 ```bash
