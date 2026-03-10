@@ -2,8 +2,9 @@
 .env
 *.env
 
-# Netdata config (contains Discord webhook)
-netdata/
+# Netdata - ignore alarm notify (contains Discord webhook), track health.d alarms
+netdata/health_alarm_notify.conf
+!netdata/health.d/
 
 # Logs
 *.log

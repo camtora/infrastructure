@@ -89,6 +89,7 @@ services:
       - netdata-lib:/var/lib/netdata
       - netdata-cache:/var/cache/netdata
       - ./netdata/health_alarm_notify.conf:/etc/netdata/health_alarm_notify.conf:ro
+      - ./netdata/health.d:/etc/netdata/health.d:ro
       - /etc/passwd:/host/etc/passwd:ro
       - /etc/group:/host/etc/group:ro
       - /etc/localtime:/etc/localtime:ro
