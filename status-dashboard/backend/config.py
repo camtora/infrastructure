@@ -44,4 +44,4 @@ SERVICES = [
 
 # DNS records to manage during failover
 # Public-facing services that should show the status dashboard when home is down
-DNS_RECORDS = ["@", "plex", "ombi", "seerr"]
+DNS_RECORDS = ["@", "plex", "seerr"]
