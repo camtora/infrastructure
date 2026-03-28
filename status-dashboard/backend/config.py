@@ -30,7 +30,7 @@ SERVICES = [
     {"name": "Plex", "url": "https://plex.camerontora.ca", "category": "public"},
     {"name": "Haymaker", "url": "https://haymaker.camerontora.ca", "category": "protected"},
     {"name": "Watchmap", "url": "https://watchmap.camerontora.ca/health", "category": "protected"},
-    {"name": "Overseerr", "url": "https://overseerr.camerontora.ca", "category": "public"},
+    {"name": "Seerr", "url": "https://seerr.camerontora.ca", "category": "public"},
     {"name": "Ombi", "url": "https://ombi.camerontora.ca", "category": "public"},
     {"name": "Radarr", "url": "https://radarr.camerontora.ca/ping", "category": "protected"},
     {"name": "Sonarr", "url": "https://sonarr.camerontora.ca/ping", "category": "protected"},
@@ -45,4 +45,4 @@ SERVICES = [
 
 # DNS records to manage during failover
 # Public-facing services that should show the status dashboard when home is down
-DNS_RECORDS = ["@", "plex", "ombi", "overseerr"]
+DNS_RECORDS = ["@", "plex", "ombi", "seerr"]

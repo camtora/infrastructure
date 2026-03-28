@@ -39,7 +39,7 @@ sudo chmod 600 /etc/godaddy-ddns.env
 The script updates these A records when the IP changes:
 - `@` (camerontora.ca)
 - `ombi`, `plex`, `sonarr`, `radarr`, `tautulli`, `transmission`
-- `jackett`, `overseerr`, `watchmap`, `haymaker`, `netdata`, `health`
+- `jackett`, `overseerr`, `seerr`, `watchmap`, `haymaker`, `netdata`, `health`
 - `whosup`, `sba`, `*.sba` (wildcard covers all `*.sba.camerontora.ca` subdomains)
 
 ### Adding a New Subdomain
@@ -73,6 +73,7 @@ jackett.camerontora.ca
 netdata.camerontora.ca
 ombi.camerontora.ca
 overseerr.camerontora.ca
+seerr.camerontora.ca
 plex.camerontora.ca
 radarr.camerontora.ca
 sonarr.camerontora.ca
@@ -104,6 +105,7 @@ sudo certbot certonly --webroot \
   -d netdata.camerontora.ca \
   -d ombi.camerontora.ca \
   -d overseerr.camerontora.ca \
+  -d seerr.camerontora.ca \
   -d plex.camerontora.ca \
   -d radarr.camerontora.ca \
   -d sonarr.camerontora.ca \
