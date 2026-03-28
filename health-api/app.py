@@ -56,7 +56,7 @@ SERVICE_CHECKS = [
     {"name": "Plex", "container": "plex", "port": 32400, "path": "/web"},
     {"name": "Haymaker", "container": "haymaker_web_1", "port": 3000},
     {"name": "Watchmap", "container": "watchmap-web", "port": 5080},
-    {"name": "Overseerr", "container": "overseerr", "port": 5055},
+    {"name": "Seerr", "container": "overseerr", "port": 5055},
     {"name": "Ombi", "container": "ombi", "port": 3579},
     {"name": "Radarr", "container": "radarr", "port": 7878},
     {"name": "Sonarr", "container": "sonarr", "port": 8989},
