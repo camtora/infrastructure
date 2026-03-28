@@ -38,7 +38,7 @@ sudo chmod 600 /etc/godaddy-ddns.env
 ### Managed Records
 The script updates these A records when the IP changes:
 - `@` (camerontora.ca)
-- `ombi`, `plex`, `sonarr`, `radarr`, `tautulli`, `transmission`
+- `ombi` (decommissioned but DNS kept live for migration page), `plex`, `sonarr`, `radarr`, `tautulli`, `transmission`
 - `jackett`, `overseerr`, `seerr`, `watchmap`, `haymaker`, `netdata`, `health`
 - `whosup`, `sba`, `*.sba` (wildcard covers all `*.sba.camerontora.ca` subdomains)
 

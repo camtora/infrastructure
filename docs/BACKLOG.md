@@ -65,7 +65,7 @@
 - **Implementation:**
   - GCP Cloud Run domain mappings created for `camerontora.ca`, `plex`, `ombi`, `overseerr` → `status-dashboard`
   - `gcp-static-ip` secret updated to `216.239.32.21` (GCP anycast)
-  - `DNS_RECORDS` in `status-dashboard/backend/config.py` expanded to `["@", "plex", "ombi", "overseerr"]`
+  - `DNS_RECORDS` in `status-dashboard/backend/config.py`: `["@", "plex", "seerr"]` (ombi excluded — static migration page stays on home server; overseerr replaced by seerr 2026-03-28)
   - DDNS sentinel check added to `scripts/godaddy-ddns.sh` — prevents cron from undoing active failover
 - **Tested:** Failover and failback both confirmed working. DDNS cron correctly skips update when `@` points to GCP IP.
 - **See:** `docs/DNS-FAILOVER.md` for full documentation
