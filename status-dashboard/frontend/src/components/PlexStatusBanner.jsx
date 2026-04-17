@@ -7,6 +7,12 @@ export function PlexStatusBanner({ plexPlatform }) {
     ? 'from-amber-600/90 to-amber-500/90 border-amber-400/50'
     : 'from-red-700/90 to-red-600/90 border-red-400/50'
 
+  const statusLabel = incident?.status
+    ? incident.status.charAt(0).toUpperCase() + incident.status.slice(1)
+    : null
+
+  const link = incident?.shortlink || 'https://status.plex.tv'
+
   return (
     <div class={`bg-gradient-to-r ${colorClass} backdrop-blur-sm border-b`}>
       <div class="max-w-7xl mx-auto py-4 px-6 flex items-center gap-4">
@@ -15,16 +21,14 @@ export function PlexStatusBanner({ plexPlatform }) {
         </svg>
         <div>
           <h2 class="font-semibold text-white text-sm sm:text-base">
-            Plex platform issue: {plexPlatform.description}
+            Plex platform issue: {incident?.name || plexPlatform.description}
+            {statusLabel && <span class="ml-2 font-normal opacity-80">— {statusLabel}</span>}
           </h2>
-          {incident && (
-            <p class="text-white/80 text-xs sm:text-sm">
-              {incident.name}
-              {incident.shortlink && (
-                <> — <a href={incident.shortlink} target="_blank" rel="noreferrer" class="underline">details</a></>
-              )}
-            </p>
-          )}
+          <p class="text-white/80 text-xs sm:text-sm">
+            {plexPlatform.description}
+            {' — '}
+            <a href={link} target="_blank" rel="noreferrer" class="underline">status.plex.tv</a>
+          </p>
         </div>
       </div>
     </div>

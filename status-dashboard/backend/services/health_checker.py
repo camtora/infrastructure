@@ -137,7 +137,12 @@ def check_plex_platform() -> dict[str, Any]:
         indicator = data.get("status", {}).get("indicator", "none")
         description = data.get("status", {}).get("description", "")
         incidents = [
-            {"name": i.get("name"), "impact": i.get("impact"), "shortlink": i.get("shortlink")}
+            {
+                "name": i.get("name"),
+                "impact": i.get("impact"),
+                "status": i.get("status"),
+                "shortlink": i.get("shortlink"),
+            }
             for i in data.get("incidents", [])
         ]
         return {"indicator": indicator, "description": description, "incidents": incidents}
