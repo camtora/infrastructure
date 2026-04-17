@@ -41,6 +41,7 @@ The script updates these A records when the IP changes:
 - `ombi` (decommissioned but DNS kept live for migration page), `plex`, `sonarr`, `radarr`, `tautulli`, `transmission`
 - `jackett`, `overseerr`, `seerr`, `watchmap`, `haymaker`, `netdata`, `health`
 - `whosup`, `sba`, `*.sba` (wildcard covers all `*.sba.camerontora.ca` subdomains)
+- `wiki`
 
 ### Adding a New Subdomain
 1. Edit `scripts/godaddy-ddns.sh`
@@ -84,6 +85,7 @@ whosup.camerontora.ca
 sba.camerontora.ca
 admin.sba.camerontora.ca
 metro.sba.camerontora.ca
+wiki.camerontora.ca
 ```
 
 > **Note:** `status.camerontora.ca` is a CNAME to GCP Cloud Run (SSL managed by Google). `emby` and `jellyfin` have been decommissioned.
@@ -116,6 +118,7 @@ sudo certbot certonly --webroot \
   -d sba.camerontora.ca \
   -d admin.sba.camerontora.ca \
   -d metro.sba.camerontora.ca \
+  -d wiki.camerontora.ca \
   -d NEW_SUBDOMAIN.camerontora.ca
 
 # Reload nginx to pick up new cert
