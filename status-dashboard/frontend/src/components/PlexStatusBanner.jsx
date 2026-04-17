@@ -21,11 +21,11 @@ export function PlexStatusBanner({ plexPlatform }) {
         </svg>
         <div>
           <h2 class="font-semibold text-white text-sm sm:text-base">
-            Plex platform issue: {incident?.name || plexPlatform.description}
-            {statusLabel && <span class="ml-2 font-normal opacity-80">— {statusLabel}</span>}
+            Plex (the company) is having issues — this is not our server.
           </h2>
           <p class="text-white/80 text-xs sm:text-sm">
-            {plexPlatform.description}
+            {incident?.name || plexPlatform.description}
+            {statusLabel && <> — {statusLabel}</>}
             {' — '}
             <a href={link} target="_blank" rel="noreferrer" class="underline">status.plex.tv</a>
           </p>
