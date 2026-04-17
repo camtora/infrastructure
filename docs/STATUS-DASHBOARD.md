@@ -327,6 +327,10 @@ Includes the incident name and a link to the Plex status page incident detail.
 
 The banner is hidden automatically when Plex reports all-clear (`indicator: "none"`).
 
+**Banner content:**
+- **Headline:** Actual Plex incident title + current status (e.g. "Issues with plex.tv API — Investigating")
+- **Subtitle:** Page-level description + link to status.plex.tv (always shown, falls back to main page when no shortlink)
+
 **How it works:**
 - Backend calls `https://status.plex.tv/api/v2/summary.json` (Atlassian Statuspage public API) in parallel with all other health checks on every `/api/status` poll
 - Returns `plex_platform: { indicator, description, incidents[] }` in the status response
