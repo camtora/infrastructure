@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { Header } from './components/Header'
 import { FailoverBanner } from './components/FailoverBanner'
+import { PlexStatusBanner } from './components/PlexStatusBanner'
 import { ServiceGrid } from './components/ServiceGrid'
 import { MetricsPanel } from './components/MetricsPanel'
 import { SpeedPanel } from './components/SpeedPanel'
@@ -483,6 +484,7 @@ export function App() {
   return (
     <div class="min-h-screen">
       {isFailoverMode && <FailoverBanner />}
+      <PlexStatusBanner plexPlatform={status?.plex_platform} />
 
       <div class="max-w-7xl mx-auto px-6 py-10">
         <Header

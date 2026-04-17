@@ -74,6 +74,12 @@
 
 ## Completed
 
+### Plex Platform Status Banner (2026-04-16)
+- Added banner that surfaces active Plex platform incidents from status.plex.tv
+- Amber for minor, red for major/critical — hidden when all systems operational
+- Runs in parallel with existing health checks, no extra latency
+- Files: `health_checker.py` (check_plex_platform), `PlexStatusBanner.jsx`, `App.jsx`
+
 ### Migrate monitor.camerontora.ca → status.camerontora.ca (2026-01-13)
 - Migrated status dashboard URL from monitor.camerontora.ca to status.camerontora.ca
 - Updated GCP domain mapping, nginx CORS headers, documentation

@@ -128,6 +128,23 @@ def check_plex_library() -> dict[str, Any]:
         return {"checked": True, "reachable": False, "error": str(e)[:100]}
 
 
+def check_plex_platform() -> dict[str, Any]:
+    """Check status.plex.tv for active platform incidents."""
+    try:
+        resp = requests.get("https://status.plex.tv/api/v2/summary.json", timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        indicator = data.get("status", {}).get("indicator", "none")
+        description = data.get("status", {}).get("description", "")
+        incidents = [
+            {"name": i.get("name"), "impact": i.get("impact"), "shortlink": i.get("shortlink")}
+            for i in data.get("incidents", [])
+        ]
+        return {"indicator": indicator, "description": description, "incidents": incidents}
+    except Exception as e:
+        return {"indicator": "unknown", "description": str(e)[:100], "incidents": []}
+
+
 def run_health_check() -> dict[str, Any]:
     """Run all health checks and return aggregated status."""
     global _status_cache, _last_check
@@ -137,6 +154,7 @@ def run_health_check() -> dict[str, Any]:
         "services": [],
         "metrics": None,
         "plex": None,
+        "plex_platform": None,
         "home_server_reachable": False,
         "overall_status": "healthy",
     }
@@ -148,7 +166,8 @@ def run_health_check() -> dict[str, Any]:
     down_count = 0
     service_checks = {}
 
-    with ThreadPoolExecutor(max_workers=len(SERVICES)) as executor:
+    with ThreadPoolExecutor(max_workers=len(SERVICES) + 1) as executor:
+        plex_platform_future = executor.submit(check_plex_platform)
         futures = {
             executor.submit(check_endpoint, svc["name"], svc["url"]): svc
             for svc in SERVICES
@@ -158,6 +177,8 @@ def run_health_check() -> dict[str, Any]:
             check = future.result()
             check["category"] = svc.get("category", "unknown")
             service_checks[svc["name"]] = check
+
+    results["plex_platform"] = plex_platform_future.result()
 
     # Merge with internal status and build results (preserve SERVICES order)
     for service in SERVICES:

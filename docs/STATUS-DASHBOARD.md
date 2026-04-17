@@ -17,6 +17,7 @@ The status dashboard provides real-time visibility into all camerontora.ca servi
 - **DNS Controls**: View current DNS state, manual failover capability
 - **Auto-refresh**: Updates every 30 seconds
 - **Failover Banner**: Alerts visitors when services are offline
+- **Plex Platform Banner**: Surfaces active incidents from status.plex.tv so users know upstream issues aren't our server
 
 ## Architecture
 
@@ -317,6 +318,20 @@ When DNS points to GCP, the dashboard displays:
 You've been redirected to this status page. We're working on restoring services.
 ```
 
+### Plex Platform Banner
+When status.plex.tv reports an active incident, a banner appears at the top of the dashboard:
+- **Amber** for `minor` impact (degraded performance, partial outage)
+- **Red** for `major` or `critical` impact
+
+Includes the incident name and a link to the Plex status page incident detail.
+
+The banner is hidden automatically when Plex reports all-clear (`indicator: "none"`).
+
+**How it works:**
+- Backend calls `https://status.plex.tv/api/v2/summary.json` (Atlassian Statuspage public API) in parallel with all other health checks on every `/api/status` poll
+- Returns `plex_platform: { indicator, description, incidents[] }` in the status response
+- Frontend renders `PlexStatusBanner` component below the failover banner
+
 ## Deployment
 
 ### Deploy from Cloud Shell
@@ -378,6 +393,7 @@ npm run dev
 | `status-dashboard/frontend/` | Preact + Tailwind frontend |
 | `status-dashboard/frontend/src/App.jsx` | Main application component |
 | `status-dashboard/frontend/src/components/` | UI components |
+| `status-dashboard/frontend/src/components/PlexStatusBanner.jsx` | Plex platform incident banner |
 | `scripts/speedtest.sh` | Speed test script |
 | `scripts/speedtest.cron` | Cron job template |
 
@@ -594,6 +610,7 @@ environment:
 - Home download speed alerting
 
 ### Completed
+- ✅ **Plex platform status banner:** Polls status.plex.tv; amber/red banner surfaces active incidents so users know upstream issues aren't our server (2026-04-16)
 - ✅ **Integrate into camerontora.ca:** StatusIndicator fetches from status.camerontora.ca/api/status
 - ✅ **Deprecate Uptime Kuma:** Container removed, dashboard now at status.camerontora.ca
 - ✅ **Migrate dashboard URL:** Moved from monitor.camerontora.ca to status.camerontora.ca
