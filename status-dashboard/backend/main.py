@@ -8,12 +8,15 @@ import hashlib
 import logging
 import os
 import sys
+import threading
 from datetime import datetime, timezone
 from functools import wraps
 from threading import Lock
 
+import anthropic
 import requests
 from flask import Flask, jsonify, request, send_from_directory
+from google.cloud import storage as gcs
 
 # Session cache for admin verification when home server is down
 _session_cache = {}
@@ -55,7 +58,44 @@ from backend.services.health_checker import run_health_check, get_status_summary
 from backend.services.dns_manager import get_cached_dns_state, failover_dns
 from backend.services.discord import send_discord_alert, notify_failover
 from backend.services.history_store import store_status_snapshot, get_status_history, get_service_uptime
-from backend.config import ADMIN_API_KEY
+from backend.config import ADMIN_API_KEY, ANTHROPIC_API_KEY
+
+# --- Wiki context (fetched from GCS, refreshed hourly) ---
+
+WIKI_CONTEXT = ""
+_wiki_lock = threading.Lock()
+
+
+def _fetch_wiki_context() -> str:
+    try:
+        client = gcs.Client()
+        bucket = client.bucket("camwiki-context")
+        blob = bucket.blob("wiki_context.txt")
+        return blob.download_as_text(encoding="utf-8")
+    except Exception as e:
+        print(f"Warning: could not fetch wiki context from GCS: {e}")
+        return ""
+
+
+def _refresh_wiki_loop():
+    global WIKI_CONTEXT
+    import time
+    while True:
+        time.sleep(3600)
+        ctx = _fetch_wiki_context()
+        if ctx:
+            with _wiki_lock:
+                WIKI_CONTEXT = ctx
+            print("Wiki context refreshed from GCS")
+
+
+WIKI_CONTEXT = _fetch_wiki_context()
+if WIKI_CONTEXT:
+    print(f"Wiki context loaded: {len(WIKI_CONTEXT):,} chars")
+else:
+    print("Warning: wiki context empty — Q&A will have no knowledge base")
+
+threading.Thread(target=_refresh_wiki_loop, daemon=True).start()
 
 # Determine static folder path
 # In Docker: /app/static
@@ -324,6 +364,44 @@ def api_admin_verify():
             logger.info("Returning cached admin session for frontend")
             return jsonify(cached)
         return jsonify({"authenticated": False, "error": "Home server unreachable"}), 401
+
+
+# ============== Wiki Q&A ==============
+
+@app.route("/api/wiki-qa", methods=["POST"])
+def wiki_qa():
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    if not question:
+        return jsonify({"error": "question is required"}), 400
+
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not configured"}), 500
+
+    with _wiki_lock:
+        ctx = WIKI_CONTEXT
+
+    system_prompt = (
+        "You are an assistant with full knowledge of Cameron's home server "
+        "infrastructure and personal projects. Answer questions using only the "
+        "knowledge base below. Be concise — aim for one or two paragraphs. "
+        "If the answer isn't in the knowledge base, say so briefly.\n\n"
+        + ctx
+    )
+
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            system=system_prompt,
+            messages=[{"role": "user", "content": question}],
+        )
+        answer = message.content[0].text
+        return jsonify({"answer": answer})
+    except Exception as e:
+        logger.error(f"Claude API error: {e}")
+        return jsonify({"error": "Failed to get answer"}), 500
 
 
 # ============== Error Handlers ==============

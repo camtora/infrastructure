@@ -24,6 +24,7 @@ REQUIRED_SECRETS=(
     "godaddy-api-secret"
     "admin-api-key"
     "gcp-static-ip"
+    "anthropic-api-key"
 )
 
 MISSING_SECRETS=()
@@ -65,12 +66,12 @@ gcloud run deploy "${SERVICE_NAME}" \
   --project "${PROJECT_ID}" \
   --platform managed \
   --allow-unauthenticated \
-  --memory 256Mi \
+  --memory 512Mi \
   --cpu 1 \
   --min-instances 0 \
   --max-instances 2 \
   --timeout 60 \
-  --set-secrets "HEALTH_API_KEY=health-api-key:latest,DISCORD_WEBHOOK_URL=discord-webhook-url:latest,GODADDY_API_KEY=godaddy-api-key:latest,GODADDY_API_SECRET=godaddy-api-secret:latest,ADMIN_API_KEY=admin-api-key:latest,GCP_IP=gcp-static-ip:latest"
+  --set-secrets "HEALTH_API_KEY=health-api-key:latest,DISCORD_WEBHOOK_URL=discord-webhook-url:latest,GODADDY_API_KEY=godaddy-api-key:latest,GODADDY_API_SECRET=godaddy-api-secret:latest,ADMIN_API_KEY=admin-api-key:latest,GCP_IP=gcp-static-ip:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest"
 
 # Get the service URL
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \

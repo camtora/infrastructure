@@ -102,3 +102,48 @@ body {
 .glow-red {
   box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
 }
+
+/* Wiki Q&A answer markdown rendering */
+.wiki-answer {
+  @apply text-sm leading-relaxed text-white/80;
+}
+.wiki-answer p {
+  @apply mb-3 last:mb-0;
+}
+.wiki-answer strong {
+  @apply text-white font-semibold;
+}
+.wiki-answer em {
+  @apply text-white/70 italic;
+}
+.wiki-answer h1, .wiki-answer h2, .wiki-answer h3 {
+  @apply text-white font-semibold mt-4 mb-2 first:mt-0;
+}
+.wiki-answer h1 { @apply text-base; }
+.wiki-answer h2 { @apply text-sm; }
+.wiki-answer h3 { @apply text-sm text-white/90; }
+.wiki-answer ul {
+  @apply list-disc list-inside space-y-1 mb-3 text-white/80;
+}
+.wiki-answer ol {
+  @apply list-decimal list-inside space-y-1 mb-3 text-white/80;
+}
+.wiki-answer li { @apply pl-1; }
+.wiki-answer code {
+  @apply font-mono text-xs bg-white/10 text-emerald-300 px-1.5 py-0.5 rounded;
+}
+.wiki-answer pre {
+  @apply bg-white/5 border border-white/10 rounded-lg p-3 mb-3 overflow-x-auto;
+}
+.wiki-answer pre code {
+  @apply bg-transparent text-emerald-300 p-0;
+}
+.wiki-answer a {
+  @apply text-emerald-400 underline underline-offset-2 hover:text-emerald-300;
+}
+.wiki-answer blockquote {
+  @apply border-l-2 border-white/20 pl-3 text-white/60 italic mb-3;
+}
+.wiki-answer hr {
+  @apply border-white/10 my-3;
+}

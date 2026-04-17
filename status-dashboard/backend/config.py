@@ -22,6 +22,7 @@ GODADDY_DOMAIN = os.environ.get("GODADDY_DOMAIN", "camerontora.ca")
 HOME_IP = os.environ.get("HOME_IP", "")  # Dynamic, fetched from health API or GoDaddy
 GCP_IP = os.environ.get("GCP_IP", "")  # Static GCP IP for failover
 ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 # Services to monitor (external HTTP checks)
 # Protected services use health endpoints that bypass OAuth

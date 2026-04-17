@@ -10,6 +10,7 @@ import { StoragePanel } from './components/StoragePanel'
 import { HistoryPanel } from './components/HistoryPanel'
 import { RebootDialog } from './components/RebootDialog'
 import { EmergencyAuthModal } from './components/EmergencyAuthModal'
+import { WikiQAPanel } from './components/WikiQAPanel'
 
 const NETDATA_BASE = 'https://netdata.camerontora.ca'
 const HEALTH_API = 'https://health.camerontora.ca'
@@ -527,6 +528,8 @@ export function App() {
             />
           </div>
         </div>
+
+        <WikiQAPanel />
 
         <div class="mb-8">
           <DNSPanel dns={status?.dns} adminAuth={adminAuth} />
