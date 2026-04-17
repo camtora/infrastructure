@@ -16,19 +16,22 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}=== Building and deploying status-dashboard ===${NC}"
 
 # Check for required secrets
+# Format: "ENV_VAR_NAME=secret-manager-name"
+# Adding a new secret here automatically includes it in the deploy.
 echo "Checking required secrets..."
 REQUIRED_SECRETS=(
-    "health-api-key"
-    "discord-webhook-url"
-    "godaddy-api-key"
-    "godaddy-api-secret"
-    "admin-api-key"
-    "gcp-static-ip"
-    "anthropic-api-key"
+    "HEALTH_API_KEY=health-api-key"
+    "DISCORD_WEBHOOK_URL=discord-webhook-url"
+    "GODADDY_API_KEY=godaddy-api-key"
+    "GODADDY_API_SECRET=godaddy-api-secret"
+    "ADMIN_API_KEY=admin-api-key"
+    "GCP_IP=gcp-static-ip"
+    "ANTHROPIC_API_KEY=anthropic-api-key"
 )
 
 MISSING_SECRETS=()
-for secret in "${REQUIRED_SECRETS[@]}"; do
+for entry in "${REQUIRED_SECRETS[@]}"; do
+    secret="${entry#*=}"
     if ! gcloud secrets describe "$secret" --project="${PROJECT_ID}" &>/dev/null; then
         MISSING_SECRETS+=("$secret")
     fi
@@ -58,6 +61,15 @@ fi
 echo -e "${GREEN}Building Docker image...${NC}"
 gcloud builds submit --tag "${IMAGE}" --project "${PROJECT_ID}"
 
+# Build --set-secrets from REQUIRED_SECRETS so the list never drifts
+SECRET_MAPPINGS=()
+for entry in "${REQUIRED_SECRETS[@]}"; do
+    env_var="${entry%=*}"
+    secret="${entry#*=}"
+    SECRET_MAPPINGS+=("${env_var}=${secret}:latest")
+done
+SET_SECRETS=$(IFS=','; echo "${SECRET_MAPPINGS[*]}")
+
 # Deploy to Cloud Run
 echo "Deploying to Cloud Run..."
 gcloud run deploy "${SERVICE_NAME}" \
@@ -71,7 +83,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --min-instances 0 \
   --max-instances 2 \
   --timeout 60 \
-  --set-secrets "HEALTH_API_KEY=health-api-key:latest,DISCORD_WEBHOOK_URL=discord-webhook-url:latest,GODADDY_API_KEY=godaddy-api-key:latest,GODADDY_API_SECRET=godaddy-api-secret:latest,ADMIN_API_KEY=admin-api-key:latest,GCP_IP=gcp-static-ip:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest"
+  --set-secrets "${SET_SECRETS}"
 
 # Get the service URL
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
