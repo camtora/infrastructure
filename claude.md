@@ -1,3 +1,17 @@
+# CRITICAL: Cloud Run Deploy Rules
+
+**ALWAYS use `status-dashboard/deploy.sh` for any Cloud Run deployment.**
+Never run `gcloud run deploy` or `gcloud run services update` directly.
+
+`--set-secrets` replaces ALL secret bindings on every deploy. A raw gcloud command that omits any secret silently drops it — the service still starts and health checks pass, but features that depend on that secret break. ANTHROPIC_API_KEY has been dropped this way multiple times.
+
+If adding a new secret:
+1. Add it to `REQUIRED_SECRETS` in `deploy.sh` first
+2. Create it in Secret Manager
+3. Run `deploy.sh`
+
+---
+
 # VPN Switch Troubleshooting Guide
 
 Session: 2026-01-14 (updated)
@@ -338,6 +352,14 @@ docker-compose stop health-api && docker-compose rm -f health-api && docker-comp
 | Toronto    | gluetun-toronto   | 9091 |
 | Montreal   | gluetun-montreal  | 9092 |
 | Vancouver  | gluetun-vancouver | 9093 |
+
+## Common Docker Commands
+
+### Clean Up Dangling Images
+```bash
+docker image prune -f
+```
+Removes untagged/dangling images. Does NOT remove stopped containers.
 
 ## Key Files
 

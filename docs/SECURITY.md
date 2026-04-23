@@ -226,11 +226,60 @@ All protected services use centralized OAuth2 Proxy with Google authentication:
 - Cookie domain: `.camerontora.ca`
 - Allowed users: See `/home/camerontora/infrastructure/oauth2-proxy/authenticated_emails.txt`
 
+## Cloud Run Deployment Rules
+
+**ALWAYS use `status-dashboard/deploy.sh`** — never run `gcloud run deploy` or `gcloud run services update` directly.
+
+`--set-secrets` replaces ALL secret bindings on every deploy. A raw gcloud command that omits any secret silently drops it from the running service with no error — health checks still pass but features depending on that secret break. `ANTHROPIC_API_KEY` has been dropped this way multiple times.
+
+To add a new secret:
+1. Add it to `REQUIRED_SECRETS` in `deploy.sh` first
+2. Create it in Secret Manager: `echo 'value' | gcloud secrets versions add SECRET_NAME --data-file=-`
+3. Run `deploy.sh`
+
+If the Wiki Q&A feature returns `ANTHROPIC_API_KEY not configured`, check for a rogue revision:
+```bash
+gcloud run revisions list --service status-dashboard --region us-central1 --limit 5
+gcloud run revisions describe <latest-revision> --region us-central1 --format="value(spec.containers[0].env[].name)"
+```
+Fix by running `deploy.sh` — do not use `gcloud run services update`.
+
+---
+
+## Docker Port Binding Rules
+
+**Internal-only services must never bind to `0.0.0.0`.**
+
+Docker's iptables rules bypass UFW. Any port bound to `0.0.0.0` inside a Docker container is reachable from the internet regardless of UFW rules.
+
+| Service type | Correct binding | Why |
+|---|---|---|
+| Proxied by nginx (health-api, etc.) | No `ports:` binding at all | nginx reaches it by container name over the Docker network |
+| Needs host-only access | `127.0.0.1:PORT:PORT` | Loopback only |
+| Legitimately public (Plex, nginx) | `0.0.0.0:PORT:PORT` or no binding | Intentionally public |
+
+**health-api** (`privileged: true`, `pid: host`, can reboot the server) has no port binding — nginx routes to it via `http://health-api:5000` within the `infrastructure_default` network. Never re-expose this port.
+
+---
+
+## Vulnerabilities Found and Remediated (2026-04-22)
+
+See `SECURITY-THREAT-MODEL.md` for full details. Summary:
+
+| # | Issue | Impact | Status |
+|---|---|---|---|
+| 1 | health-api bound to `0.0.0.0:5000` — forged header → server reboot | CRITICAL | **Fixed**: removed port binding entirely |
+| 2 | API key fail-open — blank `HEALTH_API_KEY` opens all endpoints | HIGH | **Fixed**: hard startup failure if key missing |
+| 3 | Apple Health webhook — no rate limiting at nginx | MEDIUM | Open |
+
+---
+
 ## Security Checklist for New Services
 
 - [ ] Add nginx config with OAuth2 protection (if needed)
-- [ ] Bind ports to `0.0.0.0` (UFW handles external blocking)
+- [ ] Internal services: **no `ports:` binding** — add to shared Docker network and reference by container name
+- [ ] Public services only: bind to `0.0.0.0:PORT:PORT`
 - [ ] Add to appropriate Docker network
-- [ ] Verify UFW allows the Docker subnet
 - [ ] Add callback URL to Google OAuth Console (for protected services)
 - [ ] Store any secrets in `.env` file with `chmod 600`
+- [ ] For Cloud Run services: add secrets to `REQUIRED_SECRETS` in `deploy.sh` before deploying
