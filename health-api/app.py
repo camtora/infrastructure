@@ -717,6 +717,34 @@ def admin_vpn_status():
     })
 
 
+def get_gluetun_forwarded_port(container_name: str) -> int | None:
+    """Read the forwarded port from a running gluetun container."""
+    try:
+        result = subprocess.run(
+            ["docker", "exec", container_name, "cat", "/tmp/gluetun/forwarded_port"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            return int(result.stdout.strip())
+    except Exception:
+        pass
+    return None
+
+
+def set_transmission_peer_port(port: int) -> dict:
+    """Update peer-port in Transmission's settings.json. Must be called while Transmission is stopped."""
+    settings_path = Path("/docker-services/transmission/config/settings.json")
+    try:
+        with open(settings_path) as f:
+            settings = json.load(f)
+        settings["peer-port"] = port
+        with open(settings_path, "w") as f:
+            json.dump(settings, f, indent=4)
+        return {"success": True, "message": f"Set Transmission peer-port to {port}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def update_arr_download_client_port(app_name: str, api_url: str, api_key: str, new_port: int) -> dict:
     """Update the Transmission download client port in Sonarr/Radarr.
 
@@ -831,6 +859,18 @@ def _do_vpn_switch(target: str, triggered_by: str) -> tuple[dict, int]:
                 "error": f"Target VPN container {target_container} not running",
                 "steps_completed": steps_completed
             }, 500
+
+        # Step 2b: Sync Transmission peer port to match new VPN's forwarded port
+        # Transmission is stopped here so settings.json is safe to write
+        forwarded_port = get_gluetun_forwarded_port(target_container)
+        if forwarded_port:
+            port_result = set_transmission_peer_port(forwarded_port)
+            if port_result["success"]:
+                steps_completed.append(f"Synced Transmission peer-port to {forwarded_port} (gluetun forwarded port)")
+            else:
+                steps_completed.append(f"Warning: could not sync peer-port: {port_result['error']}")
+        else:
+            steps_completed.append("Warning: could not read gluetun forwarded port — peer-port not updated")
 
         # Use docker compose to start transmission (reads updated docker-compose.yaml)
         # Run from docker-services directory to auto-detect project name and avoid network label issues
