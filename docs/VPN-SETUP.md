@@ -1,6 +1,6 @@
 # VPN Setup — gluetun + PIA WireGuard
 
-_Last updated: 2026-04-22_
+_Last updated: 2026-04-23_
 
 ---
 
@@ -175,10 +175,18 @@ INFO [port forwarding] port forwarded is <PORT>
 
 ## Transmission peer port vs gluetun forwarded port
 
-**These must match.** If they drift, Transmission uploads fine but downloads nothing.
+Two different ports, different purposes:
 
-- gluetun writes its forwarded port to `/tmp/gluetun/forwarded_port` inside the container
-- Transmission's peer port is in `/config/settings.json` (also visible/editable in its UI)
+- **Proxy port (9091/9092/9093):** The port nginx uses to reach Transmission's web UI. Each
+  gluetun exposes a different host port so they can all run in parallel without conflicts.
+  Used by nginx, Sonarr, and Radarr to route traffic to the active Transmission instance.
+
+- **Peer port (e.g. 42643):** The BitTorrent listening port. This is what external peers use
+  to connect *to you* over the internet. PIA punches a hole through their VPN for one specific
+  port per session. If Transmission isn't listening on that exact port, peers can't reach you
+  and downloads stall at 0 despite showing connected peers.
+
+**These must match.** If they drift, Transmission uploads fine but downloads nothing.
 
 To check both:
 ```bash
@@ -189,25 +197,41 @@ docker logs gluetun-<active> --tail 30 | grep "port forwarded is"
 docker exec transmission cat /config/settings.json | python3 -m json.tool | grep peer-port
 ```
 
-If they don't match, update Transmission's port in its web UI (Settings → Network → Peer port),
-then restart Transmission:
+If they don't match manually, update Transmission's port in its web UI (Settings → Network →
+Peer port), then restart Transmission:
 ```bash
 docker restart transmission
 ```
-
-**Known gap:** There is no automation keeping these in sync. If gluetun renews its forwarded port
-and gets a different one, Transmission silently goes dead. A fix (a script watching
-`/tmp/gluetun/forwarded_port` and calling the Transmission RPC) is tracked in `BACKLOG.md`.
 
 ---
 
 ## Switching the active VPN
 
-Transmission can only use one gluetun at a time. Switching is a multi-step process handled by
-the health-api (`/api/admin/vpn/switch` or `/api/health/vpn/switch`). It:
-1. Updates `network_mode` in docker-compose.yaml
-2. Stops and recreates the Transmission container
-3. Updates Sonarr/Radarr download client port
-4. Updates nginx config and reloads
+Transmission can only use one gluetun at a time. Switching is handled by the health-api
+(`/api/admin/vpn/switch` from the status dashboard, or `/api/health/vpn/switch` for
+auto-failover from gcp-monitor). Source: `health-api/app.py` — `_do_vpn_switch()`.
 
-Do not manually switch by editing docker-compose — use the API or status dashboard UI.
+The switch performs these steps in order:
+
+1. **Update docker-compose.yaml** — changes `network_mode` and `depends_on` to point
+   Transmission at the new gluetun container
+2. **Stop and remove Transmission** — `docker stop transmission && docker rm transmission`
+3. **Verify target gluetun is running** — aborts if the target VPN container isn't healthy
+4. **Sync peer port** _(added 2026-04-23, commit `fd8ab5c`)_ — reads the forwarded port from
+   `/tmp/gluetun/forwarded_port` inside the target gluetun container via `docker exec`, then
+   writes it directly to `transmission/config/settings.json` while Transmission is stopped.
+   This ensures Transmission starts with the correct peer port for the new VPN automatically.
+5. **Recreate Transmission** — `docker compose up -d transmission` from `/docker-services`
+6. **Wait for Transmission to be ready** — polls RPC endpoint up to 30 seconds
+7. **Update Sonarr/Radarr download client port** — updates the proxy port (9091/9092/9093)
+   so they route to the correct Transmission instance
+8. **Update nginx config and reload** — routes `transmission.camerontora.ca` to the new port
+9. **Update speedtest.json** — marks the new VPN as active
+
+The response includes a `steps_completed` list. After a successful switch, step 4 appears as:
+```
+"Synced Transmission peer-port to 42643 (gluetun forwarded port)"
+```
+
+**Do not manually switch by editing docker-compose** — use the API or status dashboard UI.
+The switch script handles nginx, Sonarr, Radarr, and peer port sync atomically.
