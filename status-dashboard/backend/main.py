@@ -369,6 +369,7 @@ def api_admin_verify():
 # ============== Wiki Q&A ==============
 
 @app.route("/api/wiki-qa", methods=["POST"])
+@require_admin
 def wiki_qa():
     data = request.get_json(silent=True) or {}
     question = (data.get("question") or "").strip()
