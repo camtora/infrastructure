@@ -10,7 +10,7 @@ _Generated: 2026-04-22_
 
 ## Vulnerability 1 — HIGH: Prompt Injection on `/api/wiki-qa` → Infrastructure Exfiltration
 
-**Status: OPEN**  
+**Status: REMEDIATED 2026-04-22**  
 **Surface:** `POST https://status.camerontora.ca/api/wiki-qa`  
 **Auth required:** None — fully public endpoint
 
@@ -69,18 +69,19 @@ service graph, container names, and ports — reconnaissance that enables every 
 in the wiki. Prompt injection against LLMs is well-documented — see OWASP LLM Top 10, LLM01:
 Prompt Injection.
 
-### Fix
+### Fix Applied
 
-Option A — Add authentication:
+Added `@require_admin` decorator to `wiki_qa` in `status-dashboard/backend/main.py` (commit `b7ded41`):
+
 ```python
 @app.route("/api/wiki-qa", methods=["POST"])
-@require_admin          # ← gate behind OAuth
+@require_admin          # ← added
 def wiki_qa():
 ```
 
-Option B — If it must stay public, sanitize the context document so it contains no
-security-sensitive content, and add nginx rate limiting (e.g. `5r/m` per IP). Accept that
-prompt injection cannot be fully prevented by system-prompt instructions alone.
+`require_admin` handles OAuth cookie verification against `health.camerontora.ca/api/admin/whoami`
+with a 24-hour session cache fallback for when the home server is unreachable. Anonymous requests
+now receive `401 {"error": "Admin authentication required"}`. Deployed to Cloud Run via `deploy.sh`.
 
 ---
 
@@ -458,7 +459,7 @@ Adjust the auth path regex to match whatever the Next.js app uses for its login 
 
 | # | Vulnerability | Service | Attack | Severity | Fixed? |
 |---|---|---|---|---|---|
-| 1 | Prompt injection on `/api/wiki-qa` | `status.camerontora.ca` | Extract infra data from wiki | **HIGH** | No |
+| 1 | Prompt injection on `/api/wiki-qa` | `status.camerontora.ca` | Extract infra data from wiki | **HIGH** | **Remediated 2026-04-22** |
 | 2 | Unauthenticated `/api/check` amplification | `status.camerontora.ca` | DoS monitoring + GCP billing | **MED-HIGH** | No |
 | 3 | No rate limit on health endpoints | `health.camerontora.ca` | Blind monitoring, API key brute force | **MEDIUM** | No |
 | 4 | `X-Forwarded-Email` not stripped in catch-all | `health.camerontora.ca` | Latent header injection path | **LATENT** | No |
