@@ -97,38 +97,37 @@ The fail-open branch in `require_api_key` was also removed entirely. Additionall
 
 ## Vulnerability 3 — MEDIUM: Unauthenticated Haymaker Data Injection
 
-**Status: OPEN**
+**Status: REMEDIATED 2026-04-22**
 
-`nginx/conf.d/02-haymaker.conf:66` bypasses OAuth for the Apple Health webhook entirely:
-
-```nginx
-location /api/webhooks/apple-health {
-    proxy_pass http://host.docker.internal:8000/webhooks/apple-health;
-    # No auth_request here — straight through to backend
-}
-```
-
-The backend at port 8000 validates an `X-API-Key` header, but that key is not rotated, has no rate limiting at the nginx layer, and is pure application-layer trust. An attacker can:
+`nginx/conf.d/02-haymaker.conf` bypasses OAuth for the Apple Health webhook and Withings OAuth callback entirely — both are intentionally public, but had no rate limiting at the nginx layer. The backend validates an `X-API-Key` header on the webhook, but with no throttle an attacker could:
 
 - Fuzz the endpoint to determine key format
 - Replay a captured webhook request to inject false health data (steps, weight, sleep, etc.)
-- Flood the endpoint with no rate limiting to exhaust the backend
+- Flood the endpoint to exhaust the backend
 
 **Exposure: MEDIUM — data integrity risk and unauthenticated rate-unlimited endpoint.**
 
-### Fix
+### Fix Applied
 
-Add a rate limit zone for the Apple Health webhook in nginx, consistent with the pattern used on `whosup`:
+Added rate limiting to both unauthenticated public endpoints in `nginx/conf.d/02-haymaker.conf`:
 
 ```nginx
 limit_req_zone $binary_remote_addr zone=haymaker_webhook:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=haymaker_withings:10m rate=5r/m;
+limit_req_status 429;
 
 location /api/webhooks/apple-health {
     limit_req zone=haymaker_webhook burst=5 nodelay;
-    proxy_pass http://host.docker.internal:8000/webhooks/apple-health;
+    ...
+}
+
+location /api/oauth/withings/callback {
+    limit_req zone=haymaker_withings burst=3 nodelay;
     ...
 }
 ```
+
+Returns `429 Too Many Requests` when exceeded. Single legitimate requests from Apple Health or Withings always get through.
 
 ---
 
@@ -138,18 +137,54 @@ location /api/webhooks/apple-health {
 |---|--------------|--------|------|--------|
 | 1 | Direct Flask port + header spoofing → server reboot | **Server reboot** | Easy if port open | **Remediated 2026-04-22** |
 | 2 | API key fail-open | Infra leak + VPN switch | Trivial once triggered | **Remediated 2026-04-22** |
-| 3 | Apple Health webhook — no rate limit | Data injection, DoS | Medium | **Open** |
+| 3 | Apple Health webhook + Withings callback — no rate limit | Data injection, DoS | Medium | **Remediated 2026-04-22** |
+
+---
+
+## What Was Implemented
+
+### Vulnerability 1 — CRITICAL (commit `f4669dc`)
+
+Removed the `ports:` binding from health-api in `docker-compose.yaml` entirely. Previously bound to `0.0.0.0:5000`, allowing Docker's iptables rules to bypass UFW. Now health-api has no published port — nginx reaches it by container name (`http://health-api:5000`) over the shared `infrastructure_default` Docker network. Port 5000 does not appear on the host at all.
+
+Updated `nginx/conf.d/25-health.conf` to use `http://health-api:5000` instead of `http://host.docker.internal:5000`.
+
+### Vulnerability 2 — HIGH (commit `f270abc`)
+
+Two changes to `health-api/app.py`:
+
+1. Added a hard startup failure immediately after reading the env var:
+```python
+API_KEY = os.environ.get("HEALTH_API_KEY", "")
+if not API_KEY:
+    raise RuntimeError("HEALTH_API_KEY must be set — refusing to start without it")
+```
+
+2. Removed the fail-open branch from the `require_api_key` decorator entirely — it now always validates the key.
+
+Also removed the `:-` default from `docker-compose.yaml` (`HEALTH_API_KEY=${HEALTH_API_KEY}` instead of `${HEALTH_API_KEY:-}`) so Docker Compose itself errors if the variable is unset.
+
+### Vulnerability 3 — MEDIUM (commit `c2bea11`)
+
+Added two rate limit zones to `nginx/conf.d/02-haymaker.conf` and applied them to the Apple Health webhook (`10r/m, burst 5`) and Withings OAuth callback (`5r/m, burst 3`). Set `limit_req_status 429` so throttled requests return the correct HTTP status. Applied with a live nginx reload — no container restart required. Verified: single requests pass through, rapid bursts receive 429.
+
+---
 
 ## Verification Steps
 
 ```bash
-# Confirm port 5000 is now localhost-only
+# Vuln 1: Confirm port 5000 is not published on the host
 ss -tlnp | grep 5000
-# Expected: 127.0.0.1:5000
+# Expected: no output
 
-# Confirm health-api rejects missing API key (should fail to start without HEALTH_API_KEY set)
-docker logs health-api | tail -20
+# Vuln 1: Confirm nginx can still reach health-api
+curl -s https://health.camerontora.ca/api/health/ping
+# Expected: {"status":"ok",...}
 
-# Confirm HEALTH_API_KEY is set
-grep HEALTH_API_KEY /home/camerontora/infrastructure/.env
+# Vuln 2: Confirm health-api refuses to start without API key
+docker logs health-api | grep -i "refusing\|error"
+
+# Vuln 3: Confirm rate limiting returns 429 on rapid requests
+for i in {1..10}; do curl -s -o /dev/null -w "%{http_code} " -X POST https://haymaker.camerontora.ca/api/webhooks/apple-health; done
+# Expected: first few 401s, then 429s
 ```
