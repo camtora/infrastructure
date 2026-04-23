@@ -113,7 +113,7 @@ services:
     pid: host
     privileged: true  # Required for server reboot capability
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
@@ -139,7 +139,7 @@ services:
       - /home/camerontora/docker-services:/docker-services
       - /home/camerontora/infrastructure/nginx/conf.d:/nginx-conf
     environment:
-      - HEALTH_API_KEY=${HEALTH_API_KEY:-}
+      - HEALTH_API_KEY=${HEALTH_API_KEY}
       - PLEX_URL=http://host.docker.internal:32400
       - PLEX_TOKEN=${PLEX_TOKEN:-}
       - SPEEDTEST_FILE=/data/speedtest.json

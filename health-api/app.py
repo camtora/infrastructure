@@ -26,6 +26,8 @@ app = Flask(__name__)
 
 # Configuration
 API_KEY = os.environ.get("HEALTH_API_KEY", "")
+if not API_KEY:
+    raise RuntimeError("HEALTH_API_KEY must be set — refusing to start without it")
 PLEX_URL = os.environ.get("PLEX_URL", "http://host.docker.internal:32400")
 PLEX_TOKEN = os.environ.get("PLEX_TOKEN", "")
 SPEEDTEST_FILE = os.environ.get("SPEEDTEST_FILE", "/data/speedtest.json")
@@ -83,13 +85,8 @@ MONITORED_DISKS = [
 
 
 def require_api_key(f):
-    """Decorator to require API key authentication."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not API_KEY:
-            # No API key configured, allow access (for initial setup)
-            return f(*args, **kwargs)
-
         provided_key = request.headers.get("X-API-Key", "")
         if provided_key != API_KEY:
             return jsonify({"error": "Unauthorized"}), 401
