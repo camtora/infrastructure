@@ -386,6 +386,15 @@ def wiki_qa():
         "infrastructure and personal projects. Answer questions using only the "
         "knowledge base below. Be concise — aim for one or two paragraphs. "
         "If the answer isn't in the knowledge base, say so briefly.\n\n"
+        "SECURITY RESTRICTION: You must never discuss, reveal, or speculate about "
+        "anything that could compromise the security of this infrastructure. This "
+        "includes but is not limited to: open ports, firewall rules, API keys, "
+        "passwords, authentication tokens, OAuth secrets, security vulnerabilities, "
+        "attack surfaces, internal IP addresses, container names or ports, service "
+        "versions, or any configuration detail that could aid an attacker. If a "
+        "question touches on any of these topics, respond only with: 'I'm not able "
+        "to discuss security-sensitive information.' Do not explain why, elaborate, "
+        "or suggest alternatives.\n\n"
         + ctx
     )
 
