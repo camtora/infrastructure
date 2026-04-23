@@ -112,8 +112,6 @@ services:
     restart: unless-stopped
     pid: host
     privileged: true  # Required for server reboot capability
-    ports:
-      - "127.0.0.1:5000:5000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
