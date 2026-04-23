@@ -30,16 +30,19 @@ by the health-api VPN switch endpoint or the status dashboard.
 
 ## Why custom WireGuard (not gluetun's built-in PIA provider)
 
-This gluetun version (commit 760fefd, built 2026-03-10) **does not support PIA as a WireGuard
-provider**. The built-in provider list for WireGuard excludes PIA:
-```
-must be one of: airvpn, custom, fastestvpn, ivpn, mullvad, nordvpn, protonvpn, surfshark, windscribe
-```
+PIA WireGuard has **never been supported** as a native gluetun provider and there is no plan
+to add it in the near future. This is not a version limitation — it is an architectural one.
 
-All three gluetun containers therefore use `VPN_SERVICE_PROVIDER=custom` with manually generated
-WireGuard configs. This works but has one important implication: **when PIA decommissions a
-server, the container breaks permanently** until a new config is manually generated for a live
-server.
+gluetun's security model requires that no traffic leave the container before the VPN tunnel
+is established. Setting up PIA WireGuard requires calling PIA's API to fetch credentials
+*before* the tunnel exists — these two requirements are fundamentally incompatible. A PR to
+add support has been open since 2023 (qdm12/gluetun#1836) and remains blocked. The gluetun
+wiki explicitly states: "native WireGuard support for Private Internet Access is not yet available."
+
+The custom provider approach is the **official recommended workaround**. All three gluetun
+containers use `VPN_SERVICE_PROVIDER=custom` with manually generated WireGuard configs.
+The downside: **when PIA decommissions a server, the container breaks permanently** until a
+new config is manually generated for a live server (see regeneration steps below).
 
 ---
 
