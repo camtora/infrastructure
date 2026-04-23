@@ -323,9 +323,18 @@ def get_smart_status(device: str) -> dict:
     return result
 
 
+SYSTEM_DRIVES = ["sda"]  # OS and system drives to always SMART-check
+
+
 def get_all_smart_status() -> list:
-    """Get SMART status for all RAID drives in md1."""
+    """Get SMART status for system drives and all RAID drives in md1."""
     drives = []
+
+    # System drives (OS SSD, etc.)
+    for device in SYSTEM_DRIVES:
+        drives.append(get_smart_status(device))
+
+    # RAID array drives
     try:
         with open("/proc/mdstat", "r") as f:
             mdstat = f.read()
