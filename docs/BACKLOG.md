@@ -32,6 +32,25 @@
   - `health-api/app.py` - Added `/api/health/vpn/switch` endpoint (API key auth)
   - `gcp-monitor/main.py` - Added `check_vpn_and_failover()` and `trigger_failover()`
 
+## VPN Improvements
+
+### Alert on Backup VPN Health
+- **Status:** Future enhancement
+- **Description:** gcp-monitor currently only alerts when the **active** VPN is unhealthy.
+  Backup VPNs (e.g. toronto) can enter a crash loop silently — you only notice when you try
+  to fail over to them and it fails. Add monitoring for all three gluetun containers so a
+  dead backup triggers a Discord alert immediately.
+- **Implementation notes:**
+  - `gcp-monitor/main.py` `check_vpn_health()` line 281: remove `and is_active` condition
+    for container crash-loop detection (keep it for speedtest-based unhealthy alerts to avoid
+    noise from intentionally stopped backups)
+  - Better: check gluetun HTTP health server at `host.docker.internal:8090/8091/8092` — returns
+    non-200 when container is in a restart loop regardless of speedtest data
+  - Alert severity: minor (backup down) vs major (active down)
+- **Context:** toronto433 was decommissioned by PIA on 2026-04-23; container was in a crash
+  loop for an unknown period before manual discovery. See `docs/VPN-SETUP.md` for the
+  regeneration runbook.
+
 ## Alerting Improvements
 
 ### Outage Severity Levels
@@ -153,7 +172,7 @@
 - Fixed: Port forwarding not configured
   - Root cause: `peer-port: 46755`, `port-forwarding-enabled: false` — Transmission wasn't using gluetun's forwarded port
   - Fix: Set `peer-port: 40707` (matches gluetun's PIA-assigned forwarded port) and `port-forwarding-enabled: true`
-  - Note: Port 40707 is PIA-assigned and renews periodically; if gluetun gets a new port, settings.json needs updating
+  - Note: Port 40707 is PIA-assigned and renews periodically; if gluetun gets a new port, settings.json needs updating (fixed 2026-04-23 — VPN switch now syncs peer port automatically, see `health-api/app.py` `_do_vpn_switch()`)
   - File: `/home/camerontora/docker-services/transmission/config/settings.json`
 
 ### VPN Switch Sonarr/Radarr Update Order (2026-01-16)
