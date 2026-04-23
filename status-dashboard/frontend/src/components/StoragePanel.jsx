@@ -30,7 +30,73 @@ export function StoragePanel({ storage }) {
   )
 }
 
+function SystemSSDCard({ array }) {
+  const hasWarning = array.warnings?.length > 0
+  const statusColor = array.status === 'healthy' ? 'bg-emerald-400'
+    : array.status === 'warning' ? 'bg-amber-400' : 'bg-red-400'
+  const textColor = array.status === 'healthy' ? 'text-emerald-400'
+    : array.status === 'warning' ? 'text-amber-400' : 'text-red-400'
+  const ageYears = array.power_on_hours
+    ? Math.round(array.power_on_hours / 24 / 365 * 10) / 10
+    : null
+
+  return (
+    <div class="p-4 rounded-lg bg-white/5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-3">
+          <span class={`w-2.5 h-2.5 rounded-full ${statusColor}`}></span>
+          <div>
+            <span class="text-white font-medium">/dev/{array.device}</span>
+            <span class="text-white/40 text-xs ml-2">OS SSD</span>
+          </div>
+        </div>
+        <span class={`text-sm font-medium ${textColor}`}>
+          {array.smart_status || array.status}
+        </span>
+      </div>
+
+      <div class="flex items-center gap-4 text-xs text-white/50 mb-3">
+        {array.model && <span class="truncate max-w-[200px]">{array.model}</span>}
+        {array.temperature !== undefined && (
+          <span class={array.temperature > 50 ? 'text-amber-400' : ''}>{array.temperature}°C</span>
+        )}
+        {ageYears !== null && <span>{ageYears} yr</span>}
+      </div>
+
+      {array.usage_percent !== undefined && (
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-white/40">{array.mount_point}</span>
+            <span class={array.usage_percent >= 85 ? 'text-red-400' : 'text-white/50'}>
+              {array.usage_percent}% used
+            </span>
+          </div>
+          <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              class={`h-full rounded-full transition-all duration-500 ${
+                array.usage_percent >= 85 ? 'bg-red-400' :
+                array.usage_percent >= 70 ? 'bg-amber-400' : 'bg-emerald-400'
+              }`}
+              style={{ width: `${array.usage_percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {hasWarning && (
+        <div class="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/30">
+          {array.warnings.map((w, i) => (
+            <p key={i} class="text-xs text-amber-300">{w}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ArrayCard({ array, drives }) {
+  if (array.type === 'system_ssd') return <SystemSSDCard array={array} />
+
   const [showDrives, setShowDrives] = useState(false)
 
   const statusColors = {

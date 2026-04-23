@@ -327,14 +327,8 @@ SYSTEM_DRIVES = ["sda"]  # OS and system drives to always SMART-check
 
 
 def get_all_smart_status() -> list:
-    """Get SMART status for system drives and all RAID drives in md1."""
+    """Get SMART status for all RAID drives in md1."""
     drives = []
-
-    # System drives (OS SSD, etc.)
-    for device in SYSTEM_DRIVES:
-        drives.append(get_smart_status(device))
-
-    # RAID array drives
     try:
         with open("/proc/mdstat", "r") as f:
             mdstat = f.read()
@@ -357,6 +351,38 @@ def get_storage_status():
     """Get RAID array and storage mount status."""
     arrays = []
     overall_status = "healthy"
+
+    # System SSDs (shown first)
+    for device in SYSTEM_DRIVES:
+        smart = get_smart_status(device)
+        status = "healthy"
+        if smart.get("smart_status") == "FAILED":
+            status = "failed"
+            overall_status = "failed"
+        elif smart.get("warnings"):
+            status = "warning"
+            if overall_status == "healthy":
+                overall_status = "warning"
+
+        ssd_entry = {
+            "name": f"{device.upper()} (OS SSD)",
+            "device": device,
+            "type": "system_ssd",
+            "mount_point": "/",
+            "mounted": os.path.ismount("/hostfs/root"),
+            "status": status,
+            "smart_status": smart.get("smart_status"),
+            "model": smart.get("model"),
+            "temperature": smart.get("temperature"),
+            "power_on_hours": smart.get("power_on_hours"),
+            "warnings": smart.get("warnings", []),
+        }
+        try:
+            usage = psutil.disk_usage("/hostfs/root")
+            ssd_entry["usage_percent"] = round(usage.percent, 1)
+        except (OSError, FileNotFoundError):
+            pass
+        arrays.append(ssd_entry)
 
     # Parse /proc/mdstat for software RAID
     try:
