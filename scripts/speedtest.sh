@@ -32,6 +32,7 @@ parse_speedtest() {
     download_bps=$(echo "$output" | jq -r '.download.bandwidth // 0')
     upload_bps=$(echo "$output" | jq -r '.upload.bandwidth // 0')
     ping_ms=$(echo "$output" | jq -r '.ping.latency // 0')
+    jitter_ms=$(echo "$output" | jq -r '.ping.jitter // 0')
     server_name=$(echo "$output" | jq -r '.server.name // "Unknown"')
     server_location=$(echo "$output" | jq -r '.server.location // "Unknown"')
 
@@ -40,7 +41,7 @@ parse_speedtest() {
     download_mbps=$(echo "scale=2; $download_bps / 125000" | bc)
     upload_mbps=$(echo "scale=2; $upload_bps / 125000" | bc)
 
-    echo "{\"download\": $download_mbps, \"upload\": $upload_mbps, \"ping\": $ping_ms, \"server\": \"$server_name\", \"location\": \"$server_location\"}"
+    echo "{\"download\": $download_mbps, \"upload\": $upload_mbps, \"ping\": $ping_ms, \"jitter\": $jitter_ms, \"server\": \"$server_name\", \"location\": \"$server_location\"}"
 }
 
 # Run home speedtest (local CLI)

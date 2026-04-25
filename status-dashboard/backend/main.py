@@ -295,12 +295,12 @@ def api_history():
     """
     Get historical status data.
     Query params:
-      - hours: number of hours to look back (default 24, max 168)
+      - hours: number of hours to look back (default 24, max 720 for 30 days)
       - service: specific service name to get uptime stats for
     """
     try:
         hours = request.args.get('hours', 24, type=int)
-        hours = min(max(hours, 1), 168)  # Clamp to 1-168 hours
+        hours = min(max(hours, 1), 720)  # Clamp to 1-720 hours (30 days)
 
         service_name = request.args.get('service')
 

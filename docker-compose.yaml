@@ -127,6 +127,7 @@ services:
       - /dev/shm:/hostfs/shm:ro
       - /CAMRAID:/hostfs/CAMRAID:ro
       - /HOMENAS:/hostfs/HOMENAS:ro
+      - /GAMES:/hostfs/GAMES:ro
       # Mount /proc for CPU/memory stats
       - /proc:/host/proc:ro
       # Block devices for SMART monitoring

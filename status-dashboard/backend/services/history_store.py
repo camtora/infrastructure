@@ -97,7 +97,7 @@ def get_status_history(hours: int = 24) -> list[dict[str, Any]]:
     Get status history for the specified time range.
 
     Args:
-        hours: Number of hours to look back (default 24, max 168 for 7 days)
+        hours: Number of hours to look back (default 24, max 720 for 30 days)
 
     Returns:
         List of status snapshots, oldest first
@@ -109,7 +109,7 @@ def get_status_history(hours: int = 24) -> list[dict[str, Any]]:
     try:
         # Calculate time range
         now = datetime.now(timezone.utc)
-        start_time = now - timedelta(hours=min(hours, 168))
+        start_time = now - timedelta(hours=min(hours, 720))
 
         # Query Firestore
         query = (
@@ -181,7 +181,7 @@ def get_service_uptime(service_name: str, hours: int = 24) -> dict[str, Any]:
     }
 
 
-def cleanup_old_data(days_to_keep: int = 7) -> int:
+def cleanup_old_data(days_to_keep: int = 30) -> int:
     """
     Delete status snapshots older than specified days.
 

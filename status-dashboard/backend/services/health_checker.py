@@ -217,15 +217,24 @@ def run_health_check() -> dict[str, Any]:
         for mount, info in disk_data.items():
             disks_array.append({
                 "mount": mount,
-                "total": info.get("total_gb", 0) * (1024**3) if info.get("total_gb") else None,
-                "used": info.get("used_gb", 0) * (1024**3) if info.get("used_gb") else None,
-                "free": info.get("free_gb", 0) * (1024**3) if info.get("free_gb") else None,
+                "total": info["total_gb"] * (1024**3) if info.get("total_gb") is not None else None,
+                "used":  info["used_gb"]  * (1024**3) if info.get("used_gb")  is not None else None,
+                "free":  info["free_gb"]  * (1024**3) if info.get("free_gb")  is not None else None,
                 "percent": info.get("percent"),
             })
 
         results["metrics"] = {
             "cpu": {"percent": data.get("cpu_percent")},
-            "memory": {"percent": data.get("memory", {}).get("percent")},
+            "cpu_temps": data.get("cpu_temps"),
+            "memory": {
+                "percent":       data.get("memory", {}).get("percent"),
+                "used_gb":       data.get("memory", {}).get("used_gb"),
+                "total_gb":      data.get("memory", {}).get("total_gb"),
+                "available_gb":  data.get("memory", {}).get("available_gb"),
+                "swap_percent":  data.get("memory", {}).get("swap_percent"),
+                "swap_used_gb":  data.get("memory", {}).get("swap_used_gb"),
+                "swap_total_gb": data.get("memory", {}).get("swap_total_gb"),
+            },
             "load": {
                 "load_1m": data.get("load", {}).get("load_1m"),
                 "load_5m": data.get("load", {}).get("load_5m"),

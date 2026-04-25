@@ -79,8 +79,9 @@ MONITORED_DISKS = [
     ("/var", "/hostfs/var"),
     ("/tmp", "/hostfs/tmp"),
     ("/dev (RAM)", "/hostfs/shm"),
-    ("/CAMRAID", "/hostfs/CAMRAID"),
     ("/HOMENAS", "/hostfs/HOMENAS"),
+    ("/CAMRAID", "/hostfs/CAMRAID"),
+    ("/GAMES", "/hostfs/GAMES"),
 ]
 
 
@@ -100,13 +101,17 @@ def get_cpu_percent():
 
 
 def get_memory_info():
-    """Get memory usage information."""
-    mem = psutil.virtual_memory()
+    """Get memory and swap usage information."""
+    mem  = psutil.virtual_memory()
+    swap = psutil.swap_memory()
     return {
         "percent": mem.percent,
         "used_gb": round(mem.used / (1024**3), 1),
         "total_gb": round(mem.total / (1024**3), 1),
         "available_gb": round(mem.available / (1024**3), 1),
+        "swap_percent": swap.percent,
+        "swap_used_gb": round(swap.used / (1024**3), 1),
+        "swap_total_gb": round(swap.total / (1024**3), 1),
     }
 
 
@@ -246,6 +251,8 @@ def parse_mdstat_array(mdstat: str, device: str, name: str, mount_point: str) ->
         try:
             usage = psutil.disk_usage(f"/hostfs{mount_point}")
             array["usage_percent"] = round(usage.percent, 1)
+            array["free_gb"]  = round(usage.free  / (1024**3), 2)
+            array["total_gb"] = round(usage.total / (1024**3), 2)
         except (OSError, FileNotFoundError):
             pass
 
@@ -285,8 +292,8 @@ def get_smart_status(device: str) -> dict:
         if serial_match:
             result["serial"] = serial_match.group(1).strip()
 
-        # Parse temperature - RAW_VALUE is after the last '-' on the line
-        temp_match = re.search(r"Temperature_Celsius.*-\s+(\d+)", output)
+        # Parse temperature - some drives use Airflow_Temperature_Cel (e.g. Samsung SSDs)
+        temp_match = re.search(r"(?:Temperature_Celsius|Airflow_Temperature_Cel).*-\s+(\d+)", output)
         if temp_match:
             result["temperature"] = int(temp_match.group(1))
 
@@ -323,7 +330,59 @@ def get_smart_status(device: str) -> dict:
     return result
 
 
-SYSTEM_DRIVES = ["sda"]  # OS and system drives to always SMART-check
+# Single drives to always SMART-check, keyed by device name
+SYSTEM_DRIVES = {
+    "sda": {"name": "SDA (OS SSD)", "type": "system_ssd", "mount": "/"},
+    "sdb": {"name": "GAMES",        "type": "single_disk", "mount": "/GAMES"},
+}
+
+
+def get_cpu_temps() -> dict | None:
+    """Get CPU temperatures from lm_sensors coretemp."""
+    try:
+        proc = subprocess.run(
+            ["sensors"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        output = proc.stdout
+        result = {"package": None, "cores": []}
+        in_coretemp = False
+        for line in output.splitlines():
+            if "coretemp" in line.lower():
+                in_coretemp = True
+                continue
+            if in_coretemp and not line.strip():
+                in_coretemp = False
+                continue
+            if not in_coretemp:
+                continue
+            pkg = re.match(
+                r"Package id \d+:\s+\+([\d.]+)°C.*?high = \+([\d.]+).*?crit = \+([\d.]+)",
+                line,
+            )
+            if pkg:
+                result["package"] = {
+                    "temp": float(pkg.group(1)),
+                    "high": float(pkg.group(2)),
+                    "crit": float(pkg.group(3)),
+                }
+                continue
+            core = re.match(
+                r"Core (\d+):\s+\+([\d.]+)°C.*?high = \+([\d.]+).*?crit = \+([\d.]+)",
+                line,
+            )
+            if core:
+                result["cores"].append({
+                    "id": int(core.group(1)),
+                    "temp": float(core.group(2)),
+                    "high": float(core.group(3)),
+                    "crit": float(core.group(4)),
+                })
+        return result if result["package"] else None
+    except Exception:
+        return None
 
 
 def get_all_smart_status() -> list:
@@ -347,13 +406,26 @@ def get_all_smart_status() -> list:
     return drives
 
 
+def _apply_capacity_thresholds(array: dict, current_overall: str):
+    """Apply 1TB/2TB free space thresholds to an array entry, upgrading status if needed."""
+    free_gb = array.get("free_gb")
+    if free_gb is None:
+        return
+    if free_gb <= 1024:  # ≤1TB free → critical/red
+        if array["status"] not in ("degraded", "failed"):
+            array["status"] = "critical"
+    elif free_gb <= 2048:  # ≤2TB free → warning
+        if array["status"] == "healthy":
+            array["status"] = "warning"
+
+
 def get_storage_status():
     """Get RAID array and storage mount status."""
     arrays = []
     overall_status = "healthy"
 
-    # System SSDs (shown first)
-    for device in SYSTEM_DRIVES:
+    # Single drives (OS SSD, GAMES HDD, etc.) — shown first
+    for device, info in SYSTEM_DRIVES.items():
         smart = get_smart_status(device)
         status = "healthy"
         if smart.get("smart_status") == "FAILED":
@@ -364,12 +436,13 @@ def get_storage_status():
             if overall_status == "healthy":
                 overall_status = "warning"
 
-        ssd_entry = {
-            "name": f"{device.upper()} (OS SSD)",
+        mount_host = f"/hostfs{info['mount']}" if info['mount'] != "/" else "/hostfs/root"
+        entry = {
+            "name": info["name"],
             "device": device,
-            "type": "system_ssd",
-            "mount_point": "/",
-            "mounted": os.path.ismount("/hostfs/root"),
+            "type": info["type"],
+            "mount_point": info["mount"],
+            "mounted": os.path.ismount(mount_host),
             "status": status,
             "smart_status": smart.get("smart_status"),
             "model": smart.get("model"),
@@ -378,11 +451,13 @@ def get_storage_status():
             "warnings": smart.get("warnings", []),
         }
         try:
-            usage = psutil.disk_usage("/hostfs/root")
-            ssd_entry["usage_percent"] = round(usage.percent, 1)
+            usage = psutil.disk_usage(mount_host)
+            entry["usage_percent"] = round(usage.percent, 1)
+            entry["free_gb"]  = round(usage.free  / (1024**3), 2)
+            entry["total_gb"] = round(usage.total / (1024**3), 2)
         except (OSError, FileNotFoundError):
             pass
-        arrays.append(ssd_entry)
+        arrays.append(entry)
 
     # Parse /proc/mdstat for software RAID
     try:
@@ -392,10 +467,12 @@ def get_storage_status():
         # Parse md1 (HOMENAS - Plex media, critical)
         if "md1" in mdstat:
             array = parse_mdstat_array(mdstat, "md1", "HOMENAS", "/HOMENAS")
-            arrays.append(array)
-            # HOMENAS is critical - propagate its status to overall
-            if array["status"] in ("degraded", "failed"):
+            _apply_capacity_thresholds(array, overall_status)
+            if array["status"] in ("degraded", "failed", "critical"):
                 overall_status = array["status"]
+            elif array["status"] == "warning" and overall_status == "healthy":
+                overall_status = "warning"
+            arrays.append(array)
     except Exception as e:
         app.logger.error(f"Failed to read mdstat: {e}")
 
@@ -409,13 +486,17 @@ def get_storage_status():
         "mounted": camraid_mounted,
         "status": "healthy" if camraid_mounted else "unmounted",
     }
-    # Add usage if mounted
     if camraid_mounted:
         try:
             usage = psutil.disk_usage("/hostfs/CAMRAID")
             camraid["usage_percent"] = round(usage.percent, 1)
+            camraid["free_gb"]  = round(usage.free  / (1024**3), 2)
+            camraid["total_gb"] = round(usage.total / (1024**3), 2)
         except (OSError, FileNotFoundError):
             pass
+        _apply_capacity_thresholds(camraid, overall_status)
+        if camraid["status"] in ("critical", "warning") and overall_status == "healthy":
+            overall_status = camraid["status"]
     arrays.append(camraid)
 
     # Get SMART status for all RAID drives
@@ -611,6 +692,7 @@ def health():
     return jsonify({
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "cpu_percent": get_cpu_percent(),
+        "cpu_temps": get_cpu_temps(),
         "load": get_load_average(),
         "memory": get_memory_info(),
         "disk": get_disk_info(),
