@@ -29,7 +29,7 @@ md1 : active raid5 sdi[6] sdj[1] sdd[0] sdc[3] sdf[4] sde[5] sdh[8] sdg[7]
 | `/home` | /dev/sda6 | 72G | 59G | 9.5G | **87%** | ⚠ Getting full |
 | `/CAMRAID` | /dev/sdk2 | 17T | 9.3T | 6.3T | 60% | OK |
 | `/HOMENAS` | /dev/md1 | 102T | 92T | 6.1T | **94%** | ⚠ Nearly full — plan expansion or cleanup |
-| `/BACKUP` | /dev/sdb1 | 234G | 25G | 198G | 11% | Old server disk from Oct 2022 — see below |
+| `/GAMES` | /dev/sdb1 | 234G | 25G | 198G | 11% | Old server disk from Oct 2022, repurposed as games drive 2026-04-25 — see below |
 | `/dev/shm` | tmpfs | 16G | 581M | 16G | 4% | OK |
 
 ---
@@ -41,7 +41,7 @@ md1 : active raid5 sdi[6] sdj[1] sdd[0] sdc[3] sdf[4] sde[5] sdh[8] sdg[7]
 | Disk | Model | Serial | Capacity | Hours | Temp | Reallocated | Pending | Uncorrectable | Notes |
 |------|-------|--------|----------|-------|------|-------------|---------|---------------|-------|
 | sda | Samsung 860 PRO 256GB | S418NF0K600489M | 256 GB | 62,889 (~7.2 yr) | 36°C | 0 | — | 0 | OS drive |
-| sdb | Samsung 860 PRO 256GB | S5GANE0N108314D | 256 GB | 51,388 (~5.9 yr) | 34°C | 0 | — | 0 | Mounted at `/BACKUP` — old server disk, see below |
+| sdb | Samsung 860 PRO 256GB | S5GANE0N108314D | 256 GB | 51,388 (~5.9 yr) | 34°C | 0 | — | 0 | Mounted at `/GAMES` (was `/BACKUP`) — repurposed as games drive 2026-04-25 |
 
 **Note on sda:** 62,889 hours is getting up there for an SSD. Samsung 860 PRO has 1.2 PB endurance rating so it's likely fine, but it's worth monitoring write endurance values going forward.
 
@@ -51,9 +51,9 @@ Contents:
 - `Desktop/` — old Linux desktop files (2019–2022): notes, screenshots, personal docs, a Plex preroll video
 - `Plex Media Server/` — old Plex app data (cache, metadata, logs, preferences)
 - `Tautulli/` — old Tautulli watch history DB (~170MB, covers up to Oct 2022)
-- **⚠ Sensitive files still present:** `/BACKUP/Desktop/metamask recovery phrase` and `/BACKUP/Desktop/MEGA-RECOVERYKEY.txt` — plaintext credential files. Review and securely delete or move these.
+- **⚠ Sensitive files still present:** `/GAMES/Desktop/metamask recovery phrase` and `/GAMES/Desktop/MEGA-RECOVERYKEY.txt` — plaintext credential files. Review and securely delete or move these.
 
-The disk was permanently mounted at `/BACKUP` via fstab (UUID-based, `nofail`, 5s device timeout — boot-safe). 25G used, 198G free.
+The disk was originally mounted at `/BACKUP` via fstab, then remounted at `/GAMES` on 2026-04-25 to repurpose as a games drive (UUID-based, `nofail`, 5s device timeout — boot-safe). 25G used, 198G free.
 
 **FTP context:** `vsftpd` is installed and configured (serves `/CAMRAID` as root, SSL enabled, whitelist-only via `/etc/vsftpd.userlist`). Users `camftp` and `grahamftp` are in the whitelist but neither account exists in the current `/etc/passwd` — they were from the old system. **vsftpd is currently broken** — has been failing since 2026-04-12 with `INVALIDARGUMENT`. Needs investigation before FTP is usable again.
 
@@ -121,7 +121,7 @@ Steps:
 | Medium | /home at 87% (9.5G free) | Identify what's consuming space: `du -sh /home/camerontora/*` |
 | ~~Low~~ | ~~sdh negotiating SATA at 3.0 Gb/s~~ | ✅ Resolved 2026-04-25 — cable replaced, now 6.0 Gb/s |
 | Low | sda at 62,889 hours (~7.2 yr) | Monitor; consider having a spare SSD on hand |
-| High | Sensitive plaintext files on /BACKUP | Review/delete `/BACKUP/Desktop/metamask recovery phrase` and `/BACKUP/Desktop/MEGA-RECOVERYKEY.txt` |
+| High | Sensitive plaintext files on /GAMES | Review/delete `/GAMES/Desktop/metamask recovery phrase` and `/GAMES/Desktop/MEGA-RECOVERYKEY.txt` |
 | Medium | vsftpd broken since 2026-04-12 | Investigate `INVALIDARGUMENT` failure — check logs, likely a config/cert issue |
 | Low | camftp/grahamftp in vsftpd.userlist but not in /etc/passwd | Decide whether to recreate these users or remove them from the whitelist |
 | Low | sdk hardware RAID opacity | No immediate action needed; be aware if controller shows issuesdi |
