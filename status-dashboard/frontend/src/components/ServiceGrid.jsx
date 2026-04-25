@@ -10,8 +10,7 @@ export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
     <div class="space-y-10">
       {publicServices.length > 0 && (
         <section>
-          <h2 class="text-sm font-medium text-white/50 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <h2 class="text-lg font-medium text-white mb-4 text-center">
             Public Services
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -24,10 +23,8 @@ export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
 
       {protectedServices.length > 0 && (
         <section>
-          <h2 class="text-sm font-medium text-white/50 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+          <h2 class="text-lg font-medium text-white mb-4 text-center">
             Protected Services
-            <span class="text-xs font-normal text-white/30 normal-case tracking-normal">(require login)</span>
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {protectedServices.map(service => (
@@ -39,8 +36,7 @@ export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
 
       {apiServices.length > 0 && (
         <section>
-          <h2 class="text-sm font-medium text-white/50 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <h2 class="text-lg font-medium text-white mb-4 text-center">
             API Services
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

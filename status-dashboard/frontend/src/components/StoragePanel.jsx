@@ -1,70 +1,100 @@
 import { useState } from 'preact/hooks'
 
-export function StoragePanel({ storage }) {
+function fmtFree(gb) {
+  if (gb == null) return null
+  return gb >= 1000 ? `${(gb / 1024).toFixed(1)} TB free` : `${gb.toFixed(1)} GB free`
+}
+
+// Maps storage array device names to Netdata disk_util chart keys
+const DEVICE_TO_NETDATA = {
+  'md1': 'md1',   // HOMENAS software RAID
+  'sdk': 'sdk',   // CAMRAID hardware RAID
+  'sda': 'sda',   // OS SSD
+  'sdb': 'sdb',   // GAMES HDD
+}
+
+export function StoragePanel({ storage, diskUtil }) {
   if (!storage?.arrays?.length) return null
 
-  const overallHealthy = storage.status === 'healthy'
-  const statusLabel = storage.status === 'warning' ? 'Warning' : storage.status.toUpperCase()
+  const drives = storage.drives || []
+  const ssds   = storage.arrays.filter(a => a.type === 'system_ssd' || a.type === 'single_disk')
+  const raids   = storage.arrays
+    .filter(a => a.type === 'raid5' || a.type === 'hardware_raid')
+    .sort((a, b) => (a.type === 'hardware_raid' ? -1 : 1))
+
+  const panelStatus = (arrays) => {
+    if (arrays.some(a => a.status === 'failed'))   return 'failed'
+    if (arrays.some(a => a.status === 'degraded' || a.status === 'warning')) return 'warning'
+    return 'healthy'
+  }
+
+  return (
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <StorageSubPanel title="Drives" arrays={ssds} drives={drives} diskUtil={diskUtil} status={panelStatus(ssds)} />
+      <StorageSubPanel title="Arrays" arrays={raids} drives={drives} diskUtil={diskUtil} status={panelStatus(raids)} />
+    </div>
+  )
+}
+
+function StorageSubPanel({ title, arrays, drives, diskUtil, status }) {
+  const statusBadge = status === 'healthy'
+    ? 'bg-emerald-500/20 text-emerald-400'
+    : status === 'warning'
+      ? 'bg-amber-500/20 text-amber-400'
+      : 'bg-red-500/20 text-red-400'
 
   return (
     <div class="glass-card p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-medium text-white">Storage Arrays</h2>
-        <span class={`text-xs px-2 py-1 rounded-full ${
-          overallHealthy
-            ? 'bg-emerald-500/20 text-emerald-400'
-            : storage.status === 'warning'
-              ? 'bg-amber-500/20 text-amber-400'
-              : 'bg-red-500/20 text-red-400'
-        }`}>
-          {overallHealthy ? 'All Healthy' : statusLabel}
-        </span>
-      </div>
-
+      <h2 class="text-lg font-medium text-white mb-4 text-center">{title}</h2>
       <div class="space-y-4">
-        {storage.arrays.map(array => (
-          <ArrayCard key={array.name} array={array} drives={storage.drives || []} />
+        {arrays.map(array => (
+          <ArrayCard key={array.name} array={array} drives={drives} diskUtil={diskUtil} />
         ))}
       </div>
     </div>
   )
 }
 
-function SystemSSDCard({ array }) {
+// Used for single physical drives: OS SSD (sda), GAMES HDD (sdb)
+function SingleDriveCard({ array, diskUtil }) {
   const hasWarning = array.warnings?.length > 0
-  const statusColor = array.status === 'healthy' ? 'bg-emerald-400'
+  const statusColor = array.status === 'healthy' ? 'bg-violet-400'
     : array.status === 'warning' ? 'bg-amber-400' : 'bg-red-400'
-  const textColor = array.status === 'healthy' ? 'text-emerald-400'
+  const textColor = array.status === 'healthy' ? 'text-violet-400'
     : array.status === 'warning' ? 'text-amber-400' : 'text-red-400'
   const ageYears = array.power_on_hours
     ? Math.round(array.power_on_hours / 24 / 365 * 10) / 10
     : null
 
   return (
-    <div class="p-4 rounded-lg bg-white/5">
+    <div class="p-4 rounded-lg bg-white/5 hover:bg-white/[0.08] transition-colors duration-200">
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-3">
-          <span class={`w-2.5 h-2.5 rounded-full ${statusColor}`}></span>
           <div>
-            <span class="text-white font-medium">/dev/{array.device}</span>
-            <span class="text-white/40 text-xs ml-2">OS SSD</span>
+            <span class="text-sm font-medium text-white">{array.name}</span>
+            <span class="text-white/40 text-xs ml-2">/dev/{array.device}</span>
           </div>
         </div>
-        <span class={`text-sm font-medium ${textColor}`}>
-          {array.smart_status || array.status}
+        <span class={`text-xs ${
+          array.status === 'healthy' ? 'text-violet-400' :
+          array.status === 'warning' ? 'text-amber-400' :
+          'text-red-400'
+        }`}>
+          {array.status.charAt(0).toUpperCase() + array.status.slice(1)}
         </span>
       </div>
 
       <div class="flex items-center gap-4 text-xs text-white/50 mb-3">
         {array.model && <span class="truncate max-w-[200px]">{array.model}</span>}
-        {array.temperature !== undefined && (
+        {array.temperature !== undefined && array.temperature !== null && (
           <span class={array.temperature > 50 ? 'text-amber-400' : ''}>{array.temperature}°C</span>
         )}
         {ageYears !== null && <span>{ageYears} yr</span>}
+        {fmtFree(array.free_gb) && <span class="text-white/30 ml-auto">{fmtFree(array.free_gb)}</span>}
       </div>
 
       {array.usage_percent !== undefined && (
-        <div>
+        <div class="mb-1">
           <div class="flex justify-between text-xs mb-1">
             <span class="text-white/40">{array.mount_point}</span>
             <span class={array.usage_percent >= 85 ? 'text-red-400' : 'text-white/50'}>
@@ -75,7 +105,7 @@ function SystemSSDCard({ array }) {
             <div
               class={`h-full rounded-full transition-all duration-500 ${
                 array.usage_percent >= 85 ? 'bg-red-400' :
-                array.usage_percent >= 70 ? 'bg-amber-400' : 'bg-emerald-400'
+                array.usage_percent >= 70 ? 'bg-amber-400' : 'bg-white/50'
               }`}
               style={{ width: `${array.usage_percent}%` }}
             />
@@ -94,23 +124,26 @@ function SystemSSDCard({ array }) {
   )
 }
 
-function ArrayCard({ array, drives }) {
-  if (array.type === 'system_ssd') return <SystemSSDCard array={array} />
+function ArrayCard({ array, drives, diskUtil }) {
+  if (array.type === 'system_ssd' || array.type === 'single_disk') {
+    return <SingleDriveCard array={array} diskUtil={diskUtil} />
+  }
 
   const [showDrives, setShowDrives] = useState(false)
 
   const statusColors = {
-    healthy: { bg: 'bg-emerald-400', text: 'text-emerald-400' },
-    warning: { bg: 'bg-amber-400', text: 'text-amber-400' },
-    degraded: { bg: 'bg-amber-400', text: 'text-amber-400' },
-    rebuilding: { bg: 'bg-amber-400', text: 'text-amber-400' },
-    failed: { bg: 'bg-red-400', text: 'text-red-400' },
-    unmounted: { bg: 'bg-red-400', text: 'text-red-400' },
-    unknown: { bg: 'bg-white/20', text: 'text-white/40' }
+    healthy:   { bg: 'bg-violet-400',   text: 'text-violet-400' },
+    warning:   { bg: 'bg-amber-400',   text: 'text-amber-400' },
+    degraded:  { bg: 'bg-amber-400',   text: 'text-amber-400' },
+    rebuilding:{ bg: 'bg-amber-400',   text: 'text-amber-400' },
+    critical:  { bg: 'bg-red-400',     text: 'text-red-400' },
+    failed:    { bg: 'bg-red-400',     text: 'text-red-400' },
+    unmounted: { bg: 'bg-red-400',     text: 'text-red-400' },
+    unknown:   { bg: 'bg-white/20',    text: 'text-white/40' }
   }
 
   const colors = statusColors[array.status] || statusColors.unknown
-  const isCritical = array.name === 'HOMENAS' && array.status !== 'healthy'
+  const isCritical = (array.name === 'HOMENAS' || array.name === 'CAMRAID') && ['degraded','failed','critical'].includes(array.status)
 
   // For software RAID, show the individual drives
   const arrayDrives = array.type === 'raid5' ? drives : []
@@ -118,24 +151,23 @@ function ArrayCard({ array, drives }) {
   const allDrivesHealthy = arrayDrives.length > 0 && arrayDrives.every(d => d.smart_status === 'PASSED' && !d.warnings?.length)
 
   return (
-    <div class={`p-4 rounded-lg bg-white/5 ${isCritical ? 'ring-2 ring-red-500/50' : ''}`}>
+    <div class={`p-4 rounded-lg bg-white/5 hover:bg-white/[0.08] transition-colors duration-200 ${isCritical ? 'ring-2 ring-red-500/50' : ''}`}>
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-3">
-          <span class={`w-2.5 h-2.5 rounded-full ${colors.bg}`}></span>
           <div>
-            <span class="text-white font-medium">{array.name}</span>
+            <span class="text-sm font-medium text-white">{array.name}</span>
             <span class="text-white/40 text-xs ml-2">/{array.device}</span>
           </div>
         </div>
-        <div class="text-right">
-          <span class={`text-sm font-medium ${colors.text}`}>
+        <div class="flex items-center gap-2">
+          {array.sync_status && (
+            <span class="text-xs text-white/30 font-mono">{array.sync_status}</span>
+          )}
+          <span class={`text-xs ${colors.text}`}>
             {array.status === 'rebuilding'
               ? `Rebuilding ${array.rebuild_progress}%`
               : array.status.charAt(0).toUpperCase() + array.status.slice(1)}
           </span>
-          {array.sync_status && (
-            <span class="text-xs text-white/30 ml-2 font-mono">{array.sync_status}</span>
-          )}
         </div>
       </div>
 
@@ -144,42 +176,45 @@ function ArrayCard({ array, drives }) {
         <div class="flex items-center gap-4 text-xs text-white/50 mb-3">
           <span>RAID5</span>
           <span>{array.active_devices}/{array.total_devices} drives</span>
-          <span class={array.mounted ? 'text-emerald-400' : 'text-red-400'}>
+          <span class={array.mounted ? 'text-white/60' : 'text-red-400'}>
             {array.mounted ? 'Mounted' : 'Not Mounted'}
           </span>
+          {fmtFree(array.free_gb) && <span class="text-white/30 ml-auto">{fmtFree(array.free_gb)}</span>}
         </div>
       )}
 
-      {/* Hardware RAID - just show mount status */}
       {array.type === 'hardware_raid' && (
         <div class="flex items-center gap-4 text-xs text-white/50 mb-3">
           <span>Hardware RAID</span>
-          <span class={array.mounted ? 'text-emerald-400' : 'text-red-400'}>
+          <span class={array.mounted ? 'text-white/60' : 'text-red-400'}>
             {array.mounted ? 'Mounted' : 'Not Mounted'}
           </span>
+          {fmtFree(array.free_gb) && <span class="text-white/30 ml-auto">{fmtFree(array.free_gb)}</span>}
         </div>
       )}
 
       {/* Usage bar */}
-      {array.usage_percent !== undefined && (
-        <div>
-          <div class="flex justify-between text-xs mb-1">
-            <span class="text-white/40">{array.mount_point}</span>
-            <span class={array.usage_percent >= 90 ? 'text-red-400' : 'text-white/50'}>
-              {array.usage_percent}% used
-            </span>
+      {array.usage_percent !== undefined && (() => {
+        const freeGb  = array.free_gb
+        const totalGb = array.total_gb
+        const isLarge = totalGb != null && totalGb > 5120
+        const barColor = isLarge && freeGb != null
+          ? freeGb <= 1024 ? 'bg-red-400' : freeGb <= 2048 ? 'bg-amber-400' : 'bg-white/50'
+          : array.usage_percent >= 90 ? 'bg-red-400' : array.usage_percent >= 70 ? 'bg-amber-400' : 'bg-white/50'
+        const textColor = barColor === 'bg-red-400' ? 'text-red-400' : barColor === 'bg-amber-400' ? 'text-amber-400' : 'text-white/50'
+        return (
+          <div class="mb-1">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-white/40">{array.mount_point}</span>
+              <span class={textColor}>{array.usage_percent}% used</span>
+            </div>
+            <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div class={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                style={{ width: `${array.usage_percent}%` }} />
+            </div>
           </div>
-          <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div
-              class={`h-full rounded-full transition-all duration-500 ${
-                array.usage_percent >= 90 ? 'bg-red-400' :
-                array.usage_percent >= 70 ? 'bg-amber-400' : 'bg-emerald-400'
-              }`}
-              style={{ width: `${array.usage_percent}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Drive health section for software RAID */}
       {array.type === 'raid5' && arrayDrives.length > 0 && (
@@ -196,7 +231,7 @@ function ArrayCard({ array, drives }) {
                   : `${arrayDrives.length} drives`
               }
             </span>
-            <span class="text-white/30">{showDrives ? '\u25B2' : '\u25BC'}</span>
+            <span class="text-white/30">{showDrives ? '▲' : '▼'}</span>
           </button>
 
           {showDrives && (
@@ -224,7 +259,7 @@ function ArrayCard({ array, drives }) {
 function DriveRow({ drive }) {
   const hasWarning = drive.warnings?.length > 0
   const statusColor = drive.smart_status === 'PASSED'
-    ? 'bg-emerald-400'
+    ? 'bg-violet-400'
     : drive.smart_status === 'FAILED'
       ? 'bg-red-400'
       : 'bg-white/30'
@@ -234,7 +269,6 @@ function DriveRow({ drive }) {
       hasWarning ? 'bg-amber-500/10' : 'bg-white/5'
     }`}>
       <div class="flex items-center gap-2">
-        <span class={`w-1.5 h-1.5 rounded-full ${statusColor}`}></span>
         <span class="text-white/70 font-mono">/dev/{drive.device}</span>
         {drive.model && (
           <span class="text-white/30 hidden sm:inline truncate max-w-[150px]" title={drive.model}>
@@ -243,16 +277,20 @@ function DriveRow({ drive }) {
         )}
       </div>
       <div class="flex items-center gap-3 text-white/50">
-        {drive.temperature !== undefined && (
+        {drive.power_on_hours != null && (
+          <span>{Math.round(drive.power_on_hours / 24 / 365 * 10) / 10} yr</span>
+        )}
+        {drive.temperature !== undefined && drive.temperature !== null && (
           <span class={drive.temperature > 50 ? 'text-amber-400' : ''}>
             {drive.temperature}°C
           </span>
         )}
-        <span class={
-          drive.smart_status === 'PASSED' ? 'text-emerald-400' :
-          drive.smart_status === 'FAILED' ? 'text-red-400' : ''
-        }>
-          {drive.smart_status || '?'}
+        <span class={`text-xs ${
+          drive.smart_status === 'PASSED' ? 'text-violet-400' :
+          drive.smart_status === 'FAILED' ? 'text-red-400' :
+          'text-white/40'
+        }`}>
+          {drive.smart_status === 'PASSED' ? 'Healthy' : drive.smart_status === 'FAILED' ? 'Failed' : '?'}
         </span>
       </div>
     </div>

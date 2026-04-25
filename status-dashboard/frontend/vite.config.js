@@ -7,4 +7,14 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
   },
+  server: {
+    host: true,
+    proxy: {
+      // Proxy /api/* to the live GCP Cloud Run backend for local dev
+      '/api': {
+        target: 'https://status-dashboard-jkdghbnxoq-uc.a.run.app',
+        changeOrigin: true,
+      },
+    },
+  },
 })

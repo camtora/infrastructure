@@ -1,21 +1,44 @@
 import { useState, useEffect } from 'preact/hooks'
+import { ArcGauge } from './MetricsPanel'
 
-export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnMessage, onSwitchVpn }) {
-  if (!speedTest || speedTest.error) {
-    return (
-      <div class="glass-card p-6 h-full">
-        <h2 class="text-lg font-medium text-white mb-4">Speed Test</h2>
-        <p class="text-white/40 text-sm">
-          {speedTest?.error || 'Speed test data unavailable'}
-        </p>
+// Network panel: live throughput + home connection speedtest
+export function NetworkPanel({ network, speedTest }) {
+  const rx = network?.received_mbps ?? null
+  const tx = network?.sent_mbps     ?? null
+  const hasLive = rx !== null || tx !== null
+  const home = speedTest?.home
+
+  const mbpsColor = (v) => v > 700 ? 'text-red-400' : v > 100 ? 'text-amber-400' : 'text-emerald-400'
+
+  return (
+    <div class="glass-card p-6 h-full flex flex-col">
+      <div class="relative flex items-center justify-center mb-4">
+        <h2 class="text-lg font-medium text-white">Network</h2>
+        {hasLive && (
+          <span class="absolute right-0 text-xs text-violet-400 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
+            Live
+          </span>
+        )}
       </div>
-    )
-  }
 
-  const { home, vpn } = speedTest
+      {/* Live throughput — same ArcGauge row as CPU/Memory panels */}
+      <h3 class="text-xs font-medium text-white/50 uppercase tracking-wider mb-3 text-center">Current Traffic</h3>
+      <div class="flex items-end justify-around gap-2 mb-4 pb-4 border-b border-white/[0.06]">
+        <ArcGauge label="↓ Mbps" value={rx} max={1000} decimals={1} neutral />
+        <ArcGauge label="↑ Mbps" value={tx} max={1000} decimals={1} neutral />
+      </div>
+
+      {home && <SpeedSection title="Home Internet Speed" download={home.download} upload={home.upload} ping={home.ping} jitter={home.jitter} />}
+    </div>
+  )
+}
+
+// VPN panel: locations + switch controls
+export function VpnPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnMessage, onSwitchVpn }) {
+  const vpn = speedTest?.vpn
   const isAdmin = adminAuth?.is_admin
 
-  // Sort VPN locations: active first, then alphabetically
   const vpnEntries = vpn && typeof vpn === 'object'
     ? Object.entries(vpn).sort(([, a], [, b]) => {
         if (a?.active && !b?.active) return -1
@@ -24,7 +47,6 @@ export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnM
       })
     : []
 
-  // Get admin VPN status for each location (for health info)
   const getAdminVpnInfo = (location) => {
     if (!vpnStatus?.locations) return null
     return vpnStatus.locations.find(l => l.name.toLowerCase() === location.toLowerCase())
@@ -32,48 +54,43 @@ export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnM
 
   return (
     <div class="glass-card p-6 h-full">
-      <h2 class="text-lg font-medium text-white mb-6">Speed Test</h2>
+      <h2 class="text-lg font-medium text-white mb-4 text-center">VPN</h2>
+      {speedTest?.timestamp && (
+        <p class="text-xs text-white/30 text-center mb-4">
+          Home and VPN speed test results active as of<br />{new Date(speedTest.timestamp).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+        </p>
+      )}
+      {vpnEntries.length === 0 ? (
+        <p class="text-white/40 text-sm">No VPN data available</p>
+      ) : (
+        <div class="space-y-2">
+          {vpnEntries.map(([location, data]) => (
+            <VpnLocationCard
+              key={location}
+              location={location}
+              data={data}
+              isAdmin={isAdmin}
+              adminInfo={getAdminVpnInfo(location)}
+              isSwitching={vpnSwitching === location.toLowerCase()}
+              onSwitch={() => onSwitchVpn(location.toLowerCase())}
+            />
+          ))}
+        </div>
+      )}
+      {vpnMessage?.type === 'error' && (
+        <div class="mt-3 text-xs text-red-400">{vpnMessage.text}</div>
+      )}
+    </div>
+  )
+}
 
-      <div class="space-y-6">
-        {home && (
-          <SpeedSection
-            title="Home Connection"
-            download={home.download}
-            upload={home.upload}
-            ping={home.ping}
-          />
-        )}
-
-        {vpnEntries.length > 0 && (
-          <div>
-            <h3 class="text-xs font-medium text-white/50 uppercase tracking-wider mb-4">VPN Locations</h3>
-            <div class="space-y-3">
-              {vpnEntries.map(([location, data]) => (
-                <VpnLocationCard
-                  key={location}
-                  location={location}
-                  data={data}
-                  isAdmin={isAdmin}
-                  adminInfo={getAdminVpnInfo(location)}
-                  isSwitching={vpnSwitching === location.toLowerCase()}
-                  onSwitch={() => onSwitchVpn(location.toLowerCase())}
-                />
-              ))}
-            </div>
-            {vpnMessage?.type === 'error' && (
-              <div class="mt-3 text-xs text-red-400">
-                {vpnMessage.text}
-              </div>
-            )}
-          </div>
-        )}
-
-        {speedTest.timestamp && (
-          <p class="text-xs text-white/30 text-center pt-2">
-            Last tested: {new Date(speedTest.timestamp).toLocaleString()}
-          </p>
-        )}
-      </div>
+// Standalone card variant (kept for compatibility)
+export function SpeedPanel({ speedTest, adminAuth, vpnStatus, vpnSwitching, vpnMessage, onSwitchVpn }) {
+  return (
+    <div class="glass-card p-6 h-full">
+      <h2 class="text-lg font-medium text-white mb-4">Speed Test</h2>
+      <NetworkPanel network={null} speedTest={speedTest} />
+      <VpnPanel speedTest={speedTest} adminAuth={adminAuth} vpnStatus={vpnStatus} vpnSwitching={vpnSwitching} vpnMessage={vpnMessage} onSwitchVpn={onSwitchVpn} />
     </div>
   )
 }
@@ -107,11 +124,11 @@ function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSw
   }
 
   const statusConfig = {
-    healthy: { color: 'bg-emerald-400', textColor: 'text-emerald-400', label: 'Healthy' },
-    unhealthy: { color: 'bg-red-400', textColor: 'text-red-400', label: 'Unhealthy' },
-    error: { color: 'bg-amber-400', textColor: 'text-amber-400', label: 'Error' },
-    stopped: { color: 'bg-white/30', textColor: 'text-white/50', label: 'Stopped' },
-    unknown: { color: 'bg-white/30', textColor: 'text-white/50', label: 'Unknown' }
+    healthy:  { color: 'bg-violet-400',  textColor: 'text-violet-400',  label: 'Healthy' },
+    unhealthy:{ color: 'bg-red-400',     textColor: 'text-red-400',     label: 'Unhealthy' },
+    error:    { color: 'bg-amber-400',   textColor: 'text-amber-400',   label: 'Error' },
+    stopped:  { color: 'bg-white/30',   textColor: 'text-white/50',    label: 'Stopped' },
+    unknown:  { color: 'bg-white/30',   textColor: 'text-white/50',    label: 'Unknown' },
   }
 
   const { color, textColor, label } = statusConfig[status] || statusConfig.unknown
@@ -119,39 +136,38 @@ function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSw
   return (
     <div class={`rounded-lg p-3 transition-all duration-200 ${
       isActive
-        ? 'bg-cyan-500/10 border border-cyan-400/30'
+        ? 'bg-violet-500/10 border border-violet-400/30'
         : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05]'
     }`}>
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
-          <span class={`w-2 h-2 rounded-full ${color}`}></span>
           <span class="text-white font-medium text-sm">{location}</span>
-          {isActive && (
-            <span class="text-[10px] bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-medium px-2 py-0.5 rounded-full">
-              Active
-            </span>
-          )}
         </div>
-        <span class={`text-xs ${textColor}`}>
-          {label}
-        </span>
+        {isActive && (
+          <span class="text-[10px] bg-violet-500 text-white font-medium px-2 py-0.5 rounded-full">
+            Active
+          </span>
+        )}
+        <span class={`text-xs ${textColor}`}>{label}</span>
       </div>
 
       <div class="flex items-center justify-between">
         {status === 'healthy' && data?.download ? (
-          <div class="flex items-center gap-4 text-sm">
-            <div class="flex items-center gap-1.5 text-white/60">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex items-end gap-4">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3 h-3 text-white/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
-              <span class="tabular-nums">{data.download.toFixed(1)} Mbps</span>
+              <span class="text-sm text-white tabular-nums">{data.download.toFixed(1)}</span>
+              <span class="text-xs text-white/40">Mbps</span>
             </div>
             {data.upload && (
-              <div class="flex items-center gap-1.5 text-white/60">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex items-center gap-1.5">
+                <svg class="w-3 h-3 text-white/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
                 </svg>
-                <span class="tabular-nums">{data.upload.toFixed(1)} Mbps</span>
+                <span class="text-sm text-white tabular-nums">{data.upload.toFixed(1)}</span>
+                <span class="text-xs text-white/40">Mbps</span>
               </div>
             )}
           </div>
@@ -193,53 +209,36 @@ function VpnLocationCard({ location, data, isAdmin, adminInfo, isSwitching, onSw
   )
 }
 
-function SpeedSection({ title, download, upload, ping }) {
+function SpeedSection({ title, download, upload, ping, jitter }) {
   return (
     <div>
-      <h3 class="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">{title}</h3>
-      <div class="grid grid-cols-3 gap-3">
-        <SpeedStat
-          label="Download"
-          value={download}
-          unit="Mbps"
-          icon={
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-          }
-        />
-        <SpeedStat
-          label="Upload"
-          value={upload}
-          unit="Mbps"
-          icon={
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-          }
-        />
-        <SpeedStat
-          label="Ping"
-          value={ping}
-          unit="ms"
-          icon={
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          }
-        />
+      <h3 class="text-xs font-medium text-white/50 uppercase tracking-wider mb-3 text-center">{title}</h3>
+      <div class="flex items-end justify-around gap-2">
+        <ArcGauge label="↓ Mbps" value={download} max={1500} inverted thresholds={{ warning: 500, critical: 250 }} accent="purple" />
+        <ArcGauge label="↑ Mbps" value={upload}   max={1500} inverted thresholds={{ warning: 500, critical: 250 }} accent="purple" />
       </div>
+      {(ping != null || jitter != null) && (
+        <p class="text-xs text-white/40 text-center mt-3">
+          {ping != null && (
+            <span>Ping <span class={`tabular-nums font-mono ${ping >= 50 ? 'text-red-400' : ping >= 20 ? 'text-amber-400' : 'text-white/70'}`}>{ping.toFixed(1)} ms</span></span>
+          )}
+          {ping != null && jitter != null && <span class="mx-2">·</span>}
+          {jitter != null && (
+            <span>Jitter <span class={`tabular-nums font-mono ${jitter >= 15 ? 'text-red-400' : jitter >= 5 ? 'text-amber-400' : 'text-white/70'}`}>{jitter.toFixed(1)} ms</span></span>
+          )}
+        </p>
+      )}
     </div>
   )
 }
 
-function SpeedStat({ label, value, unit, icon }) {
+function SpeedStat({ label, value, unit, icon, valueClass = 'text-white' }) {
   const displayValue = value !== null && value !== undefined ? value : '—'
 
   return (
     <div class="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 text-center">
       <div class="text-white/40 mb-2 flex justify-center">{icon}</div>
-      <p class="text-lg font-semibold text-white tabular-nums">
+      <p class={`text-lg font-semibold tabular-nums ${valueClass}`}>
         {typeof displayValue === 'number' ? displayValue.toFixed(1) : displayValue}
       </p>
       <p class="text-xs text-white/40">{unit}</p>

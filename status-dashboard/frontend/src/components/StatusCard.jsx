@@ -60,9 +60,9 @@ export function StatusCard({ service, adminAuth, onRestart }) {
 
   const statusConfig = {
     up: {
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-400',
-      bgLight: 'bg-emerald-400/10 border-emerald-400/20',
+      color: 'text-violet-400',
+      bg: 'bg-violet-400',
+      bgLight: '',
       label: 'Operational',
     },
     network: {
@@ -120,41 +120,36 @@ export function StatusCard({ service, adminAuth, onRestart }) {
           <h3 class="font-medium text-white truncate group-hover:text-emerald-400 transition-colors">
             {service.name}
           </h3>
-          <p class="text-xs text-white/40 truncate mt-0.5">{displayUrl}</p>
+          {service.category !== 'api' && displayUrl ? (
+            <a href={displayUrl} target="_blank" rel="noopener noreferrer"
+              class="text-xs text-white/40 truncate mt-0.5 hover:text-white/70 transition-colors block">
+              {displayUrl}
+            </a>
+          ) : (
+            <p class="text-xs text-white/40 truncate mt-0.5">{displayUrl}</p>
+          )}
         </div>
-        <span class={`w-2.5 h-2.5 rounded-full ${config.bg} flex-shrink-0 ml-3 mt-1`}></span>
-      </div>
-
-      <div class="flex items-center justify-between">
-        <span class={`text-xs font-medium ${config.color} px-2 py-1 rounded-md border ${config.bgLight}`}>
+        <span class={`text-xs font-medium ${config.color} ml-2 flex-shrink-0 ${statusType !== 'up' ? `px-2 py-1 rounded-md border ${config.bgLight}` : ''}`}>
           {config.label}
         </span>
-        <div class="text-right">
-          {service.response_time_ms !== null && service.response_time_ms !== undefined && (
-            <div class="text-xs text-white/40 tabular-nums">
-              {service.response_time_ms}ms
-            </div>
-          )}
-          {internal?.container_uptime && (
-            <div class={`text-xs tabular-nums ${internal.container_uptime < 300 ? 'text-emerald-400' : 'text-white/40'}`}>
-              Up {formatUptime(internal.container_uptime)}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Internal status indicators */}
       {internal && (
         <div class="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
           <div class="flex items-center gap-4">
-            <span class={`flex items-center gap-1.5 text-xs ${internal.container_running ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
-              <span class={`w-1.5 h-1.5 rounded-full ${internal.container_running ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-              Container
-            </span>
-            <span class={`flex items-center gap-1.5 text-xs ${internal.port_responding ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
-              <span class={`w-1.5 h-1.5 rounded-full ${internal.port_responding ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-              Local
-            </span>
+            <span class={`text-xs ${internal.container_running ? 'text-white/60' : 'text-red-400/80'}`}>Container</span>
+            <span class={`text-xs ${internal.port_responding ? 'text-white/60' : 'text-red-400/80'}`}>Local</span>
+          </div>
+          <div class="flex items-center gap-3">
+            {service.response_time_ms !== null && service.response_time_ms !== undefined && (
+              <span class="text-xs text-white/40 tabular-nums">{service.response_time_ms}ms</span>
+            )}
+            {internal?.container_uptime && (
+              <span class={`text-xs tabular-nums ${internal.container_uptime < 300 ? 'text-emerald-400' : 'text-white/40'}`}>
+                Up {formatUptime(internal.container_uptime)}
+              </span>
+            )}
           </div>
 
           {/* Restart button - admin only */}

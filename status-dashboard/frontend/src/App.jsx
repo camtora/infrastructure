@@ -3,14 +3,14 @@ import { Header } from './components/Header'
 import { FailoverBanner } from './components/FailoverBanner'
 import { PlexStatusBanner } from './components/PlexStatusBanner'
 import { ServiceGrid } from './components/ServiceGrid'
-import { MetricsPanel } from './components/MetricsPanel'
-import { SpeedPanel } from './components/SpeedPanel'
-import { DNSPanel } from './components/DNSPanel'
+import { CpuPanel, MemoryPanel, DiskUsagePanel, DiskIOPanel } from './components/MetricsPanel'
+import { NetworkPanel, VpnPanel } from './components/SpeedPanel'
+import { DNSDrawer } from './components/DNSPanel'
 import { StoragePanel } from './components/StoragePanel'
 import { HistoryPanel } from './components/HistoryPanel'
 import { RebootDialog } from './components/RebootDialog'
 import { EmergencyAuthModal } from './components/EmergencyAuthModal'
-import { WikiQAPanel } from './components/WikiQAPanel'
+import { WikiQAModal } from './components/WikiQAPanel'
 
 const NETDATA_BASE = 'https://netdata.camerontora.ca'
 const HEALTH_API = 'https://health.camerontora.ca'
@@ -87,6 +87,12 @@ export function App() {
   const [vpnStatus, setVpnStatus] = useState(null)
   const [vpnSwitching, setVpnSwitching] = useState(null) // location being switched to
   const [vpnMessage, setVpnMessage] = useState(null)
+
+  // WikiQA modal
+  const [showWikiQA, setShowWikiQA] = useState(false)
+
+  // DNS drawer
+  const [showDNS, setShowDNS] = useState(false)
 
   // Emergency API key auth
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('admin-api-key') || '')
@@ -416,27 +422,58 @@ export function App() {
     }
   }
 
-  // Fetch real-time CPU/RAM from Netdata (every 10 seconds)
+  // Fetch real-time metrics from Netdata (every 10 seconds):
+  // CPU, RAM, network throughput (eno1), and disk utilization for key devices
   const fetchRealtimeMetrics = async () => {
+    const DISK_DEVICES = ['sda', 'sdb', 'md1', 'sdk']
     try {
-      const [cpuRes, ramRes] = await Promise.all([
-        fetchWithTimeout(`${NETDATA_BASE}/api/metrics/cpu`, {}, 5000),
-        fetchWithTimeout(`${NETDATA_BASE}/api/metrics/ram`, {}, 5000)
-      ]) // 5s timeout - direct home call
+      const [cpuRes, ramRes, netRes, ...diskRes] = await Promise.all([
+        fetchWithTimeout(`${NETDATA_BASE}/api/metrics/cpu`, { cache: 'no-store' }, 5000),
+        fetchWithTimeout(`${NETDATA_BASE}/api/metrics/ram`, { cache: 'no-store' }, 5000),
+        fetchWithTimeout(`${NETDATA_BASE}/api/metrics/net`, { cache: 'no-store' }, 5000).catch(() => null),
+        ...DISK_DEVICES.map(dev =>
+          fetchWithTimeout(`${NETDATA_BASE}/api/metrics/disk/${dev}`, { cache: 'no-store' }, 5000)
+            .catch(() => null)
+        ),
+      ])
 
       if (!cpuRes.ok || !ramRes.ok) {
         throw new Error('Netdata metrics endpoint unavailable')
       }
 
-      const [cpuData, ramData] = await Promise.all([
-        cpuRes.json(),
-        ramRes.json()
-      ])
-
+      const [cpuData, ramData] = await Promise.all([cpuRes.json(), ramRes.json()])
       const cpu = parseCpuMetrics(cpuData)
       const memory = parseRamMetrics(ramData)
 
-      setRealtimeMetrics({ cpu, memory, timestamp: new Date() })
+      // Network: bytes/sec → Mbps (sent is negative by Netdata convention)
+      let network = null
+      if (netRes?.ok) {
+        try {
+          const netData = await netRes.json()
+          const vals = netData?.data?.[0]
+          if (vals) {
+            network = {
+              received_mbps: Math.round((vals[1] / 1000) * 10) / 10,
+              sent_mbps: Math.round((Math.abs(vals[2]) / 1000) * 10) / 10,
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Disk utilization: { sda: %, sdb: %, md1: %, sdk: % }
+      const diskUtil = {}
+      for (let i = 0; i < DISK_DEVICES.length; i++) {
+        const res = diskRes[i]
+        if (res?.ok) {
+          try {
+            const d = await res.json()
+            const val = d?.data?.[0]?.[1]
+            if (val !== undefined) diskUtil[DISK_DEVICES[i]] = Math.round(val * 10) / 10
+          } catch (_) {}
+        }
+      }
+
+      setRealtimeMetrics({ cpu, memory, network, diskUtil, timestamp: new Date() })
       setMetricsError(null)
     } catch (err) {
       console.error('Real-time metrics error:', err.message)
@@ -482,11 +519,13 @@ export function App() {
 
   const isFailoverMode = status?.dns?.target === 'gcp'
 
+
   return (
     <div class="min-h-screen">
       {isFailoverMode && <FailoverBanner />}
       <PlexStatusBanner plexPlatform={status?.plex_platform} />
 
+      <DNSDrawer dns={status?.dns} adminAuth={adminAuth} isOpen={showDNS} onClose={() => setShowDNS(false)} />
       <div class="max-w-7xl mx-auto px-6 py-10">
         <Header
           status={status}
@@ -494,6 +533,9 @@ export function App() {
           adminAuth={adminAuth}
           onEmergencyClick={() => setShowEmergencyModal(true)}
           apiKeyActive={apiKeyAuthActive}
+          onAskClick={() => setShowWikiQA(true)}
+          onDnsClick={() => setShowDNS(v => !v)}
+          dnsOpen={showDNS}
         />
 
         {error && (
@@ -507,43 +549,50 @@ export function App() {
           </div>
         )}
 
+        {/* CPU | Memory | Network (full height) / Disk Usage (spans left 2 cols) */}
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div class="lg:col-span-2">
-            <MetricsPanel
-              metrics={status?.metrics}
-              realtimeMetrics={realtimeMetrics}
-              metricsError={metricsError}
-              adminAuth={adminAuth}
-              onRebootClick={initiateReboot}
-            />
-          </div>
-          <div>
-            <SpeedPanel
-              speedTest={status?.metrics?.speed_test}
-              adminAuth={adminAuth}
-              vpnStatus={vpnStatus}
-              vpnSwitching={vpnSwitching}
-              vpnMessage={vpnMessage}
-              onSwitchVpn={switchVpn}
-            />
-          </div>
+          <CpuPanel
+            metrics={status?.metrics}
+            realtimeMetrics={realtimeMetrics}
+            metricsError={metricsError}
+            adminAuth={adminAuth}
+            onRebootClick={initiateReboot}
+            cpuTemps={status?.metrics?.cpu_temps}
+          />
+          <MemoryPanel
+            metrics={status?.metrics}
+            realtimeMetrics={realtimeMetrics}
+            metricsError={metricsError}
+          />
+          <NetworkPanel
+            network={realtimeMetrics?.network}
+            speedTest={status?.metrics?.speed_test}
+          />
+          <DiskUsagePanel disks={status?.metrics?.disks} />
+          <DiskIOPanel diskUtil={realtimeMetrics?.diskUtil} isRealtime={realtimeMetrics !== null} />
+          <VpnPanel
+            speedTest={status?.metrics?.speed_test}
+            adminAuth={adminAuth}
+            vpnStatus={vpnStatus}
+            vpnSwitching={vpnSwitching}
+            vpnMessage={vpnMessage}
+            onSwitchVpn={switchVpn}
+          />
         </div>
 
-        <WikiQAPanel />
+
 
         <div class="mb-8">
-          <DNSPanel dns={status?.dns} adminAuth={adminAuth} />
+          <StoragePanel storage={status?.metrics?.storage} diskUtil={realtimeMetrics?.diskUtil} />
         </div>
 
-        <div class="mb-8">
-          <StoragePanel storage={status?.metrics?.storage} />
+        <div class="glass-card p-6 mb-8">
+          <ServiceGrid
+            services={status?.services || []}
+            adminAuth={adminAuth}
+            onRestartContainer={restartContainer}
+          />
         </div>
-
-        <ServiceGrid
-          services={status?.services || []}
-          adminAuth={adminAuth}
-          onRestartContainer={restartContainer}
-        />
 
         <div class="mt-8">
           <HistoryPanel services={status?.services || []} />
@@ -551,7 +600,10 @@ export function App() {
       </div>
 
       <footer class="text-center py-8 border-t border-white/[0.06]">
-        <p class="text-white/40 text-sm">camerontora.ca Status Dashboard</p>
+        <p class="text-white/40 text-sm">
+          <a href="https://camerontora.ca" class="hover:text-white/70 transition-colors">camerontora.ca</a>
+          {' '}Status Dashboard
+        </p>
         {lastUpdate && (
           <p class="text-white/30 text-xs mt-2">Last updated: {lastUpdate.toLocaleTimeString()}</p>
         )}
@@ -568,6 +620,8 @@ export function App() {
         onCancel={cancelReboot}
         onClose={closeRebootDialog}
       />
+
+      <WikiQAModal isOpen={showWikiQA} onClose={() => setShowWikiQA(false)} />
 
       <EmergencyAuthModal
         isOpen={showEmergencyModal}

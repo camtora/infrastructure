@@ -70,7 +70,7 @@ export function HistoryPanel({ services }) {
   const getSlotColor = (status) => {
     switch (status) {
       case 'up':
-        return 'bg-emerald-400'
+        return 'bg-white/50'
       case 'down':
         return 'bg-red-400'
       default:
@@ -80,14 +80,14 @@ export function HistoryPanel({ services }) {
 
   return (
     <div class="glass-card p-6">
-      <div class="flex items-center justify-between mb-6">
+      <div class="relative flex items-center justify-center mb-6">
         <h2 class="text-lg font-medium text-white">Uptime History</h2>
-        <div class="flex gap-2">
+        <div class="absolute right-0 flex gap-2">
           <button
             onClick={() => setHours(24)}
             class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               hours === 24
-                ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-black'
+                ? 'bg-violet-500 text-white'
                 : 'bg-white/[0.05] border border-white/[0.1] text-white/70 hover:bg-white/[0.1]'
             }`}
           >
@@ -97,11 +97,21 @@ export function HistoryPanel({ services }) {
             onClick={() => setHours(168)}
             class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               hours === 168
-                ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-black'
+                ? 'bg-violet-500 text-white'
                 : 'bg-white/[0.05] border border-white/[0.1] text-white/70 hover:bg-white/[0.1]'
             }`}
           >
             7 days
+          </button>
+          <button
+            onClick={() => setHours(720)}
+            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              hours === 720
+                ? 'bg-violet-500 text-white'
+                : 'bg-white/[0.05] border border-white/[0.1] text-white/70 hover:bg-white/[0.1]'
+            }`}
+          >
+            30 days
           </button>
         </div>
       </div>
@@ -130,7 +140,7 @@ export function HistoryPanel({ services }) {
                     <span
                       class={`text-xs font-medium tabular-nums ${
                         uptime >= 99.5
-                          ? 'text-emerald-400'
+                          ? 'text-white/70'
                           : uptime >= 95
                           ? 'text-amber-400'
                           : 'text-red-400'
@@ -168,7 +178,7 @@ export function HistoryPanel({ services }) {
 
       <div class="flex items-center gap-6 mt-5 pt-5 border-t border-white/[0.06]">
         <div class="flex items-center gap-2 text-xs text-white/50">
-          <span class="w-3 h-2 rounded-sm bg-emerald-400" />
+          <span class="w-3 h-2 rounded-sm bg-white/50" />
           <span>Operational</span>
         </div>
         <div class="flex items-center gap-2 text-xs text-white/50">

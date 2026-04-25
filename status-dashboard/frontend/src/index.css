@@ -34,12 +34,12 @@ body {
 
 /* Glassmorphism card */
 .glass-card {
-  @apply bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-xl;
+  @apply bg-white/[0.07] backdrop-blur-sm border border-white/[0.10] rounded-xl;
   @apply transition-all duration-200;
 }
 
 .glass-card:hover {
-  @apply bg-white/[0.05] border-white/[0.1];
+  @apply bg-white/[0.10] border-white/[0.15];
 }
 
 /* Status card with subtle hover */
@@ -63,6 +63,11 @@ body {
   50% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }
 }
 
+@keyframes pulse-white {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0); }
+}
+
 @keyframes pulse-red {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
   50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
@@ -70,6 +75,10 @@ body {
 
 .status-pulse-green {
   animation: pulse-emerald 2s ease-in-out infinite;
+}
+
+.status-pulse-white {
+  animation: pulse-white 2s ease-in-out infinite;
 }
 
 .status-pulse-red {
@@ -96,11 +105,19 @@ body {
 
 /* Subtle glow effect */
 .glow-emerald {
-  box-shadow: 0 0 20px rgba(52, 211, 153, 0.15);
+  box-shadow: 0 0 30px rgba(52, 211, 153, 0.25);
 }
 
 .glow-red {
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.25);
+}
+
+.glow-amber {
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.25);
+}
+
+.glow-orange {
+  box-shadow: 0 0 30px rgba(251, 146, 60, 0.25);
 }
 
 /* Wiki Q&A answer markdown rendering */
