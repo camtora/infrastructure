@@ -56,9 +56,25 @@ server: {
 - `host: true` — by default Vite binds only to `localhost`. Setting this to `true` makes the dev server reachable from other devices on the LAN (e.g. a phone or another machine) at `192.168.2.34:5173`.
 - The `/api` proxy forwards all API requests to the live Cloud Run backend, so local dev uses real data with no mocking needed.
 
-### 3. No persistent firewall rule needed
+### 3. Firewall rule (open before dev, close when done)
 
-The home server does not run `ufw`. There are no `iptables` rules blocking LAN traffic, so port 5173 is accessible from the LAN as soon as Vite starts with `host: true`. Nothing needs to be opened or closed.
+The home server runs `ufw`. Port 5173 must be opened before the dev server is reachable on the LAN:
+
+```bash
+sudo ufw allow 5173/tcp
+```
+
+**Close it when done:**
+
+```bash
+sudo ufw delete allow 5173/tcp
+```
+
+Verify it's removed:
+
+```bash
+sudo ufw status
+```
 
 ---
 
@@ -104,7 +120,7 @@ docker compose exec nginx nginx -s reload
 
 - The `/api/metrics/*` nginx endpoints expose live Netdata data (CPU %, RAM %, network throughput, disk I/O) without authentication. This is intentional — values are non-sensitive operational metrics. If this changes, add an `auth_request` directive pointing at the OAuth2-proxy `/oauth2/auth` endpoint, matching the pattern used by the other protected locations in that server block.
 - `host: true` in Vite only applies when the dev server is running. It is not a persistent change to the machine's network config.
-- If a firewall is ever added to this machine, port 5173 (TCP, LAN subnet) would need to be opened while developing, and closed when done.
+- Always close the ufw rule (`sudo ufw delete allow 5173/tcp`) when done developing — leaving it open exposes the dev server to the LAN indefinitely.
 
 ---
 
