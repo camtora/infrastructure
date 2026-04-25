@@ -79,9 +79,25 @@ The disk was permanently mounted at `/BACKUP` via fstab (UUID-based, `nofail`, 5
 | Disk | Serial | Hours | Temp | Load Cycles | Pending | Uncorrectable | SATA Speed |
 |------|--------|-------|------|-------------|---------|---------------|------------|
 | sdg | ZVTEF159 | 13,610 | 40°C | 21,775 | 0 | 0 | 6.0 Gb/s |
-| sdh | ZVTEFEJZ | 13,610 | 39°C | 21,858 | 0 | 0 | ⚠ **3.0 Gb/s** |
+| sdh | ZVTEFEJZ | 13,610 | 39°C | 21,858 | 0 | 0 | ✅ 6.0 Gb/s (resolved 2026-04-25) |
 
-**⚠ sdh is negotiating SATA at 3.0 Gb/s instead of 6.0 Gb/s.** sdg (same model, same age) negotiates at 6.0 Gb/s. This is almost certainly a cable or port issue — swap the SATA cable on sdh when convenient. It won't affect RAID integrity but halves the potential throughput for that drive.
+**✅ sdh SATA speed resolved 2026-04-25.** SATA cable replaced; now negotiating at 6.0 Gb/s. RAID healthy [8/8] [UUUUUUUU].
+
+#### Cable swap procedure for sdh
+
+sdh is a member of the HOMENAS RAID5 array and is screwed into the chassis — physical identification is required before touching anything.
+
+**Drive to find:** Serial number **ZVTEFEJZ** (Seagate IronWolf Pro 16TB, ST16000NE000-3UN101, ~1.6 years old)
+
+Steps:
+1. Before opening the case, note the current OS device assignment: `ls -la /sys/block/sdh` — confirms which physical bay maps to sdh at that moment (device assignments can shift on reboot).
+2. Power down cleanly: `sudo shutdown -h now`
+3. Open chassis. Check the label on each drive for serial **ZVTEFEJZ** — it's on a sticker on the drive body.
+4. Trace the SATA data cable from that drive back to the motherboard/HBA.
+5. Swap the SATA data cable for a known-good SATA III cable (not the power cable).
+6. If you don't have a spare: try reseating the existing cable at both ends first — sometimes enough to fix a marginal connection.
+7. Power on. Verify the fix: `cat /sys/class/ata_link/$(readlink -f /sys/block/sdh | grep -o 'ata[0-9]*' | sed 's/ata/link/')/sata_spd` — should now show `6.0 Gbps`.
+8. Confirm RAID is still healthy: `cat /proc/mdstat` — should show `[8/8] [UUUUUUUU]`.
 
 **Note on sdi:** Running warmest at 44°C. Still within safe range for IronWolf Pro (rated to 70°C) but worth keeping an eye on airflow around that bay.
 
@@ -103,7 +119,7 @@ The disk was permanently mounted at `/BACKUP` via fstab (UUID-based, `nofail`, 5
 |----------|------|--------|
 | Medium | /HOMENAS at 94% (6.1T free) | Plan for cleanup or expansion — at current usage this will fill within months |
 | Medium | /home at 87% (9.5G free) | Identify what's consuming space: `du -sh /home/camerontora/*` |
-| Low | sdh negotiating SATA at 3.0 Gb/s | Swap SATA cable when convenient |
+| ~~Low~~ | ~~sdh negotiating SATA at 3.0 Gb/s~~ | ✅ Resolved 2026-04-25 — cable replaced, now 6.0 Gb/s |
 | Low | sda at 62,889 hours (~7.2 yr) | Monitor; consider having a spare SSD on hand |
 | High | Sensitive plaintext files on /BACKUP | Review/delete `/BACKUP/Desktop/metamask recovery phrase` and `/BACKUP/Desktop/MEGA-RECOVERYKEY.txt` |
 | Medium | vsftpd broken since 2026-04-12 | Investigate `INVALIDARGUMENT` failure — check logs, likely a config/cert issue |
