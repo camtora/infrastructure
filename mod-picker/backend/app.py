@@ -74,7 +74,7 @@ def fetch_atm10_mods():
     for m in mods_raw:
         links = m.get("links") or {}
         cf_url = links.get("websiteUrl") or f"https://www.curseforge.com/minecraft/mc-mods/{m['slug']}"
-        info_url = links.get("wikiUrl") or links.get("sourceUrl") or cf_url
+        info_url = cf_url
         mods.append({
             "id": m["id"],
             "name": m["name"],
