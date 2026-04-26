@@ -150,8 +150,28 @@ services:
       - SONARR_API_KEY=${SONARR_API_KEY:-}
       - RADARR_API_KEY=${RADARR_API_KEY:-}
 
+  # ============== MOD PICKER ==============
+  # Mod browser + pack builder for mods.camerontora.ca
+  # Fetches ATM10 mod list, lets you select mods, builds .mrpack via packwiz
+  mod-picker:
+    build: ./mod-picker
+    container_name: mod-picker
+    restart: unless-stopped
+    ports:
+      - "3010:8000"
+    env_file:
+      - .env
+    environment:
+      - CURSEFORGE_API_KEY=${CURSEFORGE_API_KEY}
+    volumes:
+      - /home/camerontora/.local/bin/packwiz:/usr/local/bin/packwiz:ro
+      - mod-picker-cache:/app/cache
+      - mod-picker-packs:/app/packs
+
 volumes:
   nginx-logs:
   netdata-config:
   netdata-lib:
   netdata-cache:
+  mod-picker-cache:
+  mod-picker-packs:

@@ -9,6 +9,7 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 - **Netdata** - Real-time system monitoring with Discord alerts (netdata.camerontora.ca)
 - **External Monitoring** - GCP Cloud Run monitor that alerts when home internet is down
 - **Health API** - System metrics endpoint for external monitoring (health.camerontora.ca)
+- **Mod Picker** - Minecraft modpack curator and .mrpack builder (mods.camerontora.ca)
 
 ## Architecture
 
@@ -52,6 +53,7 @@ Centralized infrastructure for all `*.camerontora.ca` services, providing:
 | Transmission | transmission.camerontora.ca | 9093 |
 | Watchmap | watchmap.camerontora.ca | 5080 |
 | Netdata | netdata.camerontora.ca | 19999 |
+| Mod Picker | mods.camerontora.ca | 3010 |
 
 ### Public (no authentication)
 | Service | Subdomain | Port |
