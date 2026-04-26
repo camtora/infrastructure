@@ -98,10 +98,12 @@ function BuildView({ mods, selected, packName, onBack }) {
   const [log, setLog]               = useState([])
   const [result, setResult]         = useState(null)
   const [snapshots, setSnapshots]   = useState([])
-  const [applying, setApplying]     = useState(false)
-  const [applyMsg, setApplyMsg]     = useState(null)
+  const [applyPhase, setApplyPhase] = useState(null)  // null | 'applying' | 'done' | 'error'
+  const [applyLog, setApplyLog]     = useState([])
+  const [applyCountdown, setApplyCountdown] = useState(null)
   const [showSnaps, setShowSnaps]   = useState(false)
   const abortRef                    = useRef(null)
+  const applyLogRef                 = useRef(null)
 
   const selectedMods = mods.filter(m => selected.has(m.id))
 
@@ -179,16 +181,34 @@ function BuildView({ mods, selected, packName, onBack }) {
   const pct     = total ? Math.round((done / total) * 100) : 0
 
   const applyToServer = async () => {
-    setApplying(true)
-    setApplyMsg(null)
-    const r = await fetch('/api/server/apply', {
+    setApplyPhase('applying')
+    setApplyLog([])
+    setApplyCountdown(null)
+
+    const resp = await fetch('/api/server/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ file: result.file }),
     })
-    const data = await r.json()
-    setApplying(false)
-    setApplyMsg(r.ok ? '✓ Server is restarting with the new pack' : `✗ ${data.error}`)
+
+    const reader  = resp.body.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      for (const line of decoder.decode(value).split('\n')) {
+        if (!line.startsWith('data: ')) continue
+        try {
+          const msg = JSON.parse(line.slice(6))
+          if (msg.type === 'log')       { setApplyLog(p => [...p, msg.msg]); setApplyCountdown(null) }
+          if (msg.type === 'countdown') { setApplyCountdown(`Restarting in ${msg.seconds}s`) }
+          if (msg.type === 'waiting')   { setApplyCountdown(`Waiting for server... ${msg.seconds}s`) }
+          if (msg.type === 'done')      { setApplyPhase('done'); setApplyCountdown(null) }
+          if (msg.type === 'error')     { setApplyLog(p => [...p, `✗ ${msg.msg}`]); setApplyPhase('error') }
+        } catch {}
+      }
+    }
   }
 
   const activateSnapshot = async (name) => {
@@ -281,13 +301,21 @@ function BuildView({ mods, selected, packName, onBack }) {
                  class="px-5 py-2 bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.12] text-white font-medium rounded-lg text-sm transition-all">
                 ↓ Download .mrpack
               </a>
-              <button onClick={applyToServer} disabled={applying}
+              <button onClick={applyToServer} disabled={applyPhase === 'applying'}
                       class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-40 text-white font-semibold rounded-lg text-sm transition-all">
-                {applying ? 'Applying...' : '⚡ Apply to Server'}
+                {applyPhase === 'applying' ? 'Applying...' : applyPhase === 'done' ? '✓ Applied' : '⚡ Apply to Server'}
               </button>
             </div>
-            {applyMsg && (
-              <p class={`text-sm ${applyMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{applyMsg}</p>
+
+            {/* Apply progress */}
+            {(applyLog.length > 0 || applyCountdown) && (
+              <div class="terminal" ref={applyLogRef}>
+                {applyLog.map((l, i) => <div key={i}>{l}</div>)}
+                {applyCountdown && (
+                  <div class="text-violet-400 animate-pulse">{applyCountdown}</div>
+                )}
+                {applyPhase === 'done' && <div class="text-green-400">✓ Server restarted with new pack</div>}
+              </div>
             )}
           </div>
         )}

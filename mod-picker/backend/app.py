@@ -325,6 +325,16 @@ def api_activate_snapshot(name):
 
 # ── Server control ─────────────────────────────────────────────────────────────
 
+RESTART_COUNTDOWN = 30  # seconds
+
+
+def rcon(container, cmd):
+    try:
+        container.exec_run(["/bin/sh", "-c", f"rcon-cli {cmd}"], detach=False)
+    except Exception:
+        pass
+
+
 @app.route("/api/server/apply", methods=["POST"])
 def api_server_apply():
     data      = request.json or {}
@@ -333,25 +343,59 @@ def api_server_apply():
     if not pack_file or not os.path.exists(src):
         return jsonify({"error": "Pack file not found"}), 404
 
-    shutil.copy2(src, CURRENT_PACK)
+    def generate():
+        import docker as docker_lib
+        try:
+            client    = docker_lib.from_env()
+            container = client.containers.get(MINECRAFT_CONTAINER)
+        except Exception as e:
+            yield sse({"type": "error", "msg": f"Docker error: {e}"})
+            return
 
-    try:
-        import docker
-        docker.from_env().containers.get(MINECRAFT_CONTAINER).restart()
-    except Exception as e:
-        return jsonify({"error": f"Restart failed: {e}"}), 500
+        yield sse({"type": "log", "msg": "Copying pack to server..."})
+        shutil.copy2(src, CURRENT_PACK)
+        yield sse({"type": "log", "msg": "Pack copied."})
 
-    return jsonify({"ok": True})
+        if container.status != "running":
+            yield sse({"type": "log", "msg": "Server is not running — starting..."})
+            container.start()
+            yield sse({"type": "done"})
+            return
 
+        # Warn players and count down
+        rcon(container, f"say §eServer restarting in {RESTART_COUNTDOWN} seconds to load new mods.")
+        yield sse({"type": "log", "msg": f"Players warned — restarting in {RESTART_COUNTDOWN}s"})
 
-@app.route("/api/server/restart", methods=["POST"])
-def api_server_restart():
-    try:
-        import docker
-        docker.from_env().containers.get(MINECRAFT_CONTAINER).restart()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    return jsonify({"ok": True})
+        for tick in range(RESTART_COUNTDOWN, 0, -1):
+            yield sse({"type": "countdown", "seconds": tick})
+            if tick == 10:
+                rcon(container, "say §eServer restarting in 10 seconds.")
+            elif tick == 5:
+                rcon(container, "say §eServer restarting in 5 seconds.")
+            elif tick == 3:
+                rcon(container, "say §c3...")
+            elif tick == 2:
+                rcon(container, "say §c2...")
+            elif tick == 1:
+                rcon(container, "say §c1...")
+            time.sleep(1)
+
+        yield sse({"type": "log", "msg": "Saving world..."})
+        rcon(container, "save-all")
+        time.sleep(3)
+
+        yield sse({"type": "log", "msg": "Stopping server gracefully..."})
+        rcon(container, "stop")
+
+        # Wait for itzg to restart and download mods
+        yield sse({"type": "log", "msg": "Waiting for server to restart and download mods..."})
+        for i in range(60, 0, -1):
+            yield sse({"type": "waiting", "seconds": i})
+            time.sleep(1)
+
+        yield sse({"type": "done"})
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 
 # ── Pack workspace (served so PACKWIZ_URL could work if needed) ────────────────
