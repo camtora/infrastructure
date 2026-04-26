@@ -91,15 +91,6 @@ export default function App() {
     })
   }, [debouncedSave])
 
-  const removeFromPack = useCallback(id => {
-    setSelected(prev => {
-      const next = new Set(prev)
-      next.delete(id)
-      debouncedSave(next)
-      return next
-    })
-  }, [debouncedSave])
-
   const categories = (() => {
     const counts = {}
     mods.forEach(m => m.categories.forEach(c => { counts[c] = (counts[c] || 0) + 1 }))
@@ -273,9 +264,9 @@ export default function App() {
                 : 'No mods match your search.'}
             </div>
           ) : (
-            <div class="flex flex-col gap-1.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
               {filteredPackMods.map(m => (
-                <PackRow key={m.id} mod={m} onRemove={removeFromPack} />
+                <ModCard key={m.id} mod={m} selected={true} onToggle={removeFromPack} />
               ))}
             </div>
           )}
@@ -427,28 +418,3 @@ function ModCard({ mod, selected, onToggle }) {
   )
 }
 
-function PackRow({ mod, onRemove }) {
-  const dl = fmtDownloads(mod.downloads)
-  return (
-    <div class="glass-card px-4 py-3 flex items-center gap-3 group">
-      {mod.logo && (
-        <img src={mod.logo} alt="" class="w-8 h-8 rounded-lg object-cover flex-shrink-0"
-          onError={e => { e.target.style.display = 'none' }} />
-      )}
-      <div class="flex-1 min-w-0">
-        <div class="font-medium text-sm text-white">{mod.name}</div>
-        {mod.summary && <div class="text-[11px] text-white/35 truncate mt-0.5">{mod.summary}</div>}
-      </div>
-      {dl && <span class="text-[10px] text-white/25 tabular-nums hidden sm:inline">↓ {dl}</span>}
-      {mod.categories.slice(0, 1).map(c => (
-        <span key={c} class="text-[10px] px-2 py-0.5 bg-white/[0.05] rounded text-white/25 hidden sm:inline">{c}</span>
-      ))}
-      <InfoLink url={mod.infoUrl} />
-      <button
-        onClick={() => onRemove(mod.id)}
-        class="text-white/20 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 opacity-0 group-hover:opacity-100"
-        title="Remove from pack"
-      >×</button>
-    </div>
-  )
-}
