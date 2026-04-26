@@ -462,7 +462,8 @@ function HistoryView({ onBack }) {
               <div class="flex items-center gap-3 flex-wrap">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-white font-medium">{formatSnapDate(s.name)}</span>
+                    {s.pack_name && <span class="text-sm text-white font-semibold">{s.pack_name}</span>}
+                    <span class="text-sm text-white/60">{formatSnapDate(s.name)}</span>
                     {s.is_current && (
                       <span class="text-[10px] px-1.5 py-0.5 bg-violet-500/20 border border-violet-500/30 rounded text-violet-400">current</span>
                     )}
@@ -528,7 +529,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState(null)
   const [selected, setSelected]   = useState(new Set())
   const [saveStatus, setSaveStatus] = useState(null)
-  const [packName, setPackName]   = useState(() => localStorage.getItem('packName') || 'camerontora')
+  const [packName, setPackName]   = useState('camatm_v1')
   const [recentPacks, setRecentPacks] = useState([])
 
   // Add custom mod state
@@ -546,6 +547,10 @@ export default function App() {
       .then(([modsData, packsData, savedIds]) => {
         setMods(modsData)
         setRecentPacks(packsData)
+        const vers = packsData
+          .map(p => { const m = p.name.match(/camatm_v(\d+)-/); return m ? parseInt(m[1]) : 0 })
+          .filter(n => n > 0)
+        setPackName(vers.length ? `camatm_v${Math.max(...vers) + 1}` : 'camatm_v1')
         if (savedIds.length > 0) {
           setSelected(new Set(savedIds))
         } else {

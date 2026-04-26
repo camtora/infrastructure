@@ -318,6 +318,13 @@ def api_build():
 
 # ── Snapshots ──────────────────────────────────────────────────────────────────
 
+def parse_pack_name(filename):
+    if not filename:
+        return None
+    m = re.match(r'^(.+)-\d{10}(?:-cf)?\.(?:mrpack|zip)$', filename)
+    return m.group(1) if m else None
+
+
 def match_builds_by_mtime(snapshot_path, window=300):
     """Fallback: find build files whose mtime is within `window` seconds of the snapshot dir."""
     try:
@@ -358,6 +365,7 @@ def api_snapshots():
             "is_current": name == current,
             "mrpack":     mrpack,
             "cf_zip":     cf_zip,
+            "pack_name":  parse_pack_name(mrpack or cf_zip),
         })
     return jsonify(result)
 
