@@ -1,5 +1,19 @@
+const STREAM_LABELS = {
+  direct_play:   'Direct Play',
+  direct_stream: 'Direct Stream',
+  transcode_hw:  'HW Transcode',
+  transcode_sw:  'SW Transcode',
+}
+
 export function Header({ status, lastUpdate, adminAuth, onEmergencyClick, apiKeyActive, onAskClick, onDnsClick, dnsOpen, onRebootClick }) {
   const overallStatus = status?.overall_status || 'unknown'
+
+  const streams = status?.plex?.streams
+  const activeStreams = streams
+    ? Object.entries(STREAM_LABELS)
+        .filter(([key]) => (streams[key] ?? 0) > 0)
+        .map(([key, label]) => `${streams[key]} ${label}`)
+    : []
 
   const statusConfig = {
     healthy:  { color: 'text-violet-300',   bg: 'bg-violet-400', glow: '',          blockGlow: '',           label: 'All Systems Operational', pulse: 'status-pulse-violet' },
@@ -122,7 +136,12 @@ export function Header({ status, lastUpdate, adminAuth, onEmergencyClick, apiKey
       <div class="sm:hidden flex flex-col gap-3">
         <div class="flex items-center justify-between gap-3">
           {titleEl}
-          {statusIndicator('sm')}
+          <div class="flex flex-col items-end gap-1">
+            {statusIndicator('sm')}
+            {activeStreams.length > 0 && (
+              <p class="text-xs text-white/30">{activeStreams.join(' · ')}</p>
+            )}
+          </div>
         </div>
         {buttons}
       </div>
@@ -132,6 +151,9 @@ export function Header({ status, lastUpdate, adminAuth, onEmergencyClick, apiKey
         <div>{titleEl}</div>
         <div class="flex flex-col items-center gap-1">
           {statusIndicator('md')}
+          {activeStreams.length > 0 && (
+            <p class="text-xs text-white/30">{activeStreams.join(' · ')}</p>
+          )}
         </div>
         <div class="flex flex-col items-end gap-2">
           {buttons}

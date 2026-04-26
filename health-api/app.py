@@ -134,13 +134,35 @@ def get_disk_info():
     return disks
 
 
+def get_plex_sessions():
+    """Return active stream counts from /status/sessions."""
+    headers = {"X-Plex-Token": PLEX_TOKEN, "Accept": "application/json"}
+    resp = requests.get(f"{PLEX_URL}/status/sessions", headers=headers, timeout=10)
+    resp.raise_for_status()
+
+    counts = {"total": 0, "direct_play": 0, "direct_stream": 0, "transcode_hw": 0, "transcode_sw": 0}
+    for session in resp.json().get("MediaContainer", {}).get("Metadata", []):
+        counts["total"] += 1
+        decision = session.get("Media", [{}])[0].get("Part", [{}])[0].get("decision", "")
+        if decision == "directplay":
+            counts["direct_play"] += 1
+        elif decision == "directstream":
+            counts["direct_stream"] += 1
+        elif decision == "transcode":
+            ts = session.get("TranscodeSession", {})
+            if ts.get("transcodeHwFullPipeline"):
+                counts["transcode_hw"] += 1
+            else:
+                counts["transcode_sw"] += 1
+    return counts
+
+
 def get_plex_status():
     """Check Plex server status and library info."""
     if not PLEX_TOKEN:
         return {"reachable": False, "error": "No PLEX_TOKEN configured"}
 
     try:
-        # Get library sections
         headers = {
             "X-Plex-Token": PLEX_TOKEN,
             "Accept": "application/json",
@@ -161,11 +183,14 @@ def get_plex_status():
                 "key": section.get("key"),
             })
 
+        streams = get_plex_sessions()
+
         return {
             "reachable": True,
             "libraries": [lib["title"] for lib in libraries],
             "library_count": len(libraries),
             "library_details": libraries,
+            "streams": streams,
         }
     except requests.exceptions.Timeout:
         return {"reachable": False, "error": "Timeout connecting to Plex"}
