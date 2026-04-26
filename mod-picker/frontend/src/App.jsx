@@ -222,23 +222,6 @@ export default function App() {
               <span class="ml-2 text-white/30 text-xs">ATM10 · NeoForge 1.21.1</span>
             </div>
 
-            {/* View tabs */}
-            <div class="flex bg-white/[0.05] rounded-lg p-0.5 border border-white/[0.08]">
-              <button
-                onClick={() => setView('browse')}
-                class={`px-4 py-1 rounded-md text-sm font-medium transition-all ${view === 'browse' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/60'}`}
-              >Browse</button>
-              <button
-                onClick={() => setView('pack')}
-                class={`px-4 py-1 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${view === 'pack' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/60'}`}
-              >
-                My Pack
-                <span class={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${view === 'pack' ? 'bg-emerald-500/30 text-emerald-400' : 'bg-white/[0.08] text-white/40'}`}>
-                  {selected.size}
-                </span>
-              </button>
-            </div>
-
             <input
               type="search"
               placeholder={view === 'browse' ? 'Search all mods...' : 'Search my pack...'}
@@ -256,6 +239,23 @@ export default function App() {
               title="Add mod by CurseForge URL"
               class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.05] border border-white/[0.10] text-white/40 hover:text-emerald-400 hover:border-emerald-500/40 transition-all text-lg leading-none"
             >+</button>
+
+            {/* View tabs */}
+            <div class="flex bg-white/[0.05] rounded-lg p-0.5 border border-white/[0.08] flex-shrink-0">
+              <button
+                onClick={() => setView('browse')}
+                class={`px-4 py-1 rounded-md text-sm font-medium transition-all ${view === 'browse' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/60'}`}
+              >Browse</button>
+              <button
+                onClick={() => setView('pack')}
+                class={`px-4 py-1 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${view === 'pack' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/60'}`}
+              >
+                My Pack
+                <span class={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${view === 'pack' ? 'bg-emerald-500/30 text-emerald-400' : 'bg-white/[0.08] text-white/40'}`}>
+                  {selected.size}
+                </span>
+              </button>
+            </div>
 
             {saveStatus && (
               <span class={`text-xs flex-shrink-0 transition-all ${saveStatus === 'saved' ? 'text-emerald-400/70' : 'text-white/30'}`}>
