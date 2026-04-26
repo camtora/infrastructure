@@ -834,7 +834,7 @@ export default function App() {
         <main class="max-w-screen-2xl mx-auto px-5 py-4">
           {Object.keys(depInfo).length > 0 && (
             <p class="text-xs text-white/35 mb-4 leading-relaxed">
-              Mods labelled <span class="text-amber-300/70">required by</span> were not picked directly — they were pulled in automatically because another mod in your pack needs them. Mods you chose yourself (like Create) are never labelled this way, even if something else also depends on them.
+              Mods labelled <span class="text-amber-400/70 font-semibold">DEP</span> were not picked directly — they were pulled in automatically because another mod in your pack needs them. Mods you chose yourself (like Create) are never labelled this way, even if something else also depends on them.
             </p>
           )}
           {filteredPackMods.length === 0 ? (
