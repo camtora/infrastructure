@@ -2,7 +2,7 @@ export function Header({ status, lastUpdate, adminAuth, onEmergencyClick, apiKey
   const overallStatus = status?.overall_status || 'unknown'
 
   const statusConfig = {
-    healthy:  { color: 'text-white',       bg: 'bg-white/70',   glow: '',          blockGlow: '',           label: 'All Systems Operational', pulse: 'status-pulse-white' },
+    healthy:  { color: 'text-violet-300',   bg: 'bg-violet-400', glow: '',          blockGlow: '',           label: 'All Systems Operational', pulse: 'status-pulse-violet' },
     degraded: { color: 'text-amber-400',   bg: 'bg-amber-400',  glow: '',          blockGlow: 'glow-amber',  label: 'Performance Degraded',    pulse: '' },
     minor:    { color: 'text-orange-400',  bg: 'bg-orange-400', glow: '',          blockGlow: 'glow-orange', label: 'Minor Outage',            pulse: '' },
     major:    { color: 'text-red-400',     bg: 'bg-red-500',    glow: 'glow-red',  blockGlow: 'glow-red',    label: 'Major Outage',            pulse: 'status-pulse-red' },

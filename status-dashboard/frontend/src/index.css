@@ -85,6 +85,15 @@ body {
   animation: pulse-red 1.5s ease-in-out infinite;
 }
 
+@keyframes pulse-violet {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(167, 139, 250, 0); }
+}
+
+.status-pulse-violet {
+  animation: pulse-violet 2s ease-in-out infinite;
+}
+
 /* Gradient text */
 .gradient-text {
   @apply bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent;
