@@ -166,7 +166,8 @@ services:
     volumes:
       - /home/camerontora/.local/bin/packwiz:/usr/local/bin/packwiz:ro
       - mod-picker-cache:/app/cache
-      - mod-picker-packs:/app/packs
+      - /GAMES/mc-picker:/mc-picker
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   nginx-logs:
@@ -174,4 +175,3 @@ volumes:
   netdata-lib:
   netdata-cache:
   mod-picker-cache:
-  mod-picker-packs:

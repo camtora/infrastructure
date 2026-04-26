@@ -5,28 +5,37 @@ import os
 import re
 import shutil
 import subprocess
-import tempfile
 import time
 import zipfile
+from datetime import datetime
 
 import requests
-from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
+from flask import Flask, Response, abort, jsonify, request, send_from_directory, stream_with_context
 
 app = Flask(__name__, static_folder="dist", static_url_path="")
 
-CF_KEY = os.environ.get("CURSEFORGE_API_KEY", "")
+CF_KEY  = os.environ.get("CURSEFORGE_API_KEY", "")
 CF_BASE = "https://api.curseforge.com/v1"
-HDR = {"x-api-key": CF_KEY, "Accept": "application/json"}
-CACHE_PATH = "/app/cache/mods.json"
-CUSTOM_PATH = "/app/cache/custom_mods.json"
-PACKS_DIR = "/app/packs"
-PACKWIZ = "/usr/local/bin/packwiz"
+HDR     = {"x-api-key": CF_KEY, "Accept": "application/json"}
 
-MC_VERSION = "1.21.1"
-NEOFORGE_VERSION = "21.1.228"
+# ── Paths ──────────────────────────────────────────────────────────────────────
+CACHE_PATH      = "/app/cache/mods.json"
+CUSTOM_PATH     = "/app/cache/custom_mods.json"
+SELECTIONS_PATH = "/app/cache/selections.json"
+SNAPSHOTS_DIR   = "/mc-picker/snapshots"
+BUILDS_DIR      = "/mc-picker/builds"
+CURRENT_LINK    = "/mc-picker/current"          # symlink → active snapshot dir
+CURRENT_PACK    = "/mc-picker/current.mrpack"   # what the MC server reads
 
-os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
-os.makedirs(PACKS_DIR, exist_ok=True)
+PACKWIZ              = "/usr/local/bin/packwiz"
+MINECRAFT_CONTAINER  = "minecraft"
+MC_VERSION           = "1.21.1"
+NEOFORGE_VERSION     = "21.1.228"
+
+ATM10_PROJECT_ID = 925200
+
+for _d in ("/app/cache", SNAPSHOTS_DIR, BUILDS_DIR):
+    os.makedirs(_d, exist_ok=True)
 
 
 # ── CurseForge helpers ─────────────────────────────────────────────────────────
@@ -37,19 +46,29 @@ def cf_get(path, **params):
     return r.json()
 
 
-ATM10_PROJECT_ID = 925200
+def mod_from_raw(m, custom=False):
+    links  = m.get("links") or {}
+    cf_url = links.get("websiteUrl") or f"https://www.curseforge.com/minecraft/mc-mods/{m['slug']}"
+    return {
+        "id":         m["id"],
+        "name":       m["name"],
+        "slug":       m["slug"],
+        "summary":    m.get("summary", ""),
+        "categories": [c["name"] for c in m.get("categories", [])],
+        "url":        cf_url,
+        "infoUrl":    cf_url,
+        "logo":       (m.get("logo") or {}).get("thumbnailUrl", ""),
+        "downloads":  m.get("downloadCount", 0),
+        **({"custom": True} if custom else {}),
+    }
 
 
 def fetch_atm10_mods():
-    # Get latest file
-    files = cf_get(f"/mods/{ATM10_PROJECT_ID}/files", pageSize=5)
-    latest = files["data"][0]
-
-    # Download URL
-    url_data = cf_get(f"/mods/{ATM10_PROJECT_ID}/files/{latest['id']}/download-url")
+    files       = cf_get(f"/mods/{ATM10_PROJECT_ID}/files", pageSize=5)
+    latest      = files["data"][0]
+    url_data    = cf_get(f"/mods/{ATM10_PROJECT_ID}/files/{latest['id']}/download-url")
     download_url = url_data["data"]
 
-    # Download pack zip and parse manifest
     r = requests.get(download_url, allow_redirects=True, timeout=120)
     r.raise_for_status()
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
@@ -57,9 +76,7 @@ def fetch_atm10_mods():
             manifest = json.load(f)
 
     project_ids = list({m["projectID"] for m in manifest["files"]})
-
-    # Batch-fetch mod info (50 per request)
-    mods_raw = []
+    mods_raw    = []
     for i in range(0, len(project_ids), 50):
         batch = project_ids[i : i + 50]
         r = requests.post(
@@ -72,22 +89,7 @@ def fetch_atm10_mods():
         mods_raw.extend(r.json()["data"])
         time.sleep(0.05)
 
-    mods = []
-    for m in mods_raw:
-        links = m.get("links") or {}
-        cf_url = links.get("websiteUrl") or f"https://www.curseforge.com/minecraft/mc-mods/{m['slug']}"
-        info_url = cf_url
-        mods.append({
-            "id": m["id"],
-            "name": m["name"],
-            "slug": m["slug"],
-            "summary": m.get("summary", ""),
-            "categories": [c["name"] for c in m.get("categories", [])],
-            "url": cf_url,
-            "infoUrl": info_url,
-            "logo": (m.get("logo") or {}).get("thumbnailUrl", ""),
-            "downloads": m.get("downloadCount", 0),
-        })
+    mods = [mod_from_raw(m) for m in mods_raw]
     mods.sort(key=lambda x: x["name"].lower())
     return mods
 
@@ -114,35 +116,99 @@ def save_custom_mods(mods):
         json.dump(mods, f)
 
 
-def mod_from_cf(m):
-    links = m.get("links") or {}
-    cf_url = links.get("websiteUrl") or f"https://www.curseforge.com/minecraft/mc-mods/{m['slug']}"
-    return {
-        "id": m["id"],
-        "name": m["name"],
-        "slug": m["slug"],
-        "summary": m.get("summary", ""),
-        "categories": [c["name"] for c in m.get("categories", [])],
-        "url": cf_url,
-        "infoUrl": cf_url,
-        "logo": (m.get("logo") or {}).get("thumbnailUrl", ""),
-        "downloads": m.get("downloadCount", 0),
-        "custom": True,
-    }
+def all_mods():
+    atm = get_mods()
+    atm_ids = {m["id"] for m in atm}
+    custom = [m for m in get_custom_mods() if m["id"] not in atm_ids]
+    return atm + custom
+
+
+# ── Snapshot helpers ───────────────────────────────────────────────────────────
+
+def new_snapshot_dir():
+    name = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    path = os.path.join(SNAPSHOTS_DIR, name)
+    os.makedirs(path, exist_ok=True)
+    return name, path
+
+
+def set_current(snapshot_name):
+    target = os.path.join(SNAPSHOTS_DIR, snapshot_name)
+    tmp    = CURRENT_LINK + ".tmp"
+    if os.path.islink(tmp):
+        os.remove(tmp)
+    os.symlink(target, tmp)
+    os.replace(tmp, CURRENT_LINK)
+
+
+def current_snapshot_name():
+    if os.path.islink(CURRENT_LINK):
+        return os.path.basename(os.path.realpath(CURRENT_LINK))
+    return None
+
+
+def snapshot_mod_count(snapshot_path):
+    mods_dir = os.path.join(snapshot_path, "mods")
+    if not os.path.isdir(mods_dir):
+        return 0
+    return len([f for f in os.listdir(mods_dir) if f.endswith(".pw.toml")])
+
+
+def parse_packwiz_result(result):
+    if result.returncode == 0:
+        return "ok", None
+    combined = (result.stderr + result.stdout).lower()
+    if any(x in combined for x in ("no files", "no results", "not found", "no mod")):
+        msg = (result.stderr or result.stdout or "no compatible file").strip().split("\n")[0][:100]
+        return "skipped", msg
+    msg = (result.stderr or result.stdout or "unknown error").strip().split("\n")[0][:100]
+    return "error", msg
+
+
+def sse(obj):
+    return f"data: {json.dumps(obj)}\n\n"
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/api/mods")
 def api_mods():
-    mods = get_mods()
+    return jsonify(all_mods())
+
+
+@app.route("/api/mods/refresh", methods=["POST"])
+def api_mods_refresh():
+    if os.path.exists(CACHE_PATH):
+        os.remove(CACHE_PATH)
+    mods = fetch_atm10_mods()
+    with open(CACHE_PATH, "w") as f:
+        json.dump(mods, f)
+    return jsonify({"count": len(mods)})
+
+
+@app.route("/api/mods/custom", methods=["POST"])
+def api_add_custom_mod():
+    url   = (request.json or {}).get("url", "").strip()
+    match = re.search(r'curseforge\.com/minecraft/[^/]+/([^/?#]+)', url)
+    if not match:
+        return jsonify({"error": "Paste a CurseForge mod page URL"}), 400
+    slug   = match.group(1)
+    search = cf_get("/mods/search", gameId=432, slug=slug, pageSize=1)
+    if not search["data"]:
+        return jsonify({"error": f"Mod '{slug}' not found"}), 404
+    mod    = mod_from_raw(search["data"][0], custom=True)
     custom = get_custom_mods()
-    atm10_ids = {m["id"] for m in mods}
-    extras = [m for m in custom if m["id"] not in atm10_ids]
-    return jsonify(mods + extras)
+    if any(c["id"] == mod["id"] for c in custom):
+        return jsonify({"error": "Already in your list", "mod": mod}), 409
+    custom.append(mod)
+    save_custom_mods(custom)
+    return jsonify(mod)
 
 
-SELECTIONS_PATH = "/app/cache/selections.json"
+@app.route("/api/mods/custom/<int:mod_id>", methods=["DELETE"])
+def api_remove_custom_mod(mod_id):
+    save_custom_mods([m for m in get_custom_mods() if m["id"] != mod_id])
+    return jsonify({"ok": True})
 
 
 @app.route("/api/selections")
@@ -161,148 +227,150 @@ def api_save_selections():
     return jsonify({"saved": len(ids)})
 
 
-@app.route("/api/mods/custom", methods=["POST"])
-def api_add_custom_mod():
-    url = (request.json or {}).get("url", "").strip()
-    match = re.search(r'curseforge\.com/minecraft/[^/]+/([^/?#]+)', url)
-    if not match:
-        return jsonify({"error": "Paste a CurseForge mod page URL"}), 400
-    slug = match.group(1)
-
-    search = cf_get("/mods/search", gameId=432, slug=slug, pageSize=1)
-    if not search["data"]:
-        return jsonify({"error": f"Mod '{slug}' not found"}), 404
-
-    mod = mod_from_cf(search["data"][0])
-
-    custom = get_custom_mods()
-    if any(c["id"] == mod["id"] for c in custom):
-        return jsonify({"error": "Already in your list", "mod": mod}), 409
-    custom.append(mod)
-    save_custom_mods(custom)
-    return jsonify(mod)
-
-
-@app.route("/api/mods/custom/<int:mod_id>", methods=["DELETE"])
-def api_remove_custom_mod(mod_id):
-    custom = [m for m in get_custom_mods() if m["id"] != mod_id]
-    save_custom_mods(custom)
-    return jsonify({"ok": True})
-
-
-@app.route("/api/mods/refresh", methods=["POST"])
-def api_mods_refresh():
-    if os.path.exists(CACHE_PATH):
-        os.remove(CACHE_PATH)
-    mods = fetch_atm10_mods()
-    with open(CACHE_PATH, "w") as f:
-        json.dump(mods, f)
-    return jsonify({"count": len(mods)})
-
+# ── Build ──────────────────────────────────────────────────────────────────────
 
 @app.route("/api/build", methods=["POST"])
 def api_build():
-    data = request.json or {}
-    selected_ids = set(data.get("ids", []))
-    pack_name = (data.get("name") or "camerontora").strip() or "camerontora"
-
-    all_mods = get_mods() + [m for m in get_custom_mods() if m["id"] not in {x["id"] for x in get_mods()}]
-    selected = [m for m in all_mods if m["id"] in selected_ids]
-
-    env = {**os.environ, "CURSEFORGE_API_KEY": CF_KEY}
+    data       = request.json or {}
+    sel_ids    = set(data.get("ids", []))
+    pack_name  = (data.get("name") or "camerontora").strip() or "camerontora"
+    selected   = [m for m in all_mods() if m["id"] in sel_ids]
+    env        = {**os.environ, "CURSEFORGE_API_KEY": CF_KEY}
 
     def generate():
-        yield f"data: Starting build — {len(selected)} mods selected\n\n"
+        yield sse({"type": "start", "total": len(selected)})
 
-        tmpdir = tempfile.mkdtemp(prefix="modpicker-")
-        try:
-            # Init a fresh pack
-            yield "data: Initialising pack...\n\n"
+        snapshot_name, snapshot_path = new_snapshot_dir()
+
+        # Init pack
+        yield sse({"type": "log", "msg": "Initialising pack..."})
+        result = subprocess.run(
+            [PACKWIZ, "init", "--name", pack_name,
+             "--mc-version", MC_VERSION,
+             "--modloader", "neoforge",
+             "--modloader-version", NEOFORGE_VERSION, "-y"],
+            cwd=snapshot_path, capture_output=True, text=True, timeout=30, env=env,
+        )
+        if result.returncode != 0:
+            yield sse({"type": "error", "msg": f"packwiz init failed: {result.stderr[:200]}"})
+            return
+
+        # Add mods
+        for i, m in enumerate(selected, 1):
+            yield sse({"type": "mod", "id": m["id"], "name": m["name"], "status": "adding", "index": i})
             result = subprocess.run(
-                [
-                    PACKWIZ, "init",
-                    "--name", pack_name,
-                    "--mc-version", MC_VERSION,
-                    "--modloader", "neoforge",
-                    "--modloader-version", NEOFORGE_VERSION,
-                    "-y",
-                ],
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
+                [PACKWIZ, "curseforge", "add", "--addon-id", str(m["id"]), "-y"],
+                cwd=snapshot_path, capture_output=True, text=True, timeout=60, env=env,
             )
-            if result.returncode != 0:
-                yield f"data: ERROR: packwiz init failed — {result.stderr[:200]}\n\n"
-                yield "data: DONE:error\n\n"
-                return
+            status, msg = parse_packwiz_result(result)
+            yield sse({"type": "mod", "id": m["id"], "name": m["name"], "status": status, "msg": msg, "index": i})
 
-            # Add each mod
-            errors = []
-            for i, m in enumerate(selected, 1):
-                yield f"data: [{i}/{len(selected)}] {m['name']}\n\n"
-                result = subprocess.run(
-                    [PACKWIZ, "curseforge", "add", "--addon-id", str(m["id"]), "-y"],
-                    cwd=tmpdir,
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    env=env,
-                )
-                if result.returncode != 0:
-                    err = (result.stderr or result.stdout or "unknown error").strip()
-                    yield f"data: ⚠ Skipped {m['name']}: {err[:100]}\n\n"
-                    errors.append(m["name"])
+        # Export .mrpack
+        yield sse({"type": "log", "msg": "Exporting .mrpack..."})
+        result = subprocess.run(
+            [PACKWIZ, "modrinth", "export"],
+            cwd=snapshot_path, capture_output=True, text=True, timeout=120, env=env,
+        )
+        if result.returncode != 0:
+            yield sse({"type": "error", "msg": f"Export failed: {result.stderr[:200]}"})
+            return
 
-            if errors:
-                yield f"data: {len(errors)} mods skipped (may not have NeoForge files)\n\n"
+        mrpack_files = [f for f in os.listdir(snapshot_path) if f.endswith(".mrpack")]
+        if not mrpack_files:
+            yield sse({"type": "error", "msg": "No .mrpack produced"})
+            return
 
-            # Export .mrpack
-            yield "data: Exporting .mrpack...\n\n"
-            result = subprocess.run(
-                [PACKWIZ, "modrinth", "export"],
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                timeout=120,
-                env=env,
-            )
-            if result.returncode != 0:
-                yield f"data: ERROR: Export failed — {result.stderr[:200]}\n\n"
-                yield "data: DONE:error\n\n"
-                return
+        ts       = int(time.time())
+        filename = f"{pack_name}-{ts}.mrpack"
+        shutil.copy2(
+            os.path.join(snapshot_path, mrpack_files[0]),
+            os.path.join(BUILDS_DIR, filename),
+        )
+        os.remove(os.path.join(snapshot_path, mrpack_files[0]))
 
-            mrpack_files = [f for f in os.listdir(tmpdir) if f.endswith(".mrpack")]
-            if not mrpack_files:
-                yield "data: ERROR: No .mrpack produced\n\n"
-                yield "data: DONE:error\n\n"
-                return
-
-            ts = int(time.time())
-            filename = f"{pack_name}-{ts}.mrpack"
-            shutil.move(
-                os.path.join(tmpdir, mrpack_files[0]),
-                os.path.join(PACKS_DIR, filename),
-            )
-            yield f"data: Done — {len(selected) - len(errors)} mods added\n\n"
-            yield f"data: DONE:{filename}\n\n"
-
-        except Exception as e:
-            yield f"data: ERROR: {e}\n\n"
-            yield "data: DONE:error\n\n"
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+        set_current(snapshot_name)
+        yield sse({"type": "done", "snapshot": snapshot_name, "file": filename})
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
+
+# ── Snapshots ──────────────────────────────────────────────────────────────────
+
+@app.route("/api/snapshots")
+def api_snapshots():
+    if not os.path.isdir(SNAPSHOTS_DIR):
+        return jsonify([])
+    current = current_snapshot_name()
+    result  = []
+    for name in sorted(os.listdir(SNAPSHOTS_DIR), reverse=True)[:20]:
+        path = os.path.join(SNAPSHOTS_DIR, name)
+        if not os.path.isdir(path):
+            continue
+        result.append({
+            "name":       name,
+            "mod_count":  snapshot_mod_count(path),
+            "is_current": name == current,
+        })
+    return jsonify(result)
+
+
+@app.route("/api/snapshots/<name>/activate", methods=["POST"])
+def api_activate_snapshot(name):
+    path = os.path.join(SNAPSHOTS_DIR, name)
+    if not os.path.isdir(path):
+        return jsonify({"error": "Snapshot not found"}), 404
+    set_current(name)
+    return jsonify({"ok": True})
+
+
+# ── Server control ─────────────────────────────────────────────────────────────
+
+@app.route("/api/server/apply", methods=["POST"])
+def api_server_apply():
+    data      = request.json or {}
+    pack_file = data.get("file", "")
+    src       = os.path.join(BUILDS_DIR, pack_file)
+    if not pack_file or not os.path.exists(src):
+        return jsonify({"error": "Pack file not found"}), 404
+
+    shutil.copy2(src, CURRENT_PACK)
+
+    try:
+        import docker
+        docker.from_env().containers.get(MINECRAFT_CONTAINER).restart()
+    except Exception as e:
+        return jsonify({"error": f"Restart failed: {e}"}), 500
+
+    return jsonify({"ok": True})
+
+
+@app.route("/api/server/restart", methods=["POST"])
+def api_server_restart():
+    try:
+        import docker
+        docker.from_env().containers.get(MINECRAFT_CONTAINER).restart()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify({"ok": True})
+
+
+# ── Pack workspace (served so PACKWIZ_URL could work if needed) ────────────────
+
+@app.route("/workspace/<path:filename>")
+def serve_workspace(filename):
+    if not os.path.islink(CURRENT_LINK):
+        abort(404)
+    return send_from_directory(os.path.realpath(CURRENT_LINK), filename)
+
+
+# ── Pack downloads ─────────────────────────────────────────────────────────────
 
 @app.route("/api/packs")
 def api_packs():
     try:
         files = sorted(
-            [f for f in os.listdir(PACKS_DIR) if f.endswith(".mrpack")],
-            key=lambda f: os.path.getmtime(os.path.join(PACKS_DIR, f)),
+            [f for f in os.listdir(BUILDS_DIR) if f.endswith(".mrpack")],
+            key=lambda f: os.path.getmtime(os.path.join(BUILDS_DIR, f)),
             reverse=True,
         )
     except OSError:
@@ -312,8 +380,10 @@ def api_packs():
 
 @app.route("/packs/<path:filename>")
 def serve_pack(filename):
-    return send_from_directory(PACKS_DIR, filename, as_attachment=True)
+    return send_from_directory(BUILDS_DIR, filename, as_attachment=True)
 
+
+# ── Frontend ───────────────────────────────────────────────────────────────────
 
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
