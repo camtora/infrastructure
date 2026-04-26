@@ -266,7 +266,7 @@ export default function App() {
           ) : (
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
               {filteredPackMods.map(m => (
-                <ModCard key={m.id} mod={m} selected={true} onToggle={removeFromPack} />
+                <ModCard key={m.id} mod={m} selected={true} onToggle={toggle} />
               ))}
             </div>
           )}
