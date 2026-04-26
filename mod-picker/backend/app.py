@@ -22,6 +22,7 @@ HDR     = {"x-api-key": CF_KEY, "Accept": "application/json"}
 CACHE_PATH      = "/app/cache/mods.json"
 CUSTOM_PATH     = "/app/cache/custom_mods.json"
 SELECTIONS_PATH = "/app/cache/selections.json"
+DEP_INFO_PATH   = "/app/cache/dep_info.json"
 SNAPSHOTS_DIR   = "/mc-picker/snapshots"
 BUILDS_DIR      = "/mc-picker/builds"
 CURRENT_LINK    = "/mc-picker/current"          # symlink → active snapshot dir
@@ -225,6 +226,69 @@ def api_save_selections():
     with open(SELECTIONS_PATH, "w") as f:
         json.dump(ids, f)
     return jsonify({"saved": len(ids)})
+
+
+# ── Dependency resolution ──────────────────────────────────────────────────────
+
+@app.route("/api/deps", methods=["GET"])
+def api_get_deps():
+    if os.path.exists(DEP_INFO_PATH):
+        with open(DEP_INFO_PATH) as f:
+            return jsonify(json.load(f))
+    return jsonify({})
+
+
+@app.route("/api/deps", methods=["POST"])
+def api_check_deps():
+    sel_ids  = set(request.json.get("ids", []))
+    known    = {m["id"]: m for m in all_mods()}
+    deps     = {}
+
+    for mod_id in sel_ids:
+        mod_name = (known.get(mod_id) or {}).get("name", str(mod_id))
+        try:
+            files = cf_get(f"/mods/{mod_id}/files",
+                           gameVersion="1.21.1", modLoaderType=6, pageSize=3)
+            if not files["data"]:
+                files = cf_get(f"/mods/{mod_id}/files", gameVersion="1.21.1", pageSize=3)
+            if not files["data"]:
+                continue
+            for file_dep in files["data"][0].get("dependencies", []):
+                if file_dep["relationType"] != 3:
+                    continue
+                dep_id = file_dep["modId"]
+                if dep_id in sel_ids:
+                    continue
+                if dep_id not in deps:
+                    dep_mod = known.get(dep_id)
+                    if not dep_mod:
+                        try:
+                            raw = cf_get(f"/mods/{dep_id}")
+                            dep_mod = mod_from_raw(raw["data"])
+                        except Exception:
+                            dep_mod = {"id": dep_id, "name": f"Mod {dep_id}", "slug": "",
+                                       "summary": "", "categories": [], "url": "",
+                                       "infoUrl": "", "logo": "", "downloads": 0}
+                    deps[dep_id] = {**dep_mod, "required_by": [], "required_by_ids": []}
+                if mod_name not in deps[dep_id]["required_by"]:
+                    deps[dep_id]["required_by"].append(mod_name)
+                    deps[dep_id]["required_by_ids"].append(mod_id)
+        except Exception:
+            pass
+        time.sleep(0.05)
+
+    dep_info = {
+        str(d["id"]): {
+            "required_by":     d["required_by"],
+            "required_by_ids": d["required_by_ids"],
+            "mod":             {k: v for k, v in d.items() if k not in ("required_by", "required_by_ids")},
+        }
+        for d in deps.values()
+    }
+    with open(DEP_INFO_PATH, "w") as f:
+        json.dump(dep_info, f)
+
+    return jsonify(list(deps.values()))
 
 
 # ── Build ──────────────────────────────────────────────────────────────────────

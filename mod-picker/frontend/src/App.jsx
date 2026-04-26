@@ -60,11 +60,27 @@ function StatusBadge({ status }) {
 
 // ── Mod card (browse / my pack) ───────────────────────────────────────────────
 
-function ModCard({ mod, selected, onToggle, onRemove }) {
-  const dl = fmtDownloads(mod.downloads)
+function ModCard({ mod, selected, onToggle, onRemove, depEntry, isLocked }) {
+  const dl          = fmtDownloads(mod.downloads)
+  const handleClick = isLocked ? undefined : () => onToggle(mod.id)
   return (
-    <div class={`glass-card ${selected ? 'selected' : ''} p-3 cursor-pointer flex gap-2.5 items-start`}
-         onClick={() => onToggle(mod.id)}>
+    <div class={`glass-card ${selected ? 'selected' : ''} p-3 flex gap-2.5 items-start relative
+      ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}
+      ${depEntry && !isLocked ? 'border-amber-500/20' : ''}`}
+         onClick={handleClick}>
+
+      {/* Dep overlay */}
+      {depEntry && (
+        <div class={`absolute inset-0 rounded-xl flex flex-col items-center justify-center text-center px-3 py-2 z-10
+          ${isLocked ? 'bg-[#020617]/80' : 'bg-[#1a1200]/75'}`}>
+          <span class={`text-[10px] font-medium leading-relaxed
+            ${isLocked ? 'text-blue-300' : 'text-amber-300'}`}>
+            required by<br/>
+            {depEntry.required_by.join(', ')}
+          </span>
+        </div>
+      )}
+
       {mod.logo && (
         <img src={mod.logo} alt="" class="w-9 h-9 rounded-lg object-cover flex-shrink-0 mt-0.5"
              loading="lazy" onError={e => { e.target.style.display = 'none' }} />
@@ -83,9 +99,9 @@ function ModCard({ mod, selected, onToggle, onRemove }) {
             </span>
           )}
           <InfoLink url={mod.infoUrl} />
-          <input type="checkbox" checked={selected}
-                 onChange={() => onToggle(mod.id)} onClick={e => e.stopPropagation()}
-                 class="flex-shrink-0 mt-0.5 accent-violet-400 cursor-pointer" />
+          <input type="checkbox" checked={selected} disabled={isLocked}
+                 onChange={() => !isLocked && onToggle(mod.id)} onClick={e => e.stopPropagation()}
+                 class={`flex-shrink-0 mt-0.5 accent-violet-400 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
         </div>
         {mod.summary && <p class="text-[11px] text-white/35 mt-1 leading-relaxed line-clamp-2">{mod.summary}</p>}
         <div class="mt-1.5 flex items-center gap-1.5">
@@ -532,6 +548,13 @@ export default function App() {
   const [packName, setPackName]   = useState('camatm_v1')
   const [recentPacks, setRecentPacks] = useState([])
 
+  // Dependency state
+  const [depInfo, setDepInfo]           = useState({})
+  const [depsChecked, setDepsChecked]   = useState(false)
+  const [checkingDeps, setCheckingDeps] = useState(false)
+  const depInfoRef                      = useRef({})
+  depInfoRef.current                    = depInfo
+
   // Add custom mod state
   const [showAddCustom, setShowAddCustom] = useState(false)
   const [customUrl, setCustomUrl]   = useState('')
@@ -543,9 +566,15 @@ export default function App() {
       fetch('/api/mods').then(r => r.json()),
       fetch('/api/packs').then(r => r.json()),
       fetch('/api/selections').then(r => r.json()),
+      fetch('/api/deps').then(r => r.json()),
     ])
-      .then(([modsData, packsData, savedIds]) => {
-        setMods(modsData)
+      .then(([modsData, packsData, savedIds, savedDeps]) => {
+        const knownIds = new Set(modsData.map(m => m.id))
+        const depMods = Object.values(savedDeps)
+          .map(d => d.mod)
+          .filter(m => m && !knownIds.has(m.id))
+        setMods([...modsData, ...depMods])
+        setDepInfo(savedDeps)
         setRecentPacks(packsData)
         const vers = packsData
           .map(p => { const m = p.name.match(/camatm_v(\d+)-/); return m ? parseInt(m[1]) : 0 })
@@ -584,6 +613,7 @@ export default function App() {
       debouncedSave(next)
       return next
     })
+    if (!depInfoRef.current[String(id)]) setDepsChecked(false)
   }, [debouncedSave])
 
   const removeCustomMod = async (id) => {
@@ -595,6 +625,35 @@ export default function App() {
       debouncedSave(next)
       return next
     })
+  }
+
+  const checkDeps = async () => {
+    setCheckingDeps(true)
+    try {
+      const resp = await fetch('/api/deps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selected] }),
+      })
+      const newDeps = await resp.json()
+      const existingIds = new Set(mods.map(m => m.id))
+      const toAdd = newDeps.filter(d => !existingIds.has(d.id))
+      if (toAdd.length) setMods(prev => [...prev, ...toAdd])
+      const info = {}
+      newDeps.forEach(d => { info[String(d.id)] = { required_by: d.required_by, required_by_ids: d.required_by_ids, mod: d } })
+      setDepInfo(info)
+      setSelected(prev => {
+        const next = new Set(prev)
+        newDeps.forEach(d => next.add(d.id))
+        debouncedSave(next)
+        return next
+      })
+      setDepsChecked(true)
+    } catch(e) {
+      console.error('Dep check failed:', e)
+    } finally {
+      setCheckingDeps(false)
+    }
   }
 
   const addCustomMod = async () => {
@@ -741,9 +800,13 @@ export default function App() {
       {view === 'browse' && (
         <main class="max-w-screen-2xl mx-auto px-5 py-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
-            {filtered.map(m => (
-              <ModCard key={m.id} mod={m} selected={selected.has(m.id)} onToggle={toggle} onRemove={m.custom ? removeCustomMod : undefined} />
-            ))}
+            {filtered.map(m => {
+              const dep = depInfo[String(m.id)] || null
+              const isLocked = dep ? dep.required_by_ids.some(rid => selected.has(rid)) : false
+              return <ModCard key={m.id} mod={m} selected={selected.has(m.id)} onToggle={toggle}
+                              onRemove={m.custom ? removeCustomMod : undefined}
+                              depEntry={dep} isLocked={isLocked} />
+            })}
           </div>
         </main>
       )}
@@ -757,9 +820,13 @@ export default function App() {
             </div>
           ) : (
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
-              {filteredPackMods.map(m => (
-                <ModCard key={m.id} mod={m} selected={true} onToggle={toggle} onRemove={m.custom ? removeCustomMod : undefined} />
-              ))}
+              {filteredPackMods.map(m => {
+                const dep = depInfo[String(m.id)] || null
+                const isLocked = dep ? dep.required_by_ids.some(rid => selected.has(rid)) : false
+                return <ModCard key={m.id} mod={m} selected={true} onToggle={toggle}
+                                onRemove={m.custom ? removeCustomMod : undefined}
+                                depEntry={dep} isLocked={isLocked} />
+              })}
             </div>
           )}
         </main>
@@ -779,10 +846,16 @@ export default function App() {
             <input type="text" value={packName} onInput={e => { setPackName(e.target.value); localStorage.setItem('packName', e.target.value) }}
                    placeholder="pack name"
                    class="w-32 bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white/60 outline-none focus:border-violet-500/40 transition-all" />
-            <button onClick={() => setView('build')} disabled={selected.size === 0}
-                    class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm transition-all">
-              Build Pack
-            </button>
+            {depsChecked
+              ? <button onClick={() => setView('build')} disabled={selected.size === 0}
+                        class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm transition-all">
+                  Build Pack
+                </button>
+              : <button onClick={checkDeps} disabled={selected.size === 0 || checkingDeps}
+                        class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm transition-all">
+                  {checkingDeps ? 'Checking...' : 'Check Dependencies'}
+                </button>
+            }
           </div>
         </div>
       </footer>
