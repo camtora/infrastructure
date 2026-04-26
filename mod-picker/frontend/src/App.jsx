@@ -528,7 +528,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState(null)
   const [selected, setSelected]   = useState(new Set())
   const [saveStatus, setSaveStatus] = useState(null)
-  const [packName, setPackName]   = useState('camerontora')
+  const [packName, setPackName]   = useState(() => localStorage.getItem('packName') || 'camerontora')
   const [recentPacks, setRecentPacks] = useState([])
 
   // Add custom mod state
@@ -771,7 +771,7 @@ export default function App() {
           )}
           <div class="flex-1" />
           <div class="flex items-center gap-2">
-            <input type="text" value={packName} onInput={e => setPackName(e.target.value)}
+            <input type="text" value={packName} onInput={e => { setPackName(e.target.value); localStorage.setItem('packName', e.target.value) }}
                    placeholder="pack name"
                    class="w-32 bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white/60 outline-none focus:border-violet-500/40 transition-all" />
             <button onClick={() => setView('build')} disabled={selected.size === 0}
