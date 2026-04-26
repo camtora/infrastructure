@@ -96,6 +96,8 @@ mods.camerontora.ca
 
 **IMPORTANT**: You must list ALL existing domains plus the new one. Missing a domain will REMOVE it from the certificate.
 
+Current certificate: 22 domains, expires 2026-07-25.
+
 ```bash
 # No need to stop nginx! Webroot mode works with nginx running.
 sudo certbot certonly --webroot \
@@ -122,8 +124,7 @@ sudo certbot certonly --webroot \
   -d metro.sba.camerontora.ca \
   -d wiki.camerontora.ca \
   -d minecraft.camerontora.ca \
-  -d mods.camerontora.ca \
-  -d NEW_SUBDOMAIN.camerontora.ca
+  -d mods.camerontora.ca
 
 # Reload nginx to pick up new cert
 docker exec nginx-proxy nginx -s reload
