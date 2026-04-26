@@ -1,3 +1,18 @@
+# CRITICAL: .env Values With $ Must Be Single-Quoted
+
+Any value in `.env` that contains a `$` (API keys, bcrypt hashes, etc.) **must be single-quoted**:
+
+```
+CURSEFORGE_API_KEY='$2a$10$abc...'   # correct — bash treats as literal
+CURSEFORGE_API_KEY=$2a$10$abc...     # WRONG — bash expands $2, $10, etc.
+```
+
+**Why it matters:** `scripts/speedtest.sh` sources `.env` with `set -euo pipefail`. An unquoted `$` causes bash to expand it as a positional parameter or variable. With `set -u`, any unset variable is fatal — the script dies silently before writing a single log line, leaving the speedtest data stale on the status dashboard. Docker Compose strips surrounding single quotes, so the value reaches containers correctly either way.
+
+**Symptom:** speedtest.json stops updating (stuck at last timestamp), cron sessions in syslog close in ~3s instead of ~13s, no entries in `/var/log/speedtest.log`.
+
+---
+
 # CRITICAL: Cloud Run Deploy Rules
 
 **ALWAYS use `status-dashboard/deploy.sh` for any Cloud Run deployment.**
