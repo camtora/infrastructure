@@ -117,7 +117,7 @@ export function StatusCard({ service, adminAuth, onRestart }) {
     <div class="status-card group">
       <div class="flex items-start justify-between mb-3">
         <div class="flex-1 min-w-0">
-          <h3 class="font-medium text-white truncate group-hover:text-emerald-400 transition-colors">
+          <h3 class="font-medium text-white truncate group-hover:text-violet-400 transition-colors">
             {service.name}
           </h3>
           {service.category !== 'api' && displayUrl ? (
