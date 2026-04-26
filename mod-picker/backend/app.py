@@ -70,21 +70,22 @@ def fetch_atm10_mods():
         mods_raw.extend(r.json()["data"])
         time.sleep(0.05)
 
-    mods = [
-        {
+    mods = []
+    for m in mods_raw:
+        links = m.get("links") or {}
+        cf_url = links.get("websiteUrl") or f"https://www.curseforge.com/minecraft/mc-mods/{m['slug']}"
+        info_url = links.get("wikiUrl") or links.get("sourceUrl") or cf_url
+        mods.append({
             "id": m["id"],
             "name": m["name"],
             "slug": m["slug"],
             "summary": m.get("summary", ""),
             "categories": [c["name"] for c in m.get("categories", [])],
-            "url": m.get("links", {}).get(
-                "websiteUrl",
-                f"https://www.curseforge.com/minecraft/mc-mods/{m['slug']}",
-            ),
+            "url": cf_url,
+            "infoUrl": info_url,
             "logo": (m.get("logo") or {}).get("thumbnailUrl", ""),
-        }
-        for m in mods_raw
-    ]
+            "downloads": m.get("downloadCount", 0),
+        })
     mods.sort(key=lambda x: x["name"].lower())
     return mods
 

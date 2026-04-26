@@ -362,7 +362,34 @@ export default function App() {
   )
 }
 
+function fmtDownloads(n) {
+  if (!n) return null
+  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
+
+function InfoLink({ url }) {
+  if (!url) return null
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={e => e.stopPropagation()}
+      title="More info"
+      class="flex-shrink-0 text-white/20 hover:text-cyan-400 transition-colors leading-none"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+      </svg>
+    </a>
+  )
+}
+
 function ModCard({ mod, selected, onToggle }) {
+  const dl = fmtDownloads(mod.downloads)
   return (
     <div
       class={`glass-card ${selected ? 'selected' : ''} p-3 cursor-pointer flex gap-2.5 items-start`}
@@ -375,6 +402,7 @@ function ModCard({ mod, selected, onToggle }) {
       <div class="flex-1 min-w-0">
         <div class="flex items-start gap-1.5">
           <span class="flex-1 font-medium text-sm text-white leading-tight">{mod.name}</span>
+          <InfoLink url={mod.infoUrl} />
           <input
             type="checkbox"
             checked={selected}
@@ -386,19 +414,21 @@ function ModCard({ mod, selected, onToggle }) {
         {mod.summary && (
           <p class="text-[11px] text-white/35 mt-1 leading-relaxed line-clamp-2">{mod.summary}</p>
         )}
-        {mod.categories.length > 0 && (
-          <div class="mt-1.5 flex gap-1">
-            {mod.categories.slice(0, 2).map(c => (
-              <span key={c} class="text-[10px] px-1.5 py-0.5 bg-white/[0.05] rounded text-white/25">{c}</span>
-            ))}
-          </div>
-        )}
+        <div class="mt-1.5 flex items-center gap-1.5">
+          {mod.categories.slice(0, 2).map(c => (
+            <span key={c} class="text-[10px] px-1.5 py-0.5 bg-white/[0.05] rounded text-white/25">{c}</span>
+          ))}
+          {dl && (
+            <span class="text-[10px] text-white/20 ml-auto tabular-nums">↓ {dl}</span>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
 function PackRow({ mod, onRemove }) {
+  const dl = fmtDownloads(mod.downloads)
   return (
     <div class="glass-card px-4 py-3 flex items-center gap-3 group">
       {mod.logo && (
@@ -409,9 +439,11 @@ function PackRow({ mod, onRemove }) {
         <div class="font-medium text-sm text-white">{mod.name}</div>
         {mod.summary && <div class="text-[11px] text-white/35 truncate mt-0.5">{mod.summary}</div>}
       </div>
-      {mod.categories.slice(0, 2).map(c => (
+      {dl && <span class="text-[10px] text-white/25 tabular-nums hidden sm:inline">↓ {dl}</span>}
+      {mod.categories.slice(0, 1).map(c => (
         <span key={c} class="text-[10px] px-2 py-0.5 bg-white/[0.05] rounded text-white/25 hidden sm:inline">{c}</span>
       ))}
+      <InfoLink url={mod.infoUrl} />
       <button
         onClick={() => onRemove(mod.id)}
         class="text-white/20 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 opacity-0 group-hover:opacity-100"
