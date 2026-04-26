@@ -307,6 +307,9 @@ def api_build():
         else:
             yield sse({"type": "log", "msg": f"CurseForge export failed: {cf_result.stderr[:100]}"})
 
+        with open(os.path.join(snapshot_path, "build.json"), "w") as f:
+            json.dump({"mrpack": filename, "cf_zip": cf_filename}, f)
+
         set_current(snapshot_name)
         yield sse({"type": "done", "snapshot": snapshot_name, "file": filename, "cf_file": cf_filename})
 
@@ -314,6 +317,22 @@ def api_build():
 
 
 # ── Snapshots ──────────────────────────────────────────────────────────────────
+
+def match_builds_by_mtime(snapshot_path, window=300):
+    """Fallback: find build files whose mtime is within `window` seconds of the snapshot dir."""
+    try:
+        snap_mtime = os.path.getmtime(snapshot_path)
+        by_delta = {}
+        for f in os.listdir(BUILDS_DIR):
+            delta = abs(os.path.getmtime(os.path.join(BUILDS_DIR, f)) - snap_mtime)
+            if delta < window:
+                by_delta[f] = delta
+        mrpack = next((f for f in sorted(by_delta, key=by_delta.get) if f.endswith(".mrpack")), None)
+        cf_zip = next((f for f in sorted(by_delta, key=by_delta.get) if f.endswith("-cf.zip")), None)
+        return mrpack, cf_zip
+    except OSError:
+        return None, None
+
 
 @app.route("/api/snapshots")
 def api_snapshots():
@@ -325,10 +344,20 @@ def api_snapshots():
         path = os.path.join(SNAPSHOTS_DIR, name)
         if not os.path.isdir(path):
             continue
+        build_json = os.path.join(path, "build.json")
+        if os.path.exists(build_json):
+            with open(build_json) as f:
+                info = json.load(f)
+            mrpack = info.get("mrpack")
+            cf_zip = info.get("cf_zip")
+        else:
+            mrpack, cf_zip = match_builds_by_mtime(path)
         result.append({
             "name":       name,
             "mod_count":  snapshot_mod_count(path),
             "is_current": name == current,
+            "mrpack":     mrpack,
+            "cf_zip":     cf_zip,
         })
     return jsonify(result)
 

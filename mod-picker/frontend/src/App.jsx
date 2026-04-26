@@ -379,6 +379,144 @@ function BuildView({ mods, selected, packName, onBack }) {
   )
 }
 
+// ── History view ─────────────────────────────────────────────────────────────
+
+function formatSnapDate(name) {
+  const [date, time] = name.split('_')
+  if (!date || !time) return name
+  const [y, m, d] = date.split('-')
+  const h = time.slice(0, 2), min = time.slice(2, 4)
+  return new Date(y, m - 1, d, h, min).toLocaleString('en-CA', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function HistoryView({ onBack }) {
+  const [snapshots, setSnapshots]       = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [applyingName, setApplyingName] = useState(null)
+  const [applyPhase, setApplyPhase]     = useState(null)  // 'applying' | 'done' | 'error'
+  const [applyLog, setApplyLog]         = useState([])
+  const [applyCountdown, setApplyCountdown] = useState(null)
+  const applyLogRef = useRef(null)
+
+  useEffect(() => {
+    fetch('/api/snapshots')
+      .then(r => r.json())
+      .then(data => { setSnapshots(data); setLoading(false) })
+  }, [])
+
+  useEffect(() => {
+    if (applyLogRef.current) applyLogRef.current.scrollTop = applyLogRef.current.scrollHeight
+  }, [applyLog, applyCountdown])
+
+  const applySnapshot = async (name) => {
+    setApplyingName(name)
+    setApplyPhase('applying')
+    setApplyLog([])
+    setApplyCountdown(null)
+
+    await fetch(`/api/snapshots/${name}/activate`, { method: 'POST' })
+
+    const resp = await fetch('/api/server/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+
+    const reader  = resp.body.getReader()
+    const decoder = new TextDecoder()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      for (const line of decoder.decode(value).split('\n')) {
+        if (!line.startsWith('data: ')) continue
+        try {
+          const msg = JSON.parse(line.slice(6))
+          if (msg.type === 'log')       { setApplyLog(p => [...p, msg.msg]); setApplyCountdown(null) }
+          if (msg.type === 'countdown') { setApplyCountdown(`Restarting in ${msg.seconds}s`) }
+          if (msg.type === 'waiting')   { setApplyCountdown(`Waiting for server... ${msg.seconds}s`) }
+          if (msg.type === 'done')      { setApplyPhase('done'); setApplyCountdown(null); setSnapshots(s => s.map(sn => ({ ...sn, is_current: sn.name === name }))) }
+          if (msg.type === 'error')     { setApplyLog(p => [...p, `✗ ${msg.msg}`]); setApplyPhase('error') }
+        } catch {}
+      }
+    }
+  }
+
+  return (
+    <div class="min-h-screen flex flex-col">
+      <header class="sticky top-0 z-10 border-b border-white/[0.08] backdrop-blur-md bg-[#020617]/80">
+        <div class="max-w-screen-xl mx-auto px-5 py-3 flex items-center gap-4">
+          <button onClick={onBack} class="text-white/40 hover:text-white/70 transition-colors text-sm">← Back</button>
+          <span class="font-bold gradient-text">Pack History</span>
+          <span class="text-white/30 text-xs">{snapshots.length} builds</span>
+        </div>
+      </header>
+
+      <main class="flex-1 max-w-screen-xl mx-auto w-full px-5 py-6">
+        {loading && <div class="text-white/30 text-sm">Loading...</div>}
+
+        <div class="flex flex-col gap-3">
+          {snapshots.map(s => (
+            <div key={s.name} class={`glass-card p-4 flex flex-col gap-3 ${s.is_current ? 'border-violet-500/30 bg-violet-500/[0.04]' : ''}`}>
+              <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-white font-medium">{formatSnapDate(s.name)}</span>
+                    {s.is_current && (
+                      <span class="text-[10px] px-1.5 py-0.5 bg-violet-500/20 border border-violet-500/30 rounded text-violet-400">current</span>
+                    )}
+                  </div>
+                  <div class="text-xs text-white/30 mt-0.5">{s.mod_count} mods · {s.name}</div>
+                </div>
+
+                {/* Downloads */}
+                <div class="flex items-center gap-2 flex-wrap">
+                  {s.cf_zip && (
+                    <a href={`/packs/${s.cf_zip}`} download
+                       class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.10] border border-white/[0.10] text-white/70 hover:text-white rounded-lg text-xs transition-all">
+                      ↓ CurseForge .zip
+                    </a>
+                  )}
+                  {s.mrpack && (
+                    <a href={`/packs/${s.mrpack}`} download
+                       class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.10] border border-white/[0.10] text-white/70 hover:text-white rounded-lg text-xs transition-all">
+                      ↓ Prism .mrpack
+                    </a>
+                  )}
+                  <button
+                    onClick={() => applySnapshot(s.name)}
+                    disabled={applyPhase === 'applying'}
+                    class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-40
+                      ${applyingName === s.name && applyPhase === 'done'
+                        ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                        : 'bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-400'}`}>
+                    {applyingName === s.name
+                      ? applyPhase === 'applying' ? 'Applying...'
+                      : applyPhase === 'done' ? '✓ Applied'
+                      : applyPhase === 'error' ? '✗ Failed'
+                      : 'Apply to Server'
+                      : 'Apply to Server'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Apply log — only for the snapshot being applied */}
+              {applyingName === s.name && (applyLog.length > 0 || applyCountdown) && (
+                <div class="terminal" ref={applyLogRef}>
+                  {applyLog.map((l, i) => <div key={i}>{l}</div>)}
+                  {applyCountdown && <div class="text-violet-400 animate-pulse">{applyCountdown}</div>}
+                  {applyPhase === 'done' && <div class="text-green-400">✓ Server restarted with new pack</div>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  )
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -523,9 +661,12 @@ export default function App() {
     )
   }
 
-  // Build view takes over the whole page
+  // Full-page views
   if (view === 'build') {
     return <BuildView mods={mods} selected={selected} packName={packName} onBack={() => setView('browse')} />
+  }
+  if (view === 'history') {
+    return <HistoryView onBack={() => setView('browse')} />
   }
 
   return (
@@ -564,6 +705,10 @@ export default function App() {
                 <span class={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${view === 'pack' ? 'bg-violet-500/30 text-violet-400' : 'bg-white/[0.08] text-white/40'}`}>
                   {selected.size}
                 </span>
+              </button>
+              <button onClick={() => setView('history')}
+                      class={`px-4 py-1 rounded-md text-sm font-medium transition-all ${view === 'history' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/60'}`}>
+                History
               </button>
             </div>
 
