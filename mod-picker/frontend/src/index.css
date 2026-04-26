@@ -27,11 +27,11 @@ body {
   @apply bg-white/[0.10] border-white/[0.15];
 }
 .glass-card.selected {
-  @apply bg-emerald-500/[0.12] border-emerald-500/[0.35];
+  @apply bg-violet-500/[0.12] border-violet-500/[0.35];
 }
 
 .gradient-text {
-  @apply bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent;
 }
 
 .cat-chip {
@@ -42,11 +42,11 @@ body {
   @apply bg-white/[0.10] border-white/[0.20] text-white/70;
 }
 .cat-chip.active {
-  @apply bg-emerald-500/[0.20] border-emerald-500/[0.40] text-emerald-400;
+  @apply bg-violet-500/[0.20] border-violet-500/[0.40] text-violet-400;
 }
 
 .terminal {
   font-family: 'Monaco', 'Courier New', monospace;
-  @apply text-xs text-emerald-400/90 bg-black/50 rounded-lg p-4 overflow-y-auto;
+  @apply text-xs text-violet-400/90 bg-black/50 rounded-lg p-4 overflow-y-auto;
   max-height: 260px;
 }

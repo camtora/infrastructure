@@ -227,7 +227,7 @@ export default function App() {
               placeholder={view === 'browse' ? 'Search all mods...' : 'Search my pack...'}
               value={search}
               onInput={e => setSearch(e.target.value)}
-              class="flex-1 bg-white/[0.05] border border-white/[0.10] rounded-lg px-4 py-1.5 text-sm text-white placeholder-white/25 outline-none focus:border-emerald-500/40 focus:bg-white/[0.08] transition-all"
+              class="flex-1 bg-white/[0.05] border border-white/[0.10] rounded-lg px-4 py-1.5 text-sm text-white placeholder-white/25 outline-none focus:border-violet-500/40 focus:bg-white/[0.08] transition-all"
             />
 
             <span class="text-white/25 text-xs flex-shrink-0 tabular-nums">
@@ -237,7 +237,7 @@ export default function App() {
             <button
               onClick={() => { setShowAddCustom(true); setAddCustomError(null); setCustomUrl('') }}
               title="Add mod by CurseForge URL"
-              class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.05] border border-white/[0.10] text-white/40 hover:text-emerald-400 hover:border-emerald-500/40 transition-all text-lg leading-none"
+              class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.05] border border-white/[0.10] text-white/40 hover:text-violet-400 hover:border-violet-500/40 transition-all text-lg leading-none"
             >+</button>
 
             {/* View tabs */}
@@ -251,14 +251,14 @@ export default function App() {
                 class={`px-4 py-1 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${view === 'pack' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/60'}`}
               >
                 My Pack
-                <span class={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${view === 'pack' ? 'bg-emerald-500/30 text-emerald-400' : 'bg-white/[0.08] text-white/40'}`}>
+                <span class={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${view === 'pack' ? 'bg-violet-500/30 text-violet-400' : 'bg-white/[0.08] text-white/40'}`}>
                   {selected.size}
                 </span>
               </button>
             </div>
 
             {saveStatus && (
-              <span class={`text-xs flex-shrink-0 transition-all ${saveStatus === 'saved' ? 'text-emerald-400/70' : 'text-white/30'}`}>
+              <span class={`text-xs flex-shrink-0 transition-all ${saveStatus === 'saved' ? 'text-violet-400/70' : 'text-white/30'}`}>
                 {saveStatus === 'saving' ? 'Saving...' : '✓ Saved'}
               </span>
             )}
@@ -317,10 +317,10 @@ export default function App() {
       <footer class="fixed bottom-0 left-0 right-0 z-10 border-t border-white/[0.08] backdrop-blur-md bg-[#020617]/90">
         <div class="max-w-screen-2xl mx-auto px-5 py-2.5 flex items-center gap-4">
           <span class="text-sm text-white/50">
-            <span class="text-emerald-400 font-semibold tabular-nums">{selected.size}</span> in pack
+            <span class="text-violet-400 font-semibold tabular-nums">{selected.size}</span> in pack
           </span>
           {recentPacks.length > 0 && (
-            <a href={recentPacks[0].url} download class="text-xs text-white/30 hover:text-emerald-400 transition-colors">
+            <a href={recentPacks[0].url} download class="text-xs text-white/30 hover:text-violet-400 transition-colors">
               ↓ Last build
             </a>
           )}
@@ -328,7 +328,7 @@ export default function App() {
           <button
             onClick={openBuild}
             disabled={selected.size === 0}
-            class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-gray-900 font-semibold rounded-lg text-sm transition-all"
+            class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-30 disabled:cursor-not-allowed text-gray-900 font-semibold rounded-lg text-sm transition-all"
           >Build Pack</button>
         </div>
       </footer>
@@ -348,7 +348,7 @@ export default function App() {
               value={customUrl}
               onInput={e => setCustomUrl(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !addingCustom && customUrl && addCustomMod()}
-              class="w-full bg-white/[0.05] border border-white/[0.10] rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 outline-none focus:border-emerald-500/40 transition-all font-mono"
+              class="w-full bg-white/[0.05] border border-white/[0.10] rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 outline-none focus:border-violet-500/40 transition-all font-mono"
               autoFocus
             />
             {addCustomError && (
@@ -359,7 +359,7 @@ export default function App() {
               <button
                 onClick={addCustomMod}
                 disabled={!customUrl || addingCustom}
-                class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-gray-900 font-semibold rounded-lg text-sm transition-all"
+                class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-30 disabled:cursor-not-allowed text-gray-900 font-semibold rounded-lg text-sm transition-all"
               >{addingCustom ? 'Adding...' : 'Add Mod'}</button>
             </div>
           </div>
@@ -384,7 +384,7 @@ export default function App() {
                 value={packName}
                 onInput={e => setPackName(e.target.value)}
                 disabled={building}
-                class="flex-1 bg-white/[0.05] border border-white/[0.10] rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-emerald-500/40 transition-all disabled:opacity-50"
+                class="flex-1 bg-white/[0.05] border border-white/[0.10] rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-violet-500/40 transition-all disabled:opacity-50"
               />
               <span class="text-xs text-white/30 flex-shrink-0">{selected.size} mods</span>
             </div>
@@ -397,9 +397,9 @@ export default function App() {
             )}
 
             {downloadUrl && (
-              <div class="flex items-center gap-3 p-3 bg-emerald-500/[0.10] border border-emerald-500/[0.25] rounded-lg">
-                <span class="text-emerald-400 text-sm flex-1">Pack ready!</span>
-                <a href={downloadUrl} download class="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold rounded-lg text-sm transition-all">
+              <div class="flex items-center gap-3 p-3 bg-violet-500/[0.10] border border-violet-500/[0.25] rounded-lg">
+                <span class="text-violet-400 text-sm flex-1">Pack ready!</span>
+                <a href={downloadUrl} download class="px-4 py-1.5 bg-violet-500 hover:bg-violet-400 text-gray-900 font-semibold rounded-lg text-sm transition-all">
                   Download .mrpack
                 </a>
               </div>
@@ -409,14 +409,14 @@ export default function App() {
               {!building && !downloadUrl && (
                 <>
                   <button onClick={() => setShowBuild(false)} class="text-sm text-white/40 hover:text-white/60 transition-colors px-3 py-1.5">Cancel</button>
-                  <button onClick={build} class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold rounded-lg text-sm transition-all">
+                  <button onClick={build} class="px-5 py-2 bg-violet-500 hover:bg-violet-400 text-gray-900 font-semibold rounded-lg text-sm transition-all">
                     Build {selected.size} mods
                   </button>
                 </>
               )}
               {building && <span class="text-white/40 text-sm animate-pulse">Building...</span>}
               {downloadUrl && !building && (
-                <button onClick={() => setShowBuild(false)} class="text-sm text-emerald-400 hover:text-emerald-300 transition-colors px-3 py-1.5">Done</button>
+                <button onClick={() => setShowBuild(false)} class="text-sm text-violet-400 hover:text-violet-300 transition-colors px-3 py-1.5">Done</button>
               )}
             </div>
           </div>
@@ -473,7 +473,7 @@ function ModCard({ mod, selected, onToggle }) {
             checked={selected}
             onChange={() => onToggle(mod.id)}
             onClick={e => e.stopPropagation()}
-            class="flex-shrink-0 mt-0.5 accent-emerald-400 cursor-pointer"
+            class="flex-shrink-0 mt-0.5 accent-violet-400 cursor-pointer"
           />
         </div>
         {mod.summary && (
