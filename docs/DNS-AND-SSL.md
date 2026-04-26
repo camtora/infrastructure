@@ -86,6 +86,8 @@ sba.camerontora.ca
 admin.sba.camerontora.ca
 metro.sba.camerontora.ca
 wiki.camerontora.ca
+minecraft.camerontora.ca
+mods.camerontora.ca
 ```
 
 > **Note:** `status.camerontora.ca` is a CNAME to GCP Cloud Run (SSL managed by Google). `emby` and `jellyfin` have been decommissioned.
@@ -119,6 +121,8 @@ sudo certbot certonly --webroot \
   -d admin.sba.camerontora.ca \
   -d metro.sba.camerontora.ca \
   -d wiki.camerontora.ca \
+  -d minecraft.camerontora.ca \
+  -d mods.camerontora.ca \
   -d NEW_SUBDOMAIN.camerontora.ca
 
 # Reload nginx to pick up new cert
