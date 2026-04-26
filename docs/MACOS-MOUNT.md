@@ -20,6 +20,7 @@ On the MacBook:
 | `~/mnt/HOMENAS` | `/home/camerontora` | HOMENAS | Home directory |
 | `~/mnt/CAMNAS2` | `/HOMENAS` | CAMNAS2 | 100TB software RAID (media) |
 | `~/mnt/CAMRAID` | `/CAMRAID` | CAMRAID | Hardware RAID (personal media) |
+| `~/mnt/GAMES` | `/GAMES` | GAMES | Games drive |
 
 ## Scripts
 
@@ -48,7 +49,7 @@ Located in `scripts/macos/`:
 
 ```bash
 # Mount/unmount all
-mount-camerontora              # Mount all three
+mount-camerontora              # Mount all (creates mount points automatically)
 mount-camerontora unmount      # Unmount all
 mount-camerontora status       # Check status
 mount-camerontora remount      # Remount (after network change)
@@ -57,18 +58,29 @@ mount-camerontora remount      # Remount (after network change)
 mount-camerontora mount home   # Mount home directory only
 mount-camerontora mount media  # Mount 100TB RAID only
 mount-camerontora mount raid   # Mount hardware RAID only
+mount-camerontora mount games  # Mount games drive only
 mount-camerontora unmount media
 ```
+
+## Updating the Script on Your Mac
+
+When `scripts/macos/mount-camerontora.sh` changes in the repo, copy it to the installed location:
+
+```bash
+# On home network
+scp camerontora@192.168.2.34:/home/camerontora/infrastructure/scripts/macos/mount-camerontora.sh /opt/homebrew/bin/mount-camerontora
+
+# Away from home
+scp -P 2222 camerontora@camerontora.ca:/home/camerontora/infrastructure/scripts/macos/mount-camerontora.sh /opt/homebrew/bin/mount-camerontora
+```
+
+Mount points are created automatically on first mount — no manual `mkdir` needed.
 
 ## Prerequisites (MacBook)
 
 - **macFUSE**: `brew install macfuse` (requires reboot + security approval)
 - **SSHFS**: `brew install gromgit/fuse/sshfs-mac`
 - **SSH key in keychain**: `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`
-- **Mount points**:
-  ```bash
-  mkdir -p ~/mnt/HOMENAS ~/mnt/CAMNAS2 ~/mnt/CAMRAID
-  ```
 
 ## Troubleshooting
 
