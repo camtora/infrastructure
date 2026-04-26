@@ -288,8 +288,27 @@ def api_build():
         )
         os.remove(os.path.join(snapshot_path, mrpack_files[0]))
 
+        # Export CurseForge zip
+        yield sse({"type": "log", "msg": "Exporting CurseForge zip..."})
+        cf_result = subprocess.run(
+            [PACKWIZ, "curseforge", "export"],
+            cwd=snapshot_path, capture_output=True, text=True, timeout=120, env=env,
+        )
+        cf_filename = None
+        if cf_result.returncode == 0:
+            cf_files = [f for f in os.listdir(snapshot_path) if f.endswith(".zip")]
+            if cf_files:
+                cf_filename = f"{pack_name}-{ts}-cf.zip"
+                shutil.copy2(
+                    os.path.join(snapshot_path, cf_files[0]),
+                    os.path.join(BUILDS_DIR, cf_filename),
+                )
+                os.remove(os.path.join(snapshot_path, cf_files[0]))
+        else:
+            yield sse({"type": "log", "msg": f"CurseForge export failed: {cf_result.stderr[:100]}"})
+
         set_current(snapshot_name)
-        yield sse({"type": "done", "snapshot": snapshot_name, "file": filename})
+        yield sse({"type": "done", "snapshot": snapshot_name, "file": filename, "cf_file": cf_filename})
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -416,6 +435,21 @@ def api_packs():
         files = []
     return jsonify([{"name": f, "url": f"/packs/{f}"} for f in files[:10]])
 
+
+@app.route("/packs/latest-cf")
+def serve_pack_latest_cf():
+    try:
+        files = sorted(
+            [f for f in os.listdir(BUILDS_DIR) if f.endswith("-cf.zip")],
+            key=lambda f: os.path.getmtime(os.path.join(BUILDS_DIR, f)),
+            reverse=True,
+        )
+    except OSError:
+        files = []
+    if not files:
+        abort(404)
+    from flask import redirect
+    return redirect(f"/packs/{files[0]}")
 
 @app.route("/packs/latest")
 def serve_pack_latest():

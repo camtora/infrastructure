@@ -60,7 +60,7 @@ function StatusBadge({ status }) {
 
 // ── Mod card (browse / my pack) ───────────────────────────────────────────────
 
-function ModCard({ mod, selected, onToggle }) {
+function ModCard({ mod, selected, onToggle, onRemove }) {
   const dl = fmtDownloads(mod.downloads)
   return (
     <div class={`glass-card ${selected ? 'selected' : ''} p-3 cursor-pointer flex gap-2.5 items-start`}
@@ -72,7 +72,16 @@ function ModCard({ mod, selected, onToggle }) {
       <div class="flex-1 min-w-0">
         <div class="flex items-start gap-1.5">
           <span class="flex-1 font-medium text-sm text-white leading-tight">{mod.name}</span>
-          {mod.custom && <span class="text-[9px] px-1.5 py-0.5 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400 flex-shrink-0 mt-0.5">custom</span>}
+          {mod.custom && (
+            <span class="flex items-center gap-1 flex-shrink-0 mt-0.5">
+              <span class="text-[9px] px-1.5 py-0.5 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400">custom</span>
+              {onRemove && (
+                <button onClick={e => { e.stopPropagation(); onRemove(mod.id) }}
+                        title="Remove custom mod"
+                        class="text-white/20 hover:text-red-400 transition-colors leading-none text-sm">×</button>
+              )}
+            </span>
+          )}
           <InfoLink url={mod.infoUrl} />
           <input type="checkbox" checked={selected}
                  onChange={() => onToggle(mod.id)} onClick={e => e.stopPropagation()}
@@ -297,9 +306,13 @@ function BuildView({ mods, selected, packName, onBack }) {
           <div class="mt-6 glass-card p-5 flex flex-col gap-4">
             <div class="flex items-center gap-4 flex-wrap">
               <span class="text-sm text-white/60 flex-1">Pack built successfully.</span>
+              <a href="/packs/latest-cf" download
+                 class="px-5 py-2 bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.12] text-white font-medium rounded-lg text-sm transition-all">
+                ↓ CurseForge .zip
+              </a>
               <a href="/packs/latest" download
                  class="px-5 py-2 bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.12] text-white font-medium rounded-lg text-sm transition-all">
-                ↓ Download .mrpack
+                ↓ Prism / Modrinth .mrpack
               </a>
               <button onClick={applyToServer} disabled={applyPhase === 'applying'}
                       class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-40 text-white font-semibold rounded-lg text-sm transition-all">
@@ -320,11 +333,11 @@ function BuildView({ mods, selected, packName, onBack }) {
 
             {/* Client install instructions */}
             <div class="border-t border-white/[0.06] pt-4">
-              <p class="text-xs text-white/40 mb-2">To install on your client, download from <span class="text-white/60 font-mono">mods.camerontora.ca/packs/latest</span> and import in your launcher:</p>
+              <p class="text-xs text-white/40 mb-2">To install on your client, download the pack for your launcher:</p>
               <ul class="text-xs text-white/35 space-y-1">
-                <li><span class="text-white/50">Prism Launcher</span> — Add Instance → Import from .mrpack</li>
-                <li><span class="text-white/50">Modrinth App</span> — File → Add instance → Import from file</li>
-                <li><span class="text-white/50">CurseForge App</span> — Create Custom Profile → Import</li>
+                <li><span class="text-white/50">CurseForge App</span> — download the <span class="text-white/50">.zip</span> → Create Custom Profile → Import</li>
+                <li><span class="text-white/50">Prism Launcher</span> — download the <span class="text-white/50">.mrpack</span> → Add Instance → Import from zip</li>
+                <li><span class="text-white/50">Modrinth App</span> — download the <span class="text-white/50">.mrpack</span> → File → Add instance → Import from file</li>
               </ul>
             </div>
           </div>
@@ -429,6 +442,17 @@ export default function App() {
       return next
     })
   }, [debouncedSave])
+
+  const removeCustomMod = async (id) => {
+    await fetch(`/api/mods/custom/${id}`, { method: 'DELETE' })
+    setMods(prev => prev.filter(m => m.id !== id))
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.delete(id)
+      debouncedSave(next)
+      return next
+    })
+  }
 
   const addCustomMod = async () => {
     setAddingCustom(true)
@@ -568,7 +592,7 @@ export default function App() {
         <main class="max-w-screen-2xl mx-auto px-5 py-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
             {filtered.map(m => (
-              <ModCard key={m.id} mod={m} selected={selected.has(m.id)} onToggle={toggle} />
+              <ModCard key={m.id} mod={m} selected={selected.has(m.id)} onToggle={toggle} onRemove={m.custom ? removeCustomMod : undefined} />
             ))}
           </div>
         </main>
@@ -584,7 +608,7 @@ export default function App() {
           ) : (
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
               {filteredPackMods.map(m => (
-                <ModCard key={m.id} mod={m} selected={true} onToggle={toggle} />
+                <ModCard key={m.id} mod={m} selected={true} onToggle={toggle} onRemove={m.custom ? removeCustomMod : undefined} />
               ))}
             </div>
           )}
@@ -598,7 +622,7 @@ export default function App() {
             <span class="text-violet-400 font-semibold tabular-nums">{selected.size}</span> in pack
           </span>
           {recentPacks.length > 0 && (
-            <a href="/packs/latest" download class="text-xs text-white/30 hover:text-violet-400 transition-colors">↓ Last build</a>
+            <a href="/packs/latest-cf" download class="text-xs text-white/30 hover:text-violet-400 transition-colors">↓ Last build</a>
           )}
           <div class="flex-1" />
           <div class="flex items-center gap-2">
