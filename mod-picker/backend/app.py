@@ -21,6 +21,7 @@ HDR     = {"x-api-key": CF_KEY, "Accept": "application/json"}
 # ── Paths ──────────────────────────────────────────────────────────────────────
 CACHE_PATH      = "/app/cache/mods.json"
 CUSTOM_PATH     = "/app/cache/custom_mods.json"
+HIDDEN_PATH     = "/app/cache/hidden_mods.json"
 SELECTIONS_PATH = "/app/cache/selections.json"
 DEP_INFO_PATH   = "/app/cache/dep_info.json"
 SNAPSHOTS_DIR   = "/mc-picker/snapshots"
@@ -117,8 +118,21 @@ def save_custom_mods(mods):
         json.dump(mods, f)
 
 
+def get_hidden_ids():
+    if os.path.exists(HIDDEN_PATH):
+        with open(HIDDEN_PATH) as f:
+            return set(json.load(f))
+    return set()
+
+
+def save_hidden_ids(ids):
+    with open(HIDDEN_PATH, "w") as f:
+        json.dump(list(ids), f)
+
+
 def all_mods():
-    atm = get_mods()
+    hidden = get_hidden_ids()
+    atm = [m for m in get_mods() if m["id"] not in hidden]
     atm_ids = {m["id"] for m in atm}
     custom = [m for m in get_custom_mods() if m["id"] not in atm_ids]
     return atm + custom
@@ -212,6 +226,19 @@ def api_remove_custom_mod(mod_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/mods/hidden")
+def api_get_hidden():
+    return jsonify(list(get_hidden_ids()))
+
+
+@app.route("/api/mods/hidden/<int:mod_id>", methods=["POST"])
+def api_hide_mod(mod_id):
+    ids = get_hidden_ids()
+    ids.add(mod_id)
+    save_hidden_ids(ids)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/selections")
 def api_get_selections():
     if os.path.exists(SELECTIONS_PATH):
@@ -236,6 +263,17 @@ def api_get_deps():
         with open(DEP_INFO_PATH) as f:
             return jsonify(json.load(f))
     return jsonify({})
+
+
+@app.route("/api/deps/<int:mod_id>", methods=["DELETE"])
+def api_delete_dep(mod_id):
+    if os.path.exists(DEP_INFO_PATH):
+        with open(DEP_INFO_PATH) as f:
+            dep_info = json.load(f)
+        dep_info.pop(str(mod_id), None)
+        with open(DEP_INFO_PATH, "w") as f:
+            json.dump(dep_info, f)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/deps", methods=["POST"])

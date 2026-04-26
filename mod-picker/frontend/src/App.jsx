@@ -92,22 +92,21 @@ function ModCard({ mod, selected, onToggle, onRemove, depEntry, isLocked }) {
              loading="lazy" onError={e => { e.target.style.display = 'none' }} />
       )}
       <div class="flex-1 min-w-0">
-        <div class="flex items-start gap-1.5">
-          <span class="flex-1 font-medium text-sm text-white leading-tight">{mod.name}</span>
-          {mod.custom && (
-            <span class="flex items-center gap-1 flex-shrink-0 mt-0.5">
-              <span class="text-[9px] px-1.5 py-0.5 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400">custom</span>
-              {onRemove && (
-                <button onClick={e => { e.stopPropagation(); onRemove(mod.id) }}
-                        title="Remove custom mod"
-                        class="text-white/20 hover:text-red-400 transition-colors leading-none text-sm">×</button>
-              )}
-            </span>
-          )}
+        <div class="flex items-center gap-1.5">
+          <span class="flex-1 font-medium text-sm text-white leading-tight truncate">{mod.name}</span>
+          {mod.custom
+            ? <span class="text-[9px] px-1.5 py-0.5 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400 flex-shrink-0">URL</span>
+            : <span class="text-[9px] px-1.5 py-0.5 bg-slate-500/20 border border-slate-500/30 rounded text-slate-400 flex-shrink-0">ATM10</span>
+          }
           <InfoLink url={mod.infoUrl} />
+          {onRemove && (
+            <button onClick={e => { e.stopPropagation(); onRemove(mod.id) }}
+                    title={mod.custom ? 'Remove mod' : 'Hide mod'}
+                    class="flex-shrink-0 text-white/20 hover:text-red-400 transition-colors leading-none text-sm">×</button>
+          )}
           <input type="checkbox" checked={selected} disabled={isLocked}
                  onChange={() => !isLocked && onToggle(mod.id)} onClick={e => e.stopPropagation()}
-                 class={`flex-shrink-0 mt-0.5 accent-violet-400 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
+                 class={`flex-shrink-0 accent-violet-400 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
         </div>
         {mod.summary && <p class="text-[11px] text-white/35 mt-1 leading-relaxed line-clamp-2">{mod.summary}</p>}
         <div class="mt-1.5 flex items-center gap-1.5">
@@ -553,6 +552,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState(null)
   const [packName, setPackName]   = useState('camatm_v1')
   const [recentPacks, setRecentPacks] = useState([])
+  const [activeSource, setActiveSource] = useState(null)
 
   // Dependency state
   const [depInfo, setDepInfo]           = useState({})
@@ -631,6 +631,41 @@ export default function App() {
       debouncedSave(next)
       return next
     })
+  }
+
+  const hideAtm10Mod = async (id) => {
+    await fetch(`/api/mods/hidden/${id}`, { method: 'POST' })
+    setMods(prev => prev.filter(m => m.id !== id))
+  }
+
+  const handleRemove = (id) => {
+    const mod = mods.find(m => m.id === id)
+
+    if (selected.has(id)) {
+      alert(`Remove "${mod?.name}" from your pack first.`)
+      return
+    }
+
+    const entry = depInfoRef.current[String(id)]
+    if (entry) {
+      const activeDependents = entry.required_by_ids.filter(rid => selected.has(rid))
+      if (activeDependents.length > 0) {
+        const names = activeDependents
+          .map(rid => mods.find(m => m.id === rid)?.name || rid)
+          .join(', ')
+        alert(`Can't remove — required by: ${names}`)
+        return
+      }
+      fetch(`/api/deps/${id}`, { method: 'DELETE' })
+      setDepInfo(prev => {
+        const next = { ...prev }
+        delete next[String(id)]
+        return next
+      })
+    }
+
+    if (mod?.custom) removeCustomMod(id)
+    else hideAtm10Mod(id)
   }
 
   const checkDeps = async () => {
@@ -713,6 +748,8 @@ export default function App() {
       if (!m.name.toLowerCase().includes(q) && !m.summary.toLowerCase().includes(q)) return false
     }
     if (activeCategory && !m.categories.includes(activeCategory)) return false
+    if (activeSource === 'atm10' && m.custom) return false
+    if (activeSource === 'url' && !m.custom) return false
     return true
   })
 
@@ -801,10 +838,13 @@ export default function App() {
             )}
           </div>
 
-          {/* Category chips — browse only */}
+          {/* Filter chips — browse only */}
           {view === 'browse' && (
             <div class="flex gap-1.5 flex-wrap">
-              <span class={`cat-chip ${!activeCategory ? 'active' : ''}`} onClick={() => setActiveCategory(null)}>All</span>
+              <span class={`cat-chip ${!activeSource ? 'active' : ''}`} onClick={() => setActiveSource(null)}>All</span>
+              <span class={`cat-chip ${activeSource === 'atm10' ? 'active' : ''}`} onClick={() => setActiveSource(s => s === 'atm10' ? null : 'atm10')}>ATM10</span>
+              <span class={`cat-chip ${activeSource === 'url' ? 'active' : ''}`} onClick={() => setActiveSource(s => s === 'url' ? null : 'url')}>URL</span>
+              <span class="text-white/15 self-center">|</span>
               {categories.map(c => (
                 <span key={c} class={`cat-chip ${activeCategory === c ? 'active' : ''}`}
                       onClick={() => setActiveCategory(activeCategory === c ? null : c)}>{c}</span>
@@ -822,7 +862,7 @@ export default function App() {
               const dep = depInfo[String(m.id)] || null
               const isLocked = dep ? dep.required_by_ids.some(rid => selected.has(rid)) : false
               return <ModCard key={m.id} mod={m} selected={selected.has(m.id)} onToggle={toggle}
-                              onRemove={m.custom ? removeCustomMod : undefined}
+                              onRemove={handleRemove}
                               depEntry={dep} isLocked={isLocked} />
             })}
           </div>
@@ -847,7 +887,7 @@ export default function App() {
                 const dep = depInfo[String(m.id)] || null
                 const isLocked = dep ? dep.required_by_ids.some(rid => selected.has(rid)) : false
                 return <ModCard key={m.id} mod={m} selected={true} onToggle={toggle}
-                                onRemove={m.custom ? removeCustomMod : undefined}
+                                onRemove={handleRemove}
                                 depEntry={dep} isLocked={isLocked} />
               })}
             </div>
