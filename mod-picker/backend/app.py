@@ -19,11 +19,12 @@ CF_BASE = "https://api.curseforge.com/v1"
 HDR     = {"x-api-key": CF_KEY, "Accept": "application/json"}
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-CACHE_PATH      = "/app/cache/mods.json"
-CUSTOM_PATH     = "/app/cache/custom_mods.json"
-HIDDEN_PATH     = "/app/cache/hidden_mods.json"
-SELECTIONS_PATH = "/app/cache/selections.json"
-DEP_INFO_PATH   = "/app/cache/dep_info.json"
+CACHE_PATH        = "/app/cache/mods.json"
+CUSTOM_PATH       = "/app/cache/custom_mods.json"
+HIDDEN_PATH       = "/app/cache/hidden_mods.json"
+SELECTIONS_PATH   = "/app/cache/selections.json"
+DEP_INFO_PATH     = "/app/cache/dep_info.json"
+ATM10_VERSION_PATH = "/app/cache/atm10_version.json"
 SNAPSHOTS_DIR   = "/mc-picker/snapshots"
 BUILDS_DIR      = "/mc-picker/builds"
 CURRENT_LINK    = "/mc-picker/current"          # symlink → active snapshot dir
@@ -65,11 +66,24 @@ def mod_from_raw(m, custom=False):
     }
 
 
+def notify_discord(msg):
+    url = os.environ.get("DISCORD_WEBHOOK_URL", "")
+    if not url:
+        return
+    try:
+        requests.post(url, json={"content": msg}, timeout=10)
+    except Exception:
+        pass
+
+
 def fetch_atm10_mods():
-    files       = cf_get(f"/mods/{ATM10_PROJECT_ID}/files", pageSize=5)
-    latest      = files["data"][0]
-    url_data    = cf_get(f"/mods/{ATM10_PROJECT_ID}/files/{latest['id']}/download-url")
+    files        = cf_get(f"/mods/{ATM10_PROJECT_ID}/files", pageSize=5)
+    latest       = files["data"][0]
+    url_data     = cf_get(f"/mods/{ATM10_PROJECT_ID}/files/{latest['id']}/download-url")
     download_url = url_data["data"]
+
+    with open(ATM10_VERSION_PATH, "w") as f:
+        json.dump({"file_id": latest["id"], "display_name": latest.get("displayName", "")}, f)
 
     r = requests.get(download_url, allow_redirects=True, timeout=120)
     r.raise_for_status()
@@ -422,7 +436,7 @@ def api_build():
             yield sse({"type": "log", "msg": f"CurseForge export failed: {cf_result.stderr[:100]}"})
 
         with open(os.path.join(snapshot_path, "build.json"), "w") as f:
-            json.dump({"mrpack": filename, "cf_zip": cf_filename}, f)
+            json.dump({"mrpack": filename, "cf_zip": cf_filename, "mod_ids": list(sel_ids)}, f)
 
         set_current(snapshot_name)
         yield sse({"type": "done", "snapshot": snapshot_name, "file": filename, "cf_file": cf_filename})
@@ -491,6 +505,73 @@ def api_activate_snapshot(name):
         return jsonify({"error": "Snapshot not found"}), 404
     set_current(name)
     return jsonify({"ok": True})
+
+
+@app.route("/api/snapshots/<name>/mod-ids")
+def api_snapshot_mod_ids(name):
+    build_json = os.path.join(SNAPSHOTS_DIR, name, "build.json")
+    if os.path.exists(build_json):
+        with open(build_json) as f:
+            data = json.load(f)
+        return jsonify({"mod_ids": data.get("mod_ids", [])})
+    return jsonify({"mod_ids": []})
+
+
+# ── ATM10 update check ─────────────────────────────────────────────────────────
+
+@app.route("/api/atm10/status")
+def api_atm10_status():
+    try:
+        latest_file = cf_get(f"/mods/{ATM10_PROJECT_ID}/files", pageSize=1)["data"][0]
+        latest = {"file_id": latest_file["id"], "display_name": latest_file.get("displayName", "")}
+    except Exception:
+        return jsonify({"has_update": False, "error": "CF API unavailable"})
+
+    if not os.path.exists(ATM10_VERSION_PATH):
+        return jsonify({"has_update": False, "latest": latest, "stored": None})
+
+    with open(ATM10_VERSION_PATH) as f:
+        stored = json.load(f)
+
+    has_update = latest["file_id"] != stored.get("file_id")
+    return jsonify({"has_update": has_update, "latest": latest, "stored": stored})
+
+
+@app.route("/api/atm10/check", methods=["POST"])
+def api_atm10_check():
+    try:
+        latest_file = cf_get(f"/mods/{ATM10_PROJECT_ID}/files", pageSize=1)["data"][0]
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    latest_id   = latest_file["id"]
+    display     = latest_file.get("displayName", f"file {latest_id}")
+
+    stored_id = None
+    if os.path.exists(ATM10_VERSION_PATH):
+        with open(ATM10_VERSION_PATH) as f:
+            stored_id = json.load(f).get("file_id")
+
+    if latest_id != stored_id:
+        notify_discord(
+            f"🎮 ATM10 update available: **{display}**\n"
+            f"A new pack version is on CurseForge. Go to mods.camerontora.ca → History to rebuild."
+        )
+        return jsonify({"updated": True, "display_name": display})
+
+    return jsonify({"updated": False})
+
+
+@app.route("/api/atm10/rebuild-latest", methods=["POST"])
+def api_atm10_rebuild_latest():
+    if os.path.exists(CACHE_PATH):
+        os.remove(CACHE_PATH)
+    fetch_atm10_mods()
+    ids = []
+    if os.path.exists(SELECTIONS_PATH):
+        with open(SELECTIONS_PATH) as f:
+            ids = json.load(f)
+    return jsonify({"mod_ids": ids})
 
 
 # ── Server control ─────────────────────────────────────────────────────────────

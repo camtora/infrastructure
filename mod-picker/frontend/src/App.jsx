@@ -412,20 +412,38 @@ function formatSnapDate(name) {
   })
 }
 
-function HistoryView({ onBack }) {
+function HistoryView({ onBack, onRebuildLatest }) {
   const [snapshots, setSnapshots]       = useState([])
   const [loading, setLoading]           = useState(true)
   const [applyingName, setApplyingName] = useState(null)
   const [applyPhase, setApplyPhase]     = useState(null)  // 'applying' | 'done' | 'error'
   const [applyLog, setApplyLog]         = useState([])
   const [applyCountdown, setApplyCountdown] = useState(null)
+  const [atm10Status, setAtm10Status]   = useState(null)
+  const [rebuilding, setRebuilding]     = useState(false)
   const applyLogRef = useRef(null)
 
   useEffect(() => {
-    fetch('/api/snapshots')
-      .then(r => r.json())
-      .then(data => { setSnapshots(data); setLoading(false) })
+    Promise.all([
+      fetch('/api/snapshots').then(r => r.json()),
+      fetch('/api/atm10/status').then(r => r.json()).catch(() => null),
+    ]).then(([snaps, atm]) => {
+      setSnapshots(snaps)
+      setAtm10Status(atm)
+      setLoading(false)
+    })
   }, [])
+
+  const handleRebuildLatest = async () => {
+    setRebuilding(true)
+    try {
+      const resp = await fetch('/api/atm10/rebuild-latest', { method: 'POST' })
+      const { mod_ids } = await resp.json()
+      onRebuildLatest(mod_ids)
+    } finally {
+      setRebuilding(false)
+    }
+  }
 
   useEffect(() => {
     if (applyLogRef.current) applyLogRef.current.scrollTop = applyLogRef.current.scrollHeight
@@ -490,6 +508,15 @@ function HistoryView({ onBack }) {
                     )}
                   </div>
                   <div class="text-xs text-white/30 mt-0.5">{s.mod_count} mods · {s.name}</div>
+                  {atm10Status?.has_update && s.is_current && (
+                    <div class="mt-2 flex items-center gap-2 text-xs text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                      <span class="flex-1">⬆ ATM10 update — {atm10Status.latest.display_name}</span>
+                      <button onClick={handleRebuildLatest} disabled={rebuilding}
+                              class="flex-shrink-0 px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 rounded text-xs font-medium transition-all disabled:opacity-40">
+                        {rebuilding ? 'Refreshing...' : '↻ Rebuild with latest'}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Downloads */}
@@ -785,7 +812,11 @@ export default function App() {
     return <BuildView mods={mods} selected={selected} packName={packName} onBack={() => setView('browse')} />
   }
   if (view === 'history') {
-    return <HistoryView onBack={() => setView('browse')} />
+    return <HistoryView onBack={() => setView('browse')} onRebuildLatest={modIds => {
+      setSelected(new Set(modIds))
+      setDepsChecked(true)
+      setView('build')
+    }} />
   }
 
   return (

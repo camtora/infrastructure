@@ -163,6 +163,7 @@ services:
       - .env
     environment:
       - CURSEFORGE_API_KEY=${CURSEFORGE_API_KEY}
+      - DISCORD_WEBHOOK_URL=${MC_DISCORD_WEBHOOK_URL}
     volumes:
       - /home/camerontora/.local/bin/packwiz:/usr/local/bin/packwiz:ro
       - mod-picker-cache:/app/cache
