@@ -277,14 +277,26 @@ def api_check_deps():
             pass
         time.sleep(0.05)
 
-    dep_info = {
-        str(d["id"]): {
-            "required_by":     d["required_by"],
-            "required_by_ids": d["required_by_ids"],
-            "mod":             {k: v for k, v in d.items() if k not in ("required_by", "required_by_ids")},
-        }
-        for d in deps.values()
-    }
+    if os.path.exists(DEP_INFO_PATH):
+        with open(DEP_INFO_PATH) as f:
+            dep_info = json.load(f)
+    else:
+        dep_info = {}
+
+    for d in deps.values():
+        key = str(d["id"])
+        if key not in dep_info:
+            dep_info[key] = {
+                "required_by":     d["required_by"],
+                "required_by_ids": d["required_by_ids"],
+                "mod":             {k: v for k, v in d.items() if k not in ("required_by", "required_by_ids")},
+            }
+        else:
+            for name, mid in zip(d["required_by"], d["required_by_ids"]):
+                if name not in dep_info[key]["required_by"]:
+                    dep_info[key]["required_by"].append(name)
+                    dep_info[key]["required_by_ids"].append(mid)
+
     with open(DEP_INFO_PATH, "w") as f:
         json.dump(dep_info, f)
 
