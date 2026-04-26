@@ -521,6 +521,8 @@ docker compose up -d transmission
 
 **Deploy:** `cd status-dashboard && ./deploy.sh` — always use the script (see CRITICAL above).
 
+**REMINDER FOR CLAUDE:** After any change to `status-dashboard/` (frontend or backend), always ask the user if they want to deploy before closing the task.
+
 **Local dev:**
 ```bash
 sudo ufw allow 5173/tcp          # open port for LAN access

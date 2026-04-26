@@ -518,10 +518,15 @@ export function App() {
   }
 
   const isFailoverMode = status?.dns?.target === 'gcp'
-
+  const overallStatus = status?.overall_status
 
   return (
     <div class="min-h-screen">
+      {/* Outage background glow — fades in/out per status, invisible when healthy */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: -1, transition: 'opacity 2s ease', opacity: overallStatus === 'degraded' ? 1 : 0, background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(245, 158, 11, 0.15) 0%, transparent 70%)' }} />
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: -1, transition: 'opacity 2s ease', opacity: overallStatus === 'minor' ? 1 : 0, background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(249, 115, 22, 0.18) 0%, transparent 70%)' }} />
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: -1, transition: 'opacity 2s ease', opacity: overallStatus === 'major' ? 1 : 0, background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(239, 68, 68, 0.22) 0%, transparent 70%)' }} />
+
       {isFailoverMode && <FailoverBanner />}
       <PlexStatusBanner plexPlatform={status?.plex_platform} />
 
