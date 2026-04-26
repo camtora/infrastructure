@@ -50,6 +50,10 @@ if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
     echo "For GoDaddy secrets, get values from: /etc/godaddy-ddns.env"
     echo "For admin-api-key, generate a random key: openssl rand -hex 32"
     echo ""
+    if [[ "${CI:-}" == "true" ]]; then
+        echo -e "${RED}Running in CI — aborting due to missing secrets.${NC}"
+        exit 1
+    fi
     read -p "Continue anyway? (y/N) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
