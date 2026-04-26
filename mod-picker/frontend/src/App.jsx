@@ -303,7 +303,7 @@ function BuildView({ mods, selected, packName, onBack }) {
               </a>
               <button onClick={applyToServer} disabled={applyPhase === 'applying'}
                       class="px-5 py-2 bg-violet-500 hover:bg-violet-400 disabled:opacity-40 text-white font-semibold rounded-lg text-sm transition-all">
-                {applyPhase === 'applying' ? 'Applying...' : applyPhase === 'done' ? '✓ Applied' : '⚡ Apply to Server'}
+                {applyPhase === 'applying' ? 'Applying...' : applyPhase === 'done' ? '✓ Applied' : 'Apply to Server'}
               </button>
             </div>
 
@@ -317,6 +317,16 @@ function BuildView({ mods, selected, packName, onBack }) {
                 {applyPhase === 'done' && <div class="text-green-400">✓ Server restarted with new pack</div>}
               </div>
             )}
+
+            {/* Client install instructions */}
+            <div class="border-t border-white/[0.06] pt-4">
+              <p class="text-xs text-white/40 mb-2">To install on your client, import the <span class="text-white/60 font-mono">.mrpack</span> in your launcher:</p>
+              <ul class="text-xs text-white/35 space-y-1">
+                <li><span class="text-white/50">Prism Launcher</span> — Add Instance → Import from .mrpack</li>
+                <li><span class="text-white/50">Modrinth App</span> — File → Add instance → Import from file</li>
+                <li><span class="text-white/50">CurseForge App</span> — Create Custom Profile → Import</li>
+              </ul>
+            </div>
           </div>
         )}
 

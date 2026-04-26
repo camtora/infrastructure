@@ -541,6 +541,12 @@ cd status-dashboard/frontend && npm run build
 
 ---
 
+## macOS Scripts Live in This Repo
+
+`scripts/macos/` contains scripts that run on the MacBook, not the server. You can read and edit them here. The canonical installed copy on the Mac is at `/opt/homebrew/bin/mount-camerontora` — changes to the repo file don't take effect on the Mac until the user SCPs the updated script there (see `docs/MACOS-MOUNT.md`).
+
+When a user says "update the mount script" or "add a drive to the Mac mounts", work directly in `scripts/macos/mount-camerontora.sh` — don't ask where the file is.
+
 ## Key Files
 
 | File | Purpose |
