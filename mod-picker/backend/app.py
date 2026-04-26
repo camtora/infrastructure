@@ -248,7 +248,7 @@ def api_build():
             [PACKWIZ, "init", "--name", pack_name,
              "--mc-version", MC_VERSION,
              "--modloader", "neoforge",
-             "--modloader-version", NEOFORGE_VERSION, "-y"],
+             "--neoforge-version", NEOFORGE_VERSION, "-y"],
             cwd=snapshot_path, capture_output=True, text=True, timeout=30, env=env,
         )
         if result.returncode != 0:
