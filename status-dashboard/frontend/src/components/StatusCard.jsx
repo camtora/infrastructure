@@ -81,11 +81,12 @@ export function StatusCard({ service, adminAuth, onRestart }) {
 
   const config = statusConfig[statusType] || statusConfig.down
 
-  // Extract subdomain for display
-  const displayUrl = service.url
-    ?.replace('https://', '')
-    ?.replace('http://', '')
-    ?.split('/')[0]
+  // Extract subdomain for display — prefer explicit display_url, fall back to stripping url
+  const displayUrl = service.display_url
+    ?? service.url
+      ?.replace('https://', '')
+      ?.replace('http://', '')
+      ?.split('/')[0]
 
   const handleRestartClick = async () => {
     if (!confirming) {
@@ -115,23 +116,32 @@ export function StatusCard({ service, adminAuth, onRestart }) {
 
   return (
     <div class="status-card group">
-      <div class="flex items-start justify-between mb-3">
-        <div class="flex-1 min-w-0">
-          <h3 class="font-medium text-white truncate group-hover:text-violet-400 transition-colors">
+      <div class="mb-3">
+        {/* Name row: name left, status badge right */}
+        <div class="flex items-start justify-between gap-2">
+          <h3 class="font-medium text-white truncate group-hover:text-violet-400 transition-colors flex-1 min-w-0">
             {service.name}
           </h3>
+          <span class={`text-xs font-medium flex-shrink-0 ${config.color} ${statusType !== 'up' ? `px-2 py-1 rounded-md border ${config.bgLight}` : ''}`}>
+            {config.label}
+          </span>
+        </div>
+        {/* URL row: url left, uptime far right (aligned under status badge) */}
+        <div class="flex items-center justify-between gap-2 mt-0.5">
           {service.category !== 'api' && displayUrl ? (
-            <a href={displayUrl} target="_blank" rel="noopener noreferrer"
-              class="text-xs text-white/40 truncate mt-0.5 hover:text-white/70 transition-colors block">
+            <a href={`https://${displayUrl}`} target="_blank" rel="noopener noreferrer"
+              class="text-xs text-white/40 truncate hover:text-white/70 transition-colors flex-1 min-w-0">
               {displayUrl}
             </a>
           ) : (
-            <p class="text-xs text-white/40 truncate mt-0.5">{displayUrl}</p>
+            <p class="text-xs text-white/40 truncate flex-1 min-w-0">{displayUrl}</p>
+          )}
+          {internal?.container_uptime != null && (
+            <span class={`text-xs tabular-nums flex-shrink-0 ${internal.container_uptime < 300 ? 'text-emerald-400' : 'text-white/40'}`}>
+              Up {formatUptime(internal.container_uptime)}
+            </span>
           )}
         </div>
-        <span class={`text-xs font-medium ${config.color} ml-2 flex-shrink-0 ${statusType !== 'up' ? `px-2 py-1 rounded-md border ${config.bgLight}` : ''}`}>
-          {config.label}
-        </span>
       </div>
 
       {/* Internal status indicators */}
@@ -144,11 +154,6 @@ export function StatusCard({ service, adminAuth, onRestart }) {
           <div class="flex items-center gap-3">
             {service.response_time_ms !== null && service.response_time_ms !== undefined && (
               <span class="text-xs text-white/40 tabular-nums">{service.response_time_ms}ms</span>
-            )}
-            {internal?.container_uptime && (
-              <span class={`text-xs tabular-nums ${internal.container_uptime < 300 ? 'text-emerald-400' : 'text-white/40'}`}>
-                Up {formatUptime(internal.container_uptime)}
-              </span>
             )}
           </div>
 

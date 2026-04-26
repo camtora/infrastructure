@@ -5,7 +5,7 @@ const STORAGE_ORDER = ['/HOMENAS', '/CAMRAID', '/GAMES']
 
 // ─── CPU Panel ────────────────────────────────────────────────────────────────
 
-export function CpuPanel({ metrics, realtimeMetrics, metricsError, adminAuth, onRebootClick, cpuTemps }) {
+export function CpuPanel({ metrics, realtimeMetrics, metricsError, cpuTemps }) {
   const cpu  = metrics?.cpu
   const load = metrics?.load
   const displayCpu = realtimeMetrics?.cpu?.percent ?? cpu?.percent
@@ -30,19 +30,6 @@ export function CpuPanel({ metrics, realtimeMetrics, metricsError, adminAuth, on
             </span>
           )}
           {metricsError && <span class="text-xs text-amber-400" title={metricsError}>Using cached data</span>}
-          {adminAuth?.is_admin && (
-            <button
-              onClick={onRebootClick}
-              class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all duration-200 text-xs"
-              title="Restart Server"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Restart
-            </button>
-          )}
         </div>
       </div>
 
@@ -87,6 +74,11 @@ export function MemoryPanel({ metrics, realtimeMetrics, metricsError }) {
   const txTotal = transcode?.total != null ? transcode.total / 1024 ** 3 : null
   const txUsed  = transcode?.used  != null ? transcode.used  / 1024 ** 3 : (txTotal != null ? 0 : null)
 
+  const mc      = metrics?.minecraft_memory ?? null
+  const mcPct   = mc?.percent  ?? null
+  const mcUsed  = mc?.used_gb  ?? null
+  const mcLimit = mc?.limit_gb ?? null
+
   return (
     <div class="glass-card p-6">
       <div class="relative flex items-center justify-center mb-4">
@@ -122,10 +114,12 @@ export function MemoryPanel({ metrics, realtimeMetrics, metricsError }) {
               <p class="mt-3 text-xs text-white/40 tabular-nums text-center">{txUsed.toFixed(1)} / {txTotal.toFixed(1)} GB</p>
             )}
           </div>
-          {/* TODO: Minecraft RAM is fake/placeholder — wire up real data when Minecraft server is running */}
           <div class="flex flex-col items-center">
-            <ArcGauge label="Minecraft" value={0} max={100} thresholds={{ warning: 60, critical: 85 }} suffix="%" />
-            <p class="mt-3 text-xs text-white/40 tabular-nums text-center">0.0 / 4.0 GB</p>
+            <ArcGauge label="Minecraft" value={mcPct} max={100} thresholds={{ warning: 60, critical: 85 }} suffix="%" />
+            {mcUsed != null && mcLimit != null
+              ? <p class="mt-3 text-xs text-white/40 tabular-nums text-center">{mcUsed.toFixed(1)} / {mcLimit.toFixed(1)} GB</p>
+              : <p class="mt-3 text-xs text-white/40 tabular-nums text-center">offline</p>
+            }
           </div>
         </div>
       </div>

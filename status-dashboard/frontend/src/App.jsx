@@ -536,6 +536,7 @@ export function App() {
           onAskClick={() => setShowWikiQA(true)}
           onDnsClick={() => setShowDNS(v => !v)}
           dnsOpen={showDNS}
+          onRebootClick={initiateReboot}
         />
 
         {error && (
@@ -555,8 +556,6 @@ export function App() {
             metrics={status?.metrics}
             realtimeMetrics={realtimeMetrics}
             metricsError={metricsError}
-            adminAuth={adminAuth}
-            onRebootClick={initiateReboot}
             cpuTemps={status?.metrics?.cpu_temps}
           />
           <MemoryPanel

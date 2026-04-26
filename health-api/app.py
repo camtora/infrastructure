@@ -69,6 +69,7 @@ SERVICE_CHECKS = [
     {"name": "Health API", "container": "health-api", "port": 5000, "path": "/api/health/ping"},
     {"name": "Who's Up API", "container": "whosup-api", "port": 3001, "path": "/api/health"},
     {"name": "SBA API", "container": "sba-api", "port": 3003, "path": "/api/health"},
+    {"name": "Minecraft", "container": "minecraft", "port": 25565, "protocol": "tcp"},
 ]
 
 # Disk mounts to monitor (mapped to container paths via /hostfs)
@@ -544,6 +545,33 @@ def get_docker_client():
         return None
 
 
+def get_minecraft_memory():
+    """Get Minecraft container memory usage from cgroup stats."""
+    client = get_docker_client()
+    if not client:
+        return None
+    try:
+        container = client.containers.get("minecraft")
+        if container.status != "running":
+            return None
+        stats = container.stats(stream=False)
+        mem = stats.get("memory_stats", {})
+        usage = mem.get("usage", 0)
+        limit = mem.get("limit", 0)
+        # Subtract page cache to match what `docker stats` shows
+        cache = mem.get("stats", {}).get("cache", 0)
+        rss = max(usage - cache, 0)
+        if limit <= 0:
+            return None
+        return {
+            "used_gb": round(rss / (1024 ** 3), 2),
+            "limit_gb": round(limit / (1024 ** 3), 2),
+            "percent": round((rss / limit) * 100, 1),
+        }
+    except (docker.errors.NotFound, Exception):
+        return None
+
+
 def check_container_status(container_name: str) -> dict:
     """Check if a Docker container is running and healthy."""
     client = get_docker_client()
@@ -599,6 +627,19 @@ def check_local_port(port: int, path: str = "/") -> dict:
         return {"responding": False, "error": str(e)[:50]}
 
 
+def check_tcp_port(port: int) -> dict:
+    """Check if a raw TCP port is open (for non-HTTP services like game servers)."""
+    import socket
+    host = HOST_URL.replace("http://", "")
+    try:
+        with socket.create_connection((host, port), timeout=5):
+            return {"responding": True}
+    except socket.timeout:
+        return {"responding": False, "error": "timeout"}
+    except OSError as e:
+        return {"responding": False, "error": str(e)[:50]}
+
+
 def get_transmission_port() -> int:
     """Get the correct Transmission port based on active VPN."""
     client = get_docker_client()
@@ -644,7 +685,10 @@ def get_internal_services() -> list:
             port = transmission_port
 
         container_status = check_container_status(container)
-        port_status = check_local_port(port, path)
+        if svc.get("protocol") == "tcp":
+            port_status = check_tcp_port(port)
+        else:
+            port_status = check_local_port(port, path)
 
         results.append({
             "name": name,
@@ -664,6 +708,21 @@ def get_internal_services() -> list:
 def ping():
     """Simple liveness check - no auth required."""
     return jsonify({"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()})
+
+
+@app.route("/api/health/minecraft")
+def minecraft_health():
+    """Minecraft container liveness — used by status dashboard."""
+    client = get_docker_client()
+    if not client:
+        return jsonify({"status": "down", "container": "docker_unavailable"}), 503
+    try:
+        container = client.containers.get("minecraft")
+        if container.status == "running":
+            return jsonify({"status": "ok", "container": "running"}), 200
+        return jsonify({"status": "down", "container": container.status}), 503
+    except docker.errors.NotFound:
+        return jsonify({"status": "down", "container": "not_found"}), 503
 
 
 @app.route("/api/health/public-ip")
@@ -699,6 +758,7 @@ def health():
         "plex": get_plex_status(),
         "speed_test": get_speedtest_results(),
         "storage": get_storage_status(),
+        "minecraft_memory": get_minecraft_memory(),
     })
 
 
@@ -710,6 +770,7 @@ def root():
         "endpoints": {
             "/api/health": "Full health status (requires API key)",
             "/api/health/ping": "Simple liveness check",
+            "/api/health/minecraft": "Minecraft container liveness",
             "/api/health/public-ip": "Public IP address (requires API key)",
             "/api/health/services": "Internal service status - container + local port (requires API key)",
             "/api/admin/whoami": "Check authentication status (OAuth protected)",

@@ -181,6 +181,8 @@ def run_health_check() -> dict[str, Any]:
             svc = futures[future]
             check = future.result()
             check["category"] = svc.get("category", "unknown")
+            if "display_url" in svc:
+                check["display_url"] = svc["display_url"]
             service_checks[svc["name"]] = check
 
     results["plex_platform"] = plex_platform_future.result()
@@ -243,6 +245,7 @@ def run_health_check() -> dict[str, Any]:
             "disks": disks_array,
             "speed_test": data.get("speed_test"),
             "storage": data.get("storage"),
+            "minecraft_memory": data.get("minecraft_memory"),
         }
         # Include Plex from health API
         results["plex"] = data.get("plex")

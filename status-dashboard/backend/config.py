@@ -41,6 +41,7 @@ SERVICES = [
     {"name": "Health API", "url": "https://health.camerontora.ca/api/health/ping", "category": "api"},
     {"name": "Who's Up API", "url": "https://whosup.camerontora.ca/api/health", "category": "api"},
     {"name": "SBA API", "url": "https://sba.camerontora.ca/api/health", "category": "api"},
+    {"name": "Minecraft", "url": "https://health.camerontora.ca/api/health/minecraft", "display_url": "minecraft.camerontora.ca", "category": "api"},
 ]
 
 # DNS records to manage during failover

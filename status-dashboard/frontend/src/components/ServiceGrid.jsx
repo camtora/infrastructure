@@ -37,7 +37,7 @@ export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
       {apiServices.length > 0 && (
         <section>
           <h2 class="text-lg font-medium text-white mb-4 text-center">
-            API Services
+            APIs &amp; Other
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {apiServices.map(service => (
