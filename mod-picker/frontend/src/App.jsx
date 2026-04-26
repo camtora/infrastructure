@@ -639,8 +639,20 @@ export default function App() {
       const existingIds = new Set(mods.map(m => m.id))
       const toAdd = newDeps.filter(d => !existingIds.has(d.id))
       if (toAdd.length) setMods(prev => [...prev, ...toAdd])
-      const info = {}
-      newDeps.forEach(d => { info[String(d.id)] = { required_by: d.required_by, required_by_ids: d.required_by_ids, mod: d } })
+      const info = { ...depInfoRef.current }
+      newDeps.forEach(d => {
+        const key = String(d.id)
+        if (!info[key]) {
+          info[key] = { required_by: d.required_by, required_by_ids: d.required_by_ids, mod: d }
+        } else {
+          d.required_by.forEach((name, i) => {
+            if (!info[key].required_by.includes(name)) {
+              info[key].required_by.push(name)
+              info[key].required_by_ids.push(d.required_by_ids[i])
+            }
+          })
+        }
+      })
       setDepInfo(info)
       setSelected(prev => {
         const next = new Set(prev)
