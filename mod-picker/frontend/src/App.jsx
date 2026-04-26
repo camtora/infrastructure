@@ -66,16 +66,22 @@ function ModCard({ mod, selected, onToggle, onRemove, depEntry, isLocked }) {
   return (
     <div class={`glass-card ${selected ? 'selected' : ''} p-3 flex gap-2.5 items-start relative
       ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}
-      ${depEntry && !isLocked ? 'border-amber-500/20' : ''}`}
+      ${depEntry ? (isLocked ? 'border-blue-500/20 pb-7' : 'border-amber-500/20 pb-7') : ''}`}
          onClick={handleClick}>
 
-      {/* Dep overlay */}
+      {/* Dep strip */}
       {depEntry && (
-        <div class={`absolute inset-0 rounded-xl flex flex-col items-center justify-center text-center px-3 py-2 z-10
-          ${isLocked ? 'bg-[#020617]/80' : 'bg-[#1a1200]/75'}`}>
-          <span class={`text-[10px] font-medium leading-relaxed
-            ${isLocked ? 'text-blue-300' : 'text-amber-300'}`}>
-            required by<br/>
+        <div class={`absolute bottom-0 left-0 right-0 rounded-b-xl px-3 py-1.5 z-10
+          flex items-center gap-1.5
+          ${isLocked
+            ? 'bg-gradient-to-t from-[#020617]/90 to-[#020617]/60'
+            : 'bg-gradient-to-t from-[#1a0f00]/90 to-[#1a0f00]/60'}`}>
+          <span class={`text-[9px] font-semibold uppercase tracking-wide flex-shrink-0
+            ${isLocked ? 'text-blue-400/70' : 'text-amber-400/70'}`}>
+            dep
+          </span>
+          <span class={`text-[10px] truncate leading-tight
+            ${isLocked ? 'text-blue-200/60' : 'text-amber-200/60'}`}>
             {depEntry.required_by.join(', ')}
           </span>
         </div>
