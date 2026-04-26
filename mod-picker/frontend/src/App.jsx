@@ -826,6 +826,11 @@ export default function App() {
       {/* My Pack view */}
       {view === 'pack' && (
         <main class="max-w-screen-2xl mx-auto px-5 py-4">
+          {Object.keys(depInfo).length > 0 && (
+            <p class="text-xs text-white/35 mb-4 leading-relaxed">
+              Mods labelled <span class="text-amber-300/70">required by</span> were not picked directly — they were pulled in automatically because another mod in your pack needs them. Mods you chose yourself (like Create) are never labelled this way, even if something else also depends on them.
+            </p>
+          )}
           {filteredPackMods.length === 0 ? (
             <div class="text-center py-20 text-white/25">
               {selected.size === 0 ? 'No mods selected yet.' : 'No mods match your search.'}
