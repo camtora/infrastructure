@@ -417,6 +417,21 @@ def api_packs():
     return jsonify([{"name": f, "url": f"/packs/{f}"} for f in files[:10]])
 
 
+@app.route("/packs/latest")
+def serve_pack_latest():
+    try:
+        files = sorted(
+            [f for f in os.listdir(BUILDS_DIR) if f.endswith(".mrpack")],
+            key=lambda f: os.path.getmtime(os.path.join(BUILDS_DIR, f)),
+            reverse=True,
+        )
+    except OSError:
+        files = []
+    if not files:
+        abort(404)
+    from flask import redirect
+    return redirect(f"/packs/{files[0]}")
+
 @app.route("/packs/<path:filename>")
 def serve_pack(filename):
     return send_from_directory(BUILDS_DIR, filename, as_attachment=True)

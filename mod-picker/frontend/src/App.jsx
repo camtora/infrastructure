@@ -297,7 +297,7 @@ function BuildView({ mods, selected, packName, onBack }) {
           <div class="mt-6 glass-card p-5 flex flex-col gap-4">
             <div class="flex items-center gap-4 flex-wrap">
               <span class="text-sm text-white/60 flex-1">Pack built successfully.</span>
-              <a href={`/packs/${result.file}`} download
+              <a href="/packs/latest" download
                  class="px-5 py-2 bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.12] text-white font-medium rounded-lg text-sm transition-all">
                 ↓ Download .mrpack
               </a>
@@ -320,7 +320,7 @@ function BuildView({ mods, selected, packName, onBack }) {
 
             {/* Client install instructions */}
             <div class="border-t border-white/[0.06] pt-4">
-              <p class="text-xs text-white/40 mb-2">To install on your client, import the <span class="text-white/60 font-mono">.mrpack</span> in your launcher:</p>
+              <p class="text-xs text-white/40 mb-2">To install on your client, download from <span class="text-white/60 font-mono">mods.camerontora.ca/packs/latest</span> and import in your launcher:</p>
               <ul class="text-xs text-white/35 space-y-1">
                 <li><span class="text-white/50">Prism Launcher</span> — Add Instance → Import from .mrpack</li>
                 <li><span class="text-white/50">Modrinth App</span> — File → Add instance → Import from file</li>
@@ -598,7 +598,7 @@ export default function App() {
             <span class="text-violet-400 font-semibold tabular-nums">{selected.size}</span> in pack
           </span>
           {recentPacks.length > 0 && (
-            <a href={recentPacks[0].url} download class="text-xs text-white/30 hover:text-violet-400 transition-colors">↓ Last build</a>
+            <a href="/packs/latest" download class="text-xs text-white/30 hover:text-violet-400 transition-colors">↓ Last build</a>
           )}
           <div class="flex-1" />
           <div class="flex items-center gap-2">
