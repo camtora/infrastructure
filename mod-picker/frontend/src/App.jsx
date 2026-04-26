@@ -28,6 +28,10 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [saveStatus, setSaveStatus] = useState(null) // null | 'saving' | 'saved'
+  const [showAddCustom, setShowAddCustom] = useState(false)
+  const [customUrl, setCustomUrl] = useState('')
+  const [addingCustom, setAddingCustom] = useState(false)
+  const [addCustomError, setAddCustomError] = useState(null)
   const [showBuild, setShowBuild] = useState(false)
   const [packName, setPackName] = useState('camerontora')
   const [building, setBuilding] = useState(false)
@@ -111,6 +115,36 @@ export default function App() {
   const filteredPackMods = view === 'pack' && search
     ? packMods.filter(m => m.name.toLowerCase().includes(packSearch) || m.summary.toLowerCase().includes(packSearch))
     : packMods
+
+  const addCustomMod = async () => {
+    setAddingCustom(true)
+    setAddCustomError(null)
+    try {
+      const resp = await fetch('/api/mods/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: customUrl }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) {
+        setAddCustomError(data.error || 'Failed to add mod')
+        return
+      }
+      setMods(prev => [...prev, data])
+      setSelected(prev => {
+        const next = new Set(prev)
+        next.add(data.id)
+        debouncedSave(next)
+        return next
+      })
+      setCustomUrl('')
+      setShowAddCustom(false)
+    } catch (e) {
+      setAddCustomError(e.message)
+    } finally {
+      setAddingCustom(false)
+    }
+  }
 
   const openBuild = () => {
     setShowBuild(true)
@@ -217,6 +251,12 @@ export default function App() {
               {view === 'browse' ? `${filtered.length}/${mods.length}` : `${filteredPackMods.length}/${selected.size}`}
             </span>
 
+            <button
+              onClick={() => { setShowAddCustom(true); setAddCustomError(null); setCustomUrl('') }}
+              title="Add mod by CurseForge URL"
+              class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.05] border border-white/[0.10] text-white/40 hover:text-emerald-400 hover:border-emerald-500/40 transition-all text-lg leading-none"
+            >+</button>
+
             {saveStatus && (
               <span class={`text-xs flex-shrink-0 transition-all ${saveStatus === 'saved' ? 'text-emerald-400/70' : 'text-white/30'}`}>
                 {saveStatus === 'saving' ? 'Saving...' : '✓ Saved'}
@@ -292,6 +332,39 @@ export default function App() {
           >Build Pack</button>
         </div>
       </footer>
+
+      {/* Add custom mod modal */}
+      {showAddCustom && (
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div class="glass-card w-full max-w-lg p-6 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+              <h2 class="font-semibold gradient-text">Add Custom Mod</h2>
+              <button onClick={() => setShowAddCustom(false)} class="text-white/30 hover:text-white/60 transition-colors text-xl leading-none">×</button>
+            </div>
+            <p class="text-xs text-white/40">Paste a CurseForge mod page URL — it'll be added to your list and auto-selected.</p>
+            <input
+              type="url"
+              placeholder="https://www.curseforge.com/minecraft/mc-mods/..."
+              value={customUrl}
+              onInput={e => setCustomUrl(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !addingCustom && customUrl && addCustomMod()}
+              class="w-full bg-white/[0.05] border border-white/[0.10] rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 outline-none focus:border-emerald-500/40 transition-all font-mono"
+              autoFocus
+            />
+            {addCustomError && (
+              <p class="text-xs text-red-400">{addCustomError}</p>
+            )}
+            <div class="flex items-center justify-end gap-3">
+              <button onClick={() => setShowAddCustom(false)} class="text-sm text-white/40 hover:text-white/60 transition-colors px-3 py-1.5">Cancel</button>
+              <button
+                onClick={addCustomMod}
+                disabled={!customUrl || addingCustom}
+                class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-gray-900 font-semibold rounded-lg text-sm transition-all"
+              >{addingCustom ? 'Adding...' : 'Add Mod'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Build modal */}
       {showBuild && (
@@ -393,6 +466,7 @@ function ModCard({ mod, selected, onToggle }) {
       <div class="flex-1 min-w-0">
         <div class="flex items-start gap-1.5">
           <span class="flex-1 font-medium text-sm text-white leading-tight">{mod.name}</span>
+          {mod.custom && <span class="text-[9px] px-1.5 py-0.5 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400 flex-shrink-0 mt-0.5">custom</span>}
           <InfoLink url={mod.infoUrl} />
           <input
             type="checkbox"

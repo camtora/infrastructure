@@ -2,6 +2,7 @@
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -17,6 +18,7 @@ CF_KEY = os.environ.get("CURSEFORGE_API_KEY", "")
 CF_BASE = "https://api.curseforge.com/v1"
 HDR = {"x-api-key": CF_KEY, "Accept": "application/json"}
 CACHE_PATH = "/app/cache/mods.json"
+CUSTOM_PATH = "/app/cache/custom_mods.json"
 PACKS_DIR = "/app/packs"
 PACKWIZ = "/usr/local/bin/packwiz"
 
@@ -100,11 +102,44 @@ def get_mods():
     return mods
 
 
+def get_custom_mods():
+    if os.path.exists(CUSTOM_PATH):
+        with open(CUSTOM_PATH) as f:
+            return json.load(f)
+    return []
+
+
+def save_custom_mods(mods):
+    with open(CUSTOM_PATH, "w") as f:
+        json.dump(mods, f)
+
+
+def mod_from_cf(m):
+    links = m.get("links") or {}
+    cf_url = links.get("websiteUrl") or f"https://www.curseforge.com/minecraft/mc-mods/{m['slug']}"
+    return {
+        "id": m["id"],
+        "name": m["name"],
+        "slug": m["slug"],
+        "summary": m.get("summary", ""),
+        "categories": [c["name"] for c in m.get("categories", [])],
+        "url": cf_url,
+        "infoUrl": cf_url,
+        "logo": (m.get("logo") or {}).get("thumbnailUrl", ""),
+        "downloads": m.get("downloadCount", 0),
+        "custom": True,
+    }
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/api/mods")
 def api_mods():
-    return jsonify(get_mods())
+    mods = get_mods()
+    custom = get_custom_mods()
+    atm10_ids = {m["id"] for m in mods}
+    extras = [m for m in custom if m["id"] not in atm10_ids]
+    return jsonify(mods + extras)
 
 
 SELECTIONS_PATH = "/app/cache/selections.json"
@@ -126,6 +161,35 @@ def api_save_selections():
     return jsonify({"saved": len(ids)})
 
 
+@app.route("/api/mods/custom", methods=["POST"])
+def api_add_custom_mod():
+    url = (request.json or {}).get("url", "").strip()
+    match = re.search(r'curseforge\.com/minecraft/[^/]+/([^/?#]+)', url)
+    if not match:
+        return jsonify({"error": "Paste a CurseForge mod page URL"}), 400
+    slug = match.group(1)
+
+    search = cf_get("/mods/search", gameId=432, slug=slug, pageSize=1)
+    if not search["data"]:
+        return jsonify({"error": f"Mod '{slug}' not found"}), 404
+
+    mod = mod_from_cf(search["data"][0])
+
+    custom = get_custom_mods()
+    if any(c["id"] == mod["id"] for c in custom):
+        return jsonify({"error": "Already in your list", "mod": mod}), 409
+    custom.append(mod)
+    save_custom_mods(custom)
+    return jsonify(mod)
+
+
+@app.route("/api/mods/custom/<int:mod_id>", methods=["DELETE"])
+def api_remove_custom_mod(mod_id):
+    custom = [m for m in get_custom_mods() if m["id"] != mod_id]
+    save_custom_mods(custom)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/mods/refresh", methods=["POST"])
 def api_mods_refresh():
     if os.path.exists(CACHE_PATH):
@@ -142,8 +206,8 @@ def api_build():
     selected_ids = set(data.get("ids", []))
     pack_name = (data.get("name") or "camerontora").strip() or "camerontora"
 
-    mods = get_mods()
-    selected = [m for m in mods if m["id"] in selected_ids]
+    all_mods = get_mods() + [m for m in get_custom_mods() if m["id"] not in {x["id"] for x in get_mods()}]
+    selected = [m for m in all_mods if m["id"] in selected_ids]
 
     env = {**os.environ, "CURSEFORGE_API_KEY": CF_KEY}
 
