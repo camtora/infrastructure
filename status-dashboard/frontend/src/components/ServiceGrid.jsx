@@ -1,10 +1,12 @@
 import { StatusCard } from './StatusCard'
 
-export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
+export function ServiceGrid({ services, adminAuth, onRestartContainer, overallStatus }) {
   // Group services by category
   const publicServices = services.filter(s => s.category === 'public')
   const protectedServices = services.filter(s => s.category === 'protected')
   const apiServices = services.filter(s => s.category === 'api')
+
+  const isMinor = overallStatus === 'minor'
 
   return (
     <div class="space-y-10">
@@ -15,7 +17,7 @@ export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {publicServices.map(service => (
-              <StatusCard key={service.name} service={service} adminAuth={adminAuth} onRestart={onRestartContainer} />
+              <StatusCard key={service.name} service={service} adminAuth={adminAuth} onRestart={onRestartContainer} highlight={isMinor && service.status !== 'up'} />
             ))}
           </div>
         </section>
@@ -28,7 +30,7 @@ export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {protectedServices.map(service => (
-              <StatusCard key={service.name} service={service} adminAuth={adminAuth} onRestart={onRestartContainer} />
+              <StatusCard key={service.name} service={service} adminAuth={adminAuth} onRestart={onRestartContainer} highlight={isMinor && service.status !== 'up'} />
             ))}
           </div>
         </section>
@@ -41,7 +43,7 @@ export function ServiceGrid({ services, adminAuth, onRestartContainer }) {
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {apiServices.map(service => (
-              <StatusCard key={service.name} service={service} adminAuth={adminAuth} onRestart={onRestartContainer} />
+              <StatusCard key={service.name} service={service} adminAuth={adminAuth} onRestart={onRestartContainer} highlight={isMinor && service.status !== 'up'} />
             ))}
           </div>
         </section>

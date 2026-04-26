@@ -2,7 +2,7 @@ import { useState, useEffect } from 'preact/hooks'
 import { ArcGauge } from './MetricsPanel'
 
 // Network panel: live throughput + home connection speedtest
-export function NetworkPanel({ network, speedTest }) {
+export function NetworkPanel({ network, speedTest, degraded }) {
   const rx = network?.received_mbps ?? null
   const tx = network?.sent_mbps     ?? null
   const hasLive = rx !== null || tx !== null
@@ -11,7 +11,7 @@ export function NetworkPanel({ network, speedTest }) {
   const mbpsColor = (v) => v > 700 ? 'text-red-400' : v > 100 ? 'text-amber-400' : 'text-emerald-400'
 
   return (
-    <div class="glass-card p-6 h-full flex flex-col">
+    <div class={`glass-card p-6 h-full flex flex-col${degraded ? ' bg-amber-400/10 border-amber-400/30' : ''}`}>
       <div class="relative flex items-center justify-center mb-4">
         <h2 class="text-lg font-medium text-white">Network</h2>
         {hasLive && (

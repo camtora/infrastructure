@@ -5,7 +5,7 @@ const STORAGE_ORDER = ['/HOMENAS', '/CAMRAID', '/GAMES']
 
 // ─── CPU Panel ────────────────────────────────────────────────────────────────
 
-export function CpuPanel({ metrics, realtimeMetrics, metricsError, cpuTemps }) {
+export function CpuPanel({ metrics, realtimeMetrics, metricsError, cpuTemps, degraded }) {
   const cpu  = metrics?.cpu
   const load = metrics?.load
   const displayCpu = realtimeMetrics?.cpu?.percent ?? cpu?.percent
@@ -19,7 +19,7 @@ export function CpuPanel({ metrics, realtimeMetrics, metricsError, cpuTemps }) {
   const cpuCount = load?.cpu_count || 4
 
   return (
-    <div class="glass-card p-6">
+    <div class={`glass-card p-6${degraded ? ' bg-amber-400/10 border-amber-400/30' : ''}`}>
       <div class="relative flex items-center justify-center mb-4">
         <h2 class="text-lg font-medium text-white">CPU</h2>
         <div class="absolute right-0 flex items-center gap-3">
@@ -56,7 +56,7 @@ export function CpuPanel({ metrics, realtimeMetrics, metricsError, cpuTemps }) {
 
 // ─── Memory Panel ─────────────────────────────────────────────────────────────
 
-export function MemoryPanel({ metrics, realtimeMetrics, metricsError }) {
+export function MemoryPanel({ metrics, realtimeMetrics, metricsError, degraded }) {
   const mem = metrics?.memory || {}
   const isRealtime = realtimeMetrics !== null
   const percent      = realtimeMetrics?.memory?.percent      ?? mem.percent      ?? null
@@ -80,7 +80,7 @@ export function MemoryPanel({ metrics, realtimeMetrics, metricsError }) {
   const mcLimit = mc?.limit_gb ?? null
 
   return (
-    <div class="glass-card p-6">
+    <div class={`glass-card p-6${degraded ? ' bg-amber-400/10 border-amber-400/30' : ''}`}>
       <div class="relative flex items-center justify-center mb-4">
         <h2 class="text-lg font-medium text-white">Memory</h2>
         {isRealtime && !metricsError && (

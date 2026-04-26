@@ -519,6 +519,7 @@ export function App() {
 
   const isFailoverMode = status?.dns?.target === 'gcp'
   const overallStatus = status?.overall_status
+  const degradedFlags = status?.degraded_flags || {}
 
   return (
     <div class="min-h-screen">
@@ -562,15 +563,18 @@ export function App() {
             realtimeMetrics={realtimeMetrics}
             metricsError={metricsError}
             cpuTemps={status?.metrics?.cpu_temps}
+            degraded={degradedFlags.cpu}
           />
           <MemoryPanel
             metrics={status?.metrics}
             realtimeMetrics={realtimeMetrics}
             metricsError={metricsError}
+            degraded={degradedFlags.ram}
           />
           <NetworkPanel
             network={realtimeMetrics?.network}
             speedTest={status?.metrics?.speed_test}
+            degraded={degradedFlags.speed}
           />
           <DiskUsagePanel disks={status?.metrics?.disks} />
           <DiskIOPanel diskUtil={realtimeMetrics?.diskUtil} isRealtime={realtimeMetrics !== null} />
@@ -595,6 +599,7 @@ export function App() {
             services={status?.services || []}
             adminAuth={adminAuth}
             onRestartContainer={restartContainer}
+            overallStatus={overallStatus}
           />
         </div>
 

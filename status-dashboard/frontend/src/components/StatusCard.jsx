@@ -8,7 +8,7 @@ function formatUptime(seconds) {
   return `${Math.floor(seconds / 86400)}d`
 }
 
-export function StatusCard({ service, adminAuth, onRestart }) {
+export function StatusCard({ service, adminAuth, onRestart, highlight }) {
   const [restarting, setRestarting] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState(null)
@@ -115,7 +115,7 @@ export function StatusCard({ service, adminAuth, onRestart }) {
   const canRestart = isAdmin && containerName && containerName !== 'health-api'
 
   return (
-    <div class="status-card group">
+    <div class={`status-card group${highlight ? ' bg-orange-500/10 border-orange-500/30' : ''}`}>
       <div class="mb-3">
         {/* Name row: name left, status badge right */}
         <div class="flex items-start justify-between gap-2">

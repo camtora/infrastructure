@@ -281,6 +281,8 @@ def run_health_check() -> dict[str, Any]:
             speed_test = metrics.get("speed_test", {}) or {}
             speed_low = speed_test.get("upload", 999) < 5 if speed_test else False
 
+            results["degraded_flags"] = {"cpu": cpu_high, "ram": ram_high, "speed": speed_low}
+
             if cpu_high or ram_high or speed_low:
                 results["overall_status"] = "degraded"
             else:
