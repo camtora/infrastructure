@@ -188,7 +188,7 @@ function BuildView({ mods, selected, packName, onBack }) {
     const resp = await fetch('/api/server/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ file: result.file }),
+      body: JSON.stringify({}),
     })
 
     const reader  = resp.body.getReader()

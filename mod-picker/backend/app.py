@@ -337,11 +337,8 @@ def rcon(container, cmd):
 
 @app.route("/api/server/apply", methods=["POST"])
 def api_server_apply():
-    data      = request.json or {}
-    pack_file = data.get("file", "")
-    src       = os.path.join(BUILDS_DIR, pack_file)
-    if not pack_file or not os.path.exists(src):
-        return jsonify({"error": "Pack file not found"}), 404
+    if not os.path.islink(CURRENT_LINK):
+        return jsonify({"error": "No pack built yet — run a build first"}), 400
 
     def generate():
         import docker as docker_lib
@@ -352,9 +349,7 @@ def api_server_apply():
             yield sse({"type": "error", "msg": f"Docker error: {e}"})
             return
 
-        yield sse({"type": "log", "msg": "Copying pack to server..."})
-        shutil.copy2(src, CURRENT_PACK)
-        yield sse({"type": "log", "msg": "Pack copied."})
+        yield sse({"type": "log", "msg": "Connecting to server..."})
 
         if container.status != "running":
             yield sse({"type": "log", "msg": "Server is not running — starting..."})
