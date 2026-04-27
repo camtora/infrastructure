@@ -68,7 +68,7 @@ export function WikiQAModal({ isOpen, onClose }) {
     >
       <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      <div class="relative w-full max-w-3xl glass-card p-6 shadow-2xl">
+      <div class="relative w-full max-w-5xl glass-card p-6 shadow-2xl">
         {/* Header */}
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-white">Ask about my infrastructure</h2>
@@ -91,7 +91,7 @@ export function WikiQAModal({ isOpen, onClose }) {
         </div>
 
         {/* Thread */}
-        <div ref={threadRef} class="h-96 overflow-y-auto mb-3 flex flex-col gap-3 pr-1">
+        <div ref={threadRef} class="h-[62vh] overflow-y-auto mb-3 flex flex-col gap-3 pr-1">
           {messages.length === 0 && !loading && (
             <div class="flex-1 flex items-center justify-center">
               <p class="text-white/30 italic text-sm">Ask anything about this infrastructure...</p>
