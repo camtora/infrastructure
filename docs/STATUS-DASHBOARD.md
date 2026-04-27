@@ -356,12 +356,17 @@ cd infrastructure/status-dashboard
 3. Deploys to Cloud Run
 4. Creates/updates Cloud Scheduler job
 
-### Manual Redeploy
+### Deploying changes
+
+**Preferred:** push to `main` — GitHub Actions builds and deploys automatically.
+
+**Local deploy** (hotfix or without a commit):
 ```bash
 cd infrastructure/status-dashboard
-git pull
 ./deploy.sh
 ```
+
+> **Never** run `gcloud run deploy` directly. `--set-secrets` replaces ALL secret bindings; any omitted secret is silently dropped. Always use `deploy.sh` or push to trigger GitHub Actions.
 
 ## Local Development
 

@@ -130,7 +130,13 @@ Docker Compose strips surrounding single quotes, so the value reaches containers
 
 ## CRITICAL: Cloud Run Deploy Rules
 
-**Always use `status-dashboard/deploy.sh`. Never run `gcloud run deploy` directly.**
+**Two valid deploy paths. Never run `gcloud run deploy` directly.**
+
+| Method | When to use |
+|--------|-------------|
+| `git push` to `main` | Normal code changes — GitHub Actions builds and deploys automatically |
+| `cd status-dashboard && ./deploy.sh` | Hotfix or deploy without a commit (e.g. secret rotation) |
+| `gcloud run deploy` directly | **NEVER** — silently drops all secret bindings |
 
 `--set-secrets` replaces ALL secret bindings on every deploy. A raw gcloud command that omits any
 secret silently drops it — the service starts and health checks pass, but features break.
@@ -139,7 +145,7 @@ secret silently drops it — the service starts and health checks pass, but feat
 If adding a new secret:
 1. Add it to `REQUIRED_SECRETS` in `deploy.sh` first
 2. Create it in Secret Manager (`gcloud secrets create ...`)
-3. Run `deploy.sh`
+3. Push or run `deploy.sh`
 
 If the Wiki Q&A panel breaks: check `gcloud run revisions list --service status-dashboard --region us-central1 --limit 5` before debugging code.
 
@@ -519,7 +525,7 @@ docker compose up -d transmission
 
 ## Status Dashboard Reference
 
-**Deploy:** `cd status-dashboard && ./deploy.sh` — always use the script (see CRITICAL above).
+**Deploy:** `git push` triggers GitHub Actions (preferred). For a local deploy without committing: `cd status-dashboard && ./deploy.sh`. Never use `gcloud run deploy` directly (see CRITICAL above).
 
 **REMINDER FOR CLAUDE:** After any change to `status-dashboard/` (frontend or backend), always ask the user if they want to deploy before closing the task.
 
@@ -562,7 +568,7 @@ When a user says "update the mount script" or "add a drive to the Mac mounts", w
 | `scripts/godaddy-ddns.sh` | DDNS updater — RECORDS array here |
 | `scripts/speedtest.sh` | Speedtest cron script; sources .env |
 | `health-api/app.py` | VPN switch logic, metrics, server reboot |
-| `status-dashboard/deploy.sh` | ONLY way to deploy the Cloud Run dashboard |
+| `status-dashboard/deploy.sh` | Local deploy script — use this or `git push` (never raw gcloud) |
 | `status-dashboard/backend/config.py` | Monitored services list |
 | `docs/DNS-AND-SSL.md` | Authoritative SSL and DDNS runbook |
 | `docs/SSO-GUIDE.md` | Full SSO patterns and troubleshooting |
@@ -581,5 +587,5 @@ When a user says "update the mount script" or "add a drive to the Mac mounts", w
 | SSO broken (re-prompted each subdomain) | Missing `proxy_cookie_domain` | Check `/oauth2/` location block |
 | `redirect_uri_mismatch` | Callback not in Google OAuth Console | Add `https://sub.camerontora.ca/oauth2/callback`; wait 5 min |
 | Certbot challenge fails | Named server block swallows ACME request | Add `/.well-known/acme-challenge/` location to HTTP block |
-| Wiki Q&A returns "not configured" | `ANTHROPIC_API_KEY` dropped on deploy | Re-run `deploy.sh`; never run gcloud directly |
+| Wiki Q&A returns "not configured" | `ANTHROPIC_API_KEY` dropped on deploy | Push to trigger Actions or re-run `deploy.sh`; never run gcloud directly |
 | Transmission has no internet | Stale network namespace after gluetun restart | `docker stop transmission && docker rm transmission && docker compose up -d transmission` |

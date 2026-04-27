@@ -99,14 +99,19 @@ The Vite proxy handles all `/api/*` calls — the browser never talks directly t
 
 ## Deploying changes to production
 
-**Frontend:** The built `dist/` is served by the Cloud Run container. Use the deploy script:
+**Frontend:** The built `dist/` is served by the Cloud Run container. Two valid deploy paths:
 
 ```bash
+# Option 1 — push to main (preferred for code changes)
+git push
+# GitHub Actions builds the frontend and deploys automatically
+
+# Option 2 — local deploy without a commit (e.g. secret rotation, hotfix)
 cd /home/camerontora/infrastructure/status-dashboard
 ./deploy.sh
 ```
 
-> Never run `gcloud run deploy` directly — secrets (including `ANTHROPIC_API_KEY`) are not passed and will be silently dropped. Always use `deploy.sh`.
+> Never run `gcloud run deploy` directly — `--set-secrets` replaces ALL bindings; omitting any secret silently drops it. `ANTHROPIC_API_KEY` has been lost this way multiple times.
 
 **nginx changes:** Reload nginx on the home server after editing `10-protected-services.conf`:
 
