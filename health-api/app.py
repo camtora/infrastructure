@@ -582,10 +582,21 @@ def get_minecraft_memory():
         stats = container.stats(stream=False)
         mem = stats.get("memory_stats", {})
         usage = mem.get("usage", 0)
-        limit = mem.get("limit", 0)
         # Subtract page cache to match what `docker stats` shows
         cache = mem.get("stats", {}).get("cache", 0)
         rss = max(usage - cache, 0)
+
+        # Use MAX_MEMORY (JVM heap limit) as the ceiling instead of the cgroup limit
+        env_vars = container.attrs.get("Config", {}).get("Env", [])
+        max_memory_str = next((e.split("=", 1)[1] for e in env_vars if e.startswith("MAX_MEMORY=")), None)
+        if max_memory_str:
+            unit = max_memory_str[-1].upper()
+            value = float(max_memory_str[:-1])
+            multipliers = {"G": 1024 ** 3, "M": 1024 ** 2, "K": 1024}
+            limit = int(value * multipliers.get(unit, 1))
+        else:
+            limit = mem.get("limit", 0)
+
         if limit <= 0:
             return None
         return {
