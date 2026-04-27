@@ -372,9 +372,11 @@ def api_admin_verify():
 @require_admin
 def wiki_qa():
     data = request.get_json(silent=True) or {}
-    question = (data.get("question") or "").strip()
-    if not question:
-        return jsonify({"error": "question is required"}), 400
+    messages = data.get("messages")
+    if not isinstance(messages, list) or len(messages) == 0:
+        return jsonify({"error": "messages must be a non-empty list"}), 400
+    if messages[-1].get("role") != "user":
+        return jsonify({"error": "last message must have role 'user'"}), 400
 
     if not ANTHROPIC_API_KEY:
         return jsonify({"error": "ANTHROPIC_API_KEY not configured"}), 500
@@ -399,16 +401,20 @@ def wiki_qa():
         + ctx
     )
 
+    # Drop oldest user+assistant pairs until within the 20-message cap
+    while len(messages) > 20:
+        messages = messages[2:]
+
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=600,
+            max_tokens=1024,
             system=system_prompt,
-            messages=[{"role": "user", "content": question}],
+            messages=messages,
         )
-        answer = message.content[0].text
-        return jsonify({"answer": answer})
+        reply = message.content[0].text
+        return jsonify({"reply": reply})
     except Exception as e:
         logger.error(f"Claude API error: {e}")
         return jsonify({"error": "Failed to get answer"}), 500
