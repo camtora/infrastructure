@@ -5,10 +5,12 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 import zipfile
 from datetime import datetime
 
+import anthropic
 import requests
 from flask import Flask, Response, abort, jsonify, request, send_from_directory, stream_with_context
 
@@ -29,6 +31,9 @@ SNAPSHOTS_DIR   = "/mc-picker/snapshots"
 BUILDS_DIR      = "/mc-picker/builds"
 CURRENT_LINK    = "/mc-picker/current"          # symlink → active snapshot dir
 CURRENT_PACK    = "/mc-picker/current.mrpack"   # what the MC server reads
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+MODWIKI_PATH      = "/modwiki"
 
 PACKWIZ              = "/usr/local/bin/packwiz"
 MINECRAFT_CONTAINER  = "minecraft"
@@ -701,6 +706,104 @@ def serve_pack_latest():
 @app.route("/packs/<path:filename>")
 def serve_pack(filename):
     return send_from_directory(BUILDS_DIR, filename, as_attachment=True)
+
+
+# ── Wiki context loader ────────────────────────────────────────────────────────
+
+_wiki_context      = ""
+_wiki_context_ts   = 0.0
+_wiki_context_lock = threading.Lock()
+_WIKI_CACHE_TTL    = 3600  # seconds
+
+
+def _load_wiki_context() -> str:
+    wiki_dir = os.path.join(MODWIKI_PATH, "wiki")
+    if not os.path.isdir(wiki_dir):
+        return ""
+    parts = []
+    for root, dirs, files in os.walk(wiki_dir):
+        dirs[:] = sorted(d for d in dirs if d != "assets")
+        for fname in sorted(files):
+            if not fname.endswith(".md"):
+                continue
+            if fname.startswith("._"):
+                continue
+            fpath = os.path.join(root, fname)
+            rel   = os.path.relpath(fpath, MODWIKI_PATH)
+            try:
+                with open(fpath, encoding="utf-8") as f:
+                    content = f.read()
+                parts.append(f"=== FILE: {rel} ===\n{content}")
+            except Exception as e:
+                print(f"Warning: could not read {fpath}: {e}")
+    return "\n\n".join(parts)
+
+
+def get_wiki_context() -> str:
+    global _wiki_context, _wiki_context_ts
+    now = time.time()
+    with _wiki_context_lock:
+        if now - _wiki_context_ts > _WIKI_CACHE_TTL:
+            _wiki_context    = _load_wiki_context()
+            _wiki_context_ts = now
+            print(f"Wiki context loaded: {len(_wiki_context):,} chars")
+        return _wiki_context
+
+
+# ── Wiki chat routes ───────────────────────────────────────────────────────────
+
+@app.route("/wiki/chat")
+def wiki_chat_page():
+    return send_from_directory(app.static_folder, "wiki-chat.html")
+
+
+@app.route("/api/wiki-chat", methods=["POST"])
+def api_wiki_chat():
+    data = request.get_json(silent=True) or {}
+    messages = data.get("messages")
+
+    if not isinstance(messages, list) or not messages:
+        return jsonify({"error": "messages must be a non-empty list"}), 400
+    if messages[-1].get("role") != "user":
+        return jsonify({"error": "last message must be from user"}), 400
+    for m in messages:
+        if m.get("role") not in ("user", "assistant") or not isinstance(m.get("content"), str):
+            return jsonify({"error": "invalid message format"}), 400
+
+    # Truncate to last 20 messages (oldest pairs dropped)
+    if len(messages) > 20:
+        messages = messages[-20:]
+        # Ensure we still start with a user message after truncation
+        while messages and messages[0].get("role") != "user":
+            messages = messages[1:]
+
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY not configured"}), 500
+
+    wiki_ctx = get_wiki_context()
+    system_prompt = (
+        "You are the modwiki assistant for the camerontora Minecraft server. "
+        "Answer questions using only the knowledge base below. "
+        "Always state whether a mod is in the current server pack (in-pack), "
+        "in the ATM10 catalogue but not installed (atm10-only), or unavailable "
+        "for this loader/version (not-available). Be specific and practical — "
+        "players asking you are in-game or planning their next session. "
+        "If the answer isn't in the knowledge base, say so and offer to look it up."
+        "\n\n" + wiki_ctx
+    )
+
+    try:
+        client   = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model      = "claude-sonnet-4-6",
+            max_tokens = 1024,
+            system     = system_prompt,
+            messages   = messages,
+        )
+        return jsonify({"reply": response.content[0].text})
+    except Exception as e:
+        print(f"Claude API error: {e}")
+        return jsonify({"error": "Failed to get response from Claude"}), 500
 
 
 # ── Frontend ───────────────────────────────────────────────────────────────────

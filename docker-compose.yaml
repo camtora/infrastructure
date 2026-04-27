@@ -169,6 +169,7 @@ services:
       - mod-picker-cache:/app/cache
       - /GAMES/mc-picker:/mc-picker
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/camerontora/modwiki:/modwiki:ro
 
 volumes:
   nginx-logs:
