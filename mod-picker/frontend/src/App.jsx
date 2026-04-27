@@ -566,6 +566,123 @@ function HistoryView({ onBack, onRebuildLatest }) {
   )
 }
 
+// ── Chat Overlay ──────────────────────────────────────────────────────────────
+
+function renderMarkdown(text) {
+  let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  s = s.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, c) => `<code class="chat-block-code">${c.trim()}</code>`)
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>')
+  s = s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  s = s.replace(/((?:^[ \t]*[-*] .+\n?)+)/gm, b => `<ul>${b.trim().split('\n').map(l=>`<li>${l.replace(/^[ \t]*[-*] /,'')}</li>`).join('')}</ul>`)
+  s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm, b => `<ol>${b.trim().split('\n').map(l=>`<li>${l.replace(/^[ \t]*\d+\. /,'')}</li>`).join('')}</ol>`)
+  s = s.split(/\n{2,}/).map(p => {
+    const t = p.trim()
+    if (!t || t.startsWith('<ul>') || t.startsWith('<ol>') || t.startsWith('<code class')) return t
+    return `<p>${t.replace(/\n/g,'<br>')}</p>`
+  }).join('')
+  return s
+}
+
+function ChatOverlay({ open, onClose }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const threadRef = useRef(null)
+
+  const scrollToBottom = () => {
+    if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight
+  }
+
+  useEffect(scrollToBottom, [messages, loading])
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const send = async () => {
+    const text = input.trim()
+    if (!text || loading) return
+    const next = [...messages, { role: 'user', content: text }]
+    setMessages(next)
+    setInput('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/wiki-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: next }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      setMessages(m => [...m, { role: 'assistant', content: data.reply }])
+    } catch (err) {
+      setMessages(m => [...m.slice(0,-1), { role: 'error', content: `Error: ${err.message}` }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const onKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }
+  const reset = () => { setMessages([]); setInput(''); setLoading(false) }
+
+  const CHIPS = ['How do I get started with AE2?', 'Where can I find amethyst?', 'How does Create power work?', 'What happens when I die?']
+
+  return (
+    <div class={`chat-overlay ${open ? 'chat-overlay--open' : ''}`}>
+      {/* Header */}
+      <div class="chat-overlay__header">
+        <div class="chat-overlay__title">
+          modwiki Chat <span class="chat-overlay__badge">AI</span>
+        </div>
+        <button class="chat-overlay__btn-new" onClick={reset}>New</button>
+        <button class="chat-overlay__btn-close" onClick={onClose} aria-label="Close">×</button>
+      </div>
+
+      {/* Thread */}
+      <div class="chat-overlay__thread" ref={threadRef}>
+        {messages.length === 0 && (
+          <div class="chat-overlay__welcome">
+            <div class="chat-overlay__icon">⛏️</div>
+            <h3>Ask anything about the pack</h3>
+            <p>I know every mod in the pack, the ATM10 catalogue, vanilla 1.21.1 mechanics, and this world's seed data.</p>
+            <div class="chat-overlay__chips">
+              {CHIPS.map(c => (
+                <span key={c} class="chat-overlay__chip" onClick={() => { setInput(c); setTimeout(send, 0) }}>{c}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} class={`chat-overlay__msg ${m.role}`}>
+            <div class="chat-overlay__bubble"
+                 dangerouslySetInnerHTML={{ __html: m.role === 'error' ? m.content : renderMarkdown(m.content) }} />
+          </div>
+        ))}
+        {loading && (
+          <div class="chat-overlay__msg bot">
+            <div class="chat-overlay__typing">
+              <div class="chat-overlay__dot" /><div class="chat-overlay__dot" /><div class="chat-overlay__dot" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div class="chat-overlay__input-area">
+        <div class="chat-overlay__input-row">
+          <textarea class="chat-overlay__textarea" rows="1" placeholder="Ask about the pack…"
+                    value={input} onInput={e => setInput(e.target.value)} onKeyDown={onKey}
+                    disabled={loading} />
+          <button class="chat-overlay__btn-send" onClick={send} disabled={!input.trim() || loading}>Send</button>
+        </div>
+        <div class="chat-overlay__hint">Enter to send · Shift+Enter for new line</div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -580,6 +697,7 @@ export default function App() {
   const [packName, setPackName]   = useState('camatm_v1')
   const [recentPacks, setRecentPacks] = useState([])
   const [activeSource, setActiveSource] = useState(null)
+  const [chatOpen, setChatOpen]   = useState(false)
 
   // Dependency state
   const [depInfo, setDepInfo]           = useState({})
@@ -821,6 +939,17 @@ export default function App() {
 
   return (
     <div class="min-h-screen pb-20">
+      {/* Site nav */}
+      <div class="site-nav">
+        <div class="site-nav__left">
+          <span class="site-nav__brand site-nav__active">Mod Picker</span>
+          <div class="site-nav__divider" />
+          <a class="site-nav__link" href="/wiki">Wiki</a>
+          <a class="site-nav__link" href="/wiki/chat">Chat</a>
+        </div>
+        <button class="site-nav__ask" onClick={() => setChatOpen(o => !o)}>💬 Ask</button>
+      </div>
+
       {/* Header */}
       <header class="sticky top-0 z-10 border-b border-white/[0.08] backdrop-blur-md bg-[#020617]/80">
         <div class="max-w-screen-2xl mx-auto px-5 py-3">
@@ -979,6 +1108,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <ChatOverlay open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   )
 }

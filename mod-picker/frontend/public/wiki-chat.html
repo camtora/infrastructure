@@ -12,18 +12,18 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #020617;
-      --surface:   rgba(255,255,255,0.06);
-      --border:    rgba(255,255,255,0.10);
-      --text:      rgba(255,255,255,0.90);
-      --muted:     rgba(255,255,255,0.40);
-      --emerald:   #34d399;
-      --emerald-dim: rgba(52,211,153,0.15);
-      --emerald-border: rgba(52,211,153,0.30);
-      --user-bg:   rgba(52,211,153,0.12);
-      --user-border: rgba(52,211,153,0.25);
-      --bot-bg:    rgba(255,255,255,0.06);
-      --bot-border: rgba(255,255,255,0.10);
+      --bg:           #020617;
+      --surface:      rgba(255,255,255,0.06);
+      --border:       rgba(255,255,255,0.10);
+      --text:         rgba(255,255,255,0.90);
+      --muted:        rgba(255,255,255,0.40);
+      --violet:       #8b5cf6;
+      --violet-dim:   rgba(139,92,246,0.15);
+      --violet-border:rgba(139,92,246,0.30);
+      --user-bg:      rgba(139,92,246,0.12);
+      --user-border:  rgba(139,92,246,0.25);
+      --bot-bg:       rgba(255,255,255,0.06);
+      --bot-border:   rgba(255,255,255,0.10);
     }
 
     html, body {
@@ -40,30 +40,67 @@
       height: 100dvh;
     }
 
-    /* ── Header ── */
+    /* ── Site nav (unified across all surfaces) ── */
+    .site-nav {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0 1.25rem;
+      height: 48px;
+      background: rgba(2,6,23,0.90);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .site-nav .brand {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.70);
+      text-decoration: none;
+      margin-right: 0.5rem;
+      white-space: nowrap;
+    }
+    .site-nav .brand:hover { color: var(--text); }
+
+    .site-nav .divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(255,255,255,0.15);
+      margin: 0 0.5rem;
+    }
+
+    .site-nav a.nav-link,
+    .site-nav span.nav-link {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.40);
+      text-decoration: none;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .site-nav a.nav-link:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .site-nav span.nav-link.active {
+      color: var(--violet);
+      background: var(--violet-dim);
+    }
+
+    /* ── Chat header ── */
     header {
       flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 1rem;
-      padding: 0.75rem 1.25rem;
-      background: rgba(2,6,23,0.80);
-      backdrop-filter: blur(8px);
+      padding: 0.6rem 1.25rem;
+      background: rgba(2,6,23,0.60);
       border-bottom: 1px solid var(--border);
     }
 
-    .nav-back {
-      color: var(--emerald);
-      text-decoration: none;
-      font-size: 0.85rem;
-      opacity: 0.8;
-      white-space: nowrap;
-    }
-    .nav-back:hover { opacity: 1; }
-
     .header-title {
       flex: 1;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--text);
       display: flex;
@@ -73,9 +110,9 @@
     .header-title .badge {
       font-size: 0.7rem;
       font-weight: 500;
-      color: var(--emerald);
-      background: var(--emerald-dim);
-      border: 1px solid var(--emerald-border);
+      color: var(--violet);
+      background: var(--violet-dim);
+      border: 1px solid var(--violet-border);
       padding: 0.15rem 0.5rem;
       border-radius: 9999px;
     }
@@ -151,7 +188,7 @@
     }
 
     /* Markdown-lite styling */
-    .bubble strong { color: var(--emerald); font-weight: 600; }
+    .bubble strong { color: var(--violet); font-weight: 600; }
     .bubble code {
       font-family: 'Monaco', 'Courier New', monospace;
       font-size: 0.82em;
@@ -192,7 +229,7 @@
     .dot {
       width: 6px; height: 6px;
       border-radius: 50%;
-      background: var(--emerald);
+      background: var(--violet);
       opacity: 0.4;
       animation: pulse 1.2s ease-in-out infinite;
     }
@@ -227,16 +264,16 @@
     }
     .suggestion {
       font-size: 0.8rem;
-      color: var(--emerald);
-      background: var(--emerald-dim);
-      border: 1px solid var(--emerald-border);
+      color: var(--violet);
+      background: var(--violet-dim);
+      border: 1px solid var(--violet-border);
       border-radius: 20px;
       padding: 0.35rem 0.85rem;
       cursor: pointer;
       transition: all 0.15s;
     }
     .suggestion:hover {
-      background: rgba(52,211,153,0.22);
+      background: rgba(139,92,246,0.25);
     }
 
     /* ── Input area ── */
@@ -259,7 +296,7 @@
       transition: border-color 0.15s;
     }
     .input-row:focus-within {
-      border-color: var(--emerald-border);
+      border-color: var(--violet-border);
     }
 
     #input {
@@ -283,8 +320,8 @@
       font-family: inherit;
       font-size: 0.82rem;
       font-weight: 500;
-      color: #022c22;
-      background: var(--emerald);
+      color: #fff;
+      background: var(--violet);
       border: none;
       border-radius: 8px;
       padding: 0.45rem 1rem;
@@ -292,7 +329,7 @@
       transition: all 0.15s;
       line-height: 1.4;
     }
-    .btn-send:hover:not(:disabled) { background: #6ee7b7; }
+    .btn-send:hover:not(:disabled) { background: #7c3aed; }
     .btn-send:disabled {
       opacity: 0.35;
       cursor: not-allowed;
@@ -308,8 +345,14 @@
 </head>
 <body>
 
+<nav class="site-nav">
+  <a class="brand" href="/">Mod Picker</a>
+  <div class="divider"></div>
+  <a class="nav-link" href="/wiki">Wiki</a>
+  <span class="nav-link active">Chat</span>
+</nav>
+
 <header>
-  <a class="nav-back" href="/wiki">← Browse Wiki</a>
   <div class="header-title">
     modwiki Chat
     <span class="badge">AI</span>
@@ -383,44 +426,31 @@
   // ── Markdown-lite renderer ────────────────────────────────────────────────
 
   function renderMarkdown(text) {
-    // Escape HTML first
     let s = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // Fenced code blocks (```...```)
     s = s.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) =>
       `<code class="block-code">${code.trim()}</code>`
     );
-
-    // Inline code
     s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-
-    // Bold
     s = s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-    // Unordered lists (lines starting with - or *)
     s = s.replace(/((?:^[ \t]*[-*] .+\n?)+)/gm, (block) => {
       const items = block.trim().split('\n').map(line =>
         `<li>${line.replace(/^[ \t]*[-*] /, '')}</li>`
       ).join('');
       return `<ul>${items}</ul>`;
     });
-
-    // Numbered lists
     s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm, (block) => {
       const items = block.trim().split('\n').map(line =>
         `<li>${line.replace(/^[ \t]*\d+\. /, '')}</li>`
       ).join('');
       return `<ol>${items}</ol>`;
     });
-
-    // Paragraphs (double newline → paragraph break)
     s = s.split(/\n{2,}/).map(para => {
       const trimmed = para.trim();
       if (!trimmed) return '';
-      // Don't wrap block elements
       if (trimmed.startsWith('<ul>') || trimmed.startsWith('<ol>') || trimmed.startsWith('<code class')) {
         return trimmed;
       }
@@ -468,7 +498,6 @@
     const text = input.value.trim();
     if (!text || loading) return;
 
-    // Hide welcome state on first message
     if (welcome) welcome.style.display = 'none';
 
     messages.push({ role: 'user', content: text });
@@ -496,7 +525,6 @@
       appendMessage('bot', data.reply);
     } catch (err) {
       removeTyping();
-      // Remove the failed user message from history so user can retry
       messages.pop();
       appendMessage('error', `Error: ${err.message}`);
     } finally {
@@ -510,9 +538,7 @@
   function resetChat() {
     messages = [];
     loading  = false;
-    // Clear thread except welcome
     while (thread.firstChild) thread.removeChild(thread.firstChild);
-    // Re-add welcome
     const w = document.createElement('div');
     w.className = 'welcome';
     w.id = 'welcome';
