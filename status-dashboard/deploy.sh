@@ -61,9 +61,23 @@ if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
     fi
 fi
 
-# Build and push image
+# Build and push image (async to avoid log-streaming permission requirement)
 echo -e "${GREEN}Building Docker image...${NC}"
-gcloud builds submit --tag "${IMAGE}" --project "${PROJECT_ID}"
+BUILD_ID=$(gcloud builds submit --tag "${IMAGE}" --project "${PROJECT_ID}" --async --format="value(id)")
+echo "Build ID: ${BUILD_ID}"
+echo "Polling for build completion..."
+while true; do
+    BUILD_STATUS=$(gcloud builds describe "${BUILD_ID}" --project="${PROJECT_ID}" --format="value(status)")
+    echo "  status: ${BUILD_STATUS}"
+    case "${BUILD_STATUS}" in
+        SUCCESS) break ;;
+        FAILURE|CANCELLED|TIMEOUT|INTERNAL_ERROR)
+            echo -e "${RED}Build failed: ${BUILD_STATUS}${NC}"
+            echo "Logs: https://console.cloud.google.com/cloud-build/builds/${BUILD_ID}?project=${PROJECT_ID}"
+            exit 1 ;;
+    esac
+    sleep 10
+done
 
 # Build --set-secrets from REQUIRED_SECRETS so the list never drifts
 SECRET_MAPPINGS=()
