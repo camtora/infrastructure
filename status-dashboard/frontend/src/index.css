@@ -33,13 +33,15 @@ body {
 }
 
 /* Glassmorphism card */
-.glass-card {
-  @apply bg-white/[0.07] backdrop-blur-sm border border-white/[0.10] rounded-xl;
-  @apply transition-all duration-200;
-}
+@layer components {
+  .glass-card {
+    @apply bg-white/[0.07] backdrop-blur-sm border border-white/[0.10] rounded-xl;
+    @apply transition-all duration-200;
+  }
 
-.glass-card:hover {
-  @apply bg-white/[0.10] border-white/[0.15];
+  .glass-card:hover {
+    @apply bg-white/[0.10] border-white/[0.15];
+  }
 }
 
 /* Status card with subtle hover */
